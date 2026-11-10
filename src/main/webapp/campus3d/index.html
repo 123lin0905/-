@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>智慧校园 · 虚拟生态（静态版）</title>
+  <link rel="stylesheet" href="css/ecohome.css" />
+</head>
+<body>
+  <!-- 静态独立版：与 ecohome.jsp 共用全部脚本，可直接用任意静态服务器打开 campus3d/index.html 调试 -->
+  <div id="eco-root"></div>
+  <script>
+    window.ECO_CONFIG = {
+      base: "./",
+      weatherApi: "../api/weather",   // 部署在 Tomcat 时走 WeatherServlet；静态调试时 404 会自动改为浏览器直连
+      systemUrl: "../index.jsp",
+      loginUrl: "../login.jsp"
+    };
+  </script>
+  <script src="js/ecohome.js"></script>
+</body>
+</html>

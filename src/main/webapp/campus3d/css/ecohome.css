@@ -1,0 +1,155 @@
+/* 生态动态主页样式（全屏大屏） */
+html, body { margin: 0; height: 100%; overflow: hidden; background: #0b1324; }
+body { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans SC", system-ui, sans-serif; color: #0f1f17; -webkit-font-smoothing: antialiased; }
+#eco-root { position: fixed; inset: 0; overflow: hidden; }
+.eco-stage, .eco-stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.eco-stage canvas { touch-action: none; }
+
+.eco-glass {
+  background: rgba(255, 255, 255, 0.78);
+  -webkit-backdrop-filter: blur(14px) saturate(1.3); backdrop-filter: blur(14px) saturate(1.3);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(10, 30, 20, 0.18);
+}
+.eco-btn {
+  display: inline-flex; align-items: center; gap: 6px; justify-content: center;
+  min-height: 36px; padding: 0 14px; border-radius: 999px; border: 1px solid rgba(15, 60, 35, 0.18);
+  background: rgba(255, 255, 255, 0.92); color: #123222; font: 600 14px/1 inherit; font-family: inherit;
+  cursor: pointer; text-decoration: none; white-space: nowrap; transition: transform .15s, background .15s;
+}
+.eco-btn:hover { transform: translateY(-1px); background: #fff; }
+.eco-btn[aria-pressed="true"] { background: #15803d; color: #fff; border-color: #15803d; }
+.eco-btn-primary { background: linear-gradient(135deg, #16a34a, #0d9488); color: #fff; border-color: transparent; }
+.eco-btn-primary:hover { background: linear-gradient(135deg, #15803d, #0f766e); }
+
+/* 顶栏 */
+.eco-top { position: absolute; z-index: 5; left: 16px; right: 16px; top: 14px; display: flex; align-items: center; gap: 16px; pointer-events: none; }
+.eco-top > * { pointer-events: auto; }
+.eco-brand { display: flex; align-items: center; gap: 10px; padding: 8px 16px 8px 10px; border-radius: 16px; background: rgba(8, 40, 26, 0.55); color: #fff; -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
+.eco-logo { font-size: 28px; }
+.eco-brand h1 { margin: 0; font-size: 20px; letter-spacing: 2px; }
+.eco-brand p { margin: 2px 0 0; font-size: 12px; opacity: .85; }
+.eco-clock { display: grid; padding: 6px 14px; border-radius: 14px; background: rgba(8, 40, 26, 0.45); color: #fff; -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
+.eco-clock b { font: 700 22px/1.1 "SF Mono", "Consolas", monospace; letter-spacing: 1px; }
+.eco-clock span { font-size: 12px; opacity: .85; }
+.eco-actions { margin-left: auto; margin-right: 236px; display: flex; gap: 8px; align-items: center; }
+.eco-user { color: #fff; background: rgba(8, 40, 26, 0.5); padding: 8px 12px; border-radius: 999px; font-size: 13px; }
+
+/* 天气卡片（右上角） */
+.eco-weather { position: absolute; z-index: 6; right: 16px; top: 14px; width: 206px; padding: 12px 14px; cursor: pointer; }
+.eco-w-main { display: flex; align-items: center; gap: 10px; }
+.eco-w-icon { font-size: 34px; line-height: 1; }
+.eco-w-temp { font: 700 30px/1 inherit; font-family: inherit; color: #0b3a24; }
+.eco-w-text { margin-top: 6px; font-weight: 600; font-size: 15px; }
+.eco-w-meta { margin-top: 2px; font-size: 12px; color: #43584c; }
+.eco-w-src { margin-top: 8px; font-size: 11.5px; line-height: 1.4; padding: 4px 8px; border-radius: 8px; }
+.eco-w-src.is-live { background: #dcfce7; color: #166534; }
+.eco-w-src.is-virtual { background: #fef3c7; color: #92400e; }
+.eco-w-src.is-demo { background: #e0e7ff; color: #3730a3; }
+
+/* 左侧板块列表 */
+.eco-zones { position: absolute; z-index: 5; left: 16px; top: 96px; width: 196px; padding: 10px; max-height: calc(100% - 260px); overflow: auto; }
+.eco-ptitle { margin: 0 0 6px; font-size: 12px; font-weight: 700; color: #3f5a4a; letter-spacing: 1px; }
+.eco-zones ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.eco-zbtn { width: 100%; display: flex; align-items: center; gap: 8px; padding: 8px; border: 0; border-radius: 10px; background: none; cursor: pointer; font: 500 14px/1.2 inherit; font-family: inherit; color: #12261b; text-align: left; }
+.eco-zbtn i { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+.eco-zbtn:hover, .eco-zbtn.is-active { background: rgba(22, 163, 74, 0.14); }
+.eco-zbtn.is-active { font-weight: 700; }
+
+/* 板块悬浮标签 */
+.eco-labels { position: absolute; inset: 0; z-index: 2; pointer-events: none; overflow: hidden; }
+.eco-zlabel {
+  position: absolute; left: 0; top: 0; pointer-events: auto; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 4px; padding: 5px 11px 5px 6px; border-radius: 999px;
+  border: 2px solid var(--zc); background: rgba(255, 255, 255, 0.88); color: #12261b;
+  font: 700 13px/1 inherit; font-family: inherit; white-space: nowrap; box-shadow: 0 4px 14px rgba(0, 0, 0, .18);
+  transition: background .2s, color .2s, box-shadow .2s; will-change: transform;
+}
+.eco-zlabel::after { content: ""; position: absolute; left: 50%; bottom: -8px; width: 2px; height: 8px; background: var(--zc); }
+.eco-zi { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--zc); font-size: 13px; }
+.eco-zlabel.is-hover, .eco-zlabel.is-active { background: var(--zc); color: #fff; box-shadow: 0 0 0 4px rgba(255, 255, 255, .5), 0 6px 18px rgba(0, 0, 0, .25); }
+.eco-zlabel[hidden] { display: none; }
+
+/* 右侧详情面板 */
+.eco-panel { position: absolute; z-index: 6; right: 16px; top: 200px; width: 320px; max-height: calc(100% - 290px); overflow: auto; padding: 14px 16px 16px; }
+.eco-panel[hidden] { display: none; }
+.eco-panel h2 { margin: 2px 0 6px; font-size: 20px; padding-right: 30px; }
+.eco-kicker { margin: 0; font-size: 12px; font-weight: 700; color: #15803d; letter-spacing: 1px; }
+.eco-desc { margin: 0 0 10px; font-size: 14px; line-height: 1.65; color: #2a3b31; }
+.eco-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.eco-chip { padding: 3px 9px; border-radius: 999px; background: #ecfdf5; color: #065f46; font-size: 12px; border: 1px solid #a7f3d0; }
+.eco-facts { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 0 0 12px; font-size: 13px; }
+.eco-facts dt { color: #5b6f63; }
+.eco-facts dd { margin: 0; font-weight: 600; word-break: break-all; }
+.eco-panel .eco-btn-primary { width: 100%; min-height: 40px; }
+.eco-photo { margin: 0 0 10px; border-radius: 12px; overflow: hidden; background: #e5ece7; }
+.eco-photo img { width: 100%; aspect-ratio: 960 / 534; object-fit: cover; display: block; }
+.eco-photo figcaption { font-size: 11px; color: #5b6f63; padding: 4px 8px; }
+.eco-close { position: absolute; top: 8px; right: 8px; width: 32px; height: 32px; border-radius: 50%; border: 0; background: rgba(0, 0, 0, .07); font-size: 20px; line-height: 1; cursor: pointer; color: #12261b; }
+
+/* 底部工具栏 */
+.eco-toolbar { position: absolute; z-index: 5; left: 50%; bottom: 30px; transform: translateX(-50%); display: flex; gap: 6px; padding: 6px; border-radius: 999px; }
+
+/* 小地图 */
+.eco-mini { position: absolute; z-index: 5; left: 16px; bottom: 30px; width: 170px; padding: 4px; cursor: crosshair; }
+.eco-mini img { display: block; width: 100%; border-radius: 12px; }
+.eco-mini-mark { position: absolute; width: 0; height: 0; margin: 4px 0 0 4px; }
+.eco-mini-mark::before { content: ""; position: absolute; left: -7px; top: -7px; width: 14px; height: 14px; border-radius: 50%; background: #ef4444; border: 2px solid #fff; box-shadow: 0 0 0 3px rgba(239, 68, 68, .35); }
+.eco-mini-mark::after { content: ""; position: absolute; left: -1px; top: -22px; width: 2px; height: 16px; background: #ef4444; transform-origin: 1px 22px; transform: rotate(var(--a, 0deg)); }
+
+/* 演示面板 */
+.eco-demo { position: absolute; z-index: 8; left: 226px; bottom: 30px; width: 280px; max-height: calc(100% - 140px); overflow: auto; padding: 12px 14px; display: grid; gap: 8px; font-size: 13px; }
+.eco-demo[hidden] { display: none; }
+.eco-demo header { display: flex; align-items: center; justify-content: space-between; font-size: 15px; }
+.eco-demo header .eco-close { position: static; }
+.eco-demo label { display: grid; gap: 4px; font-weight: 600; color: #2a3b31; }
+.eco-demo select, .eco-demo input[type="range"] { width: 100%; min-height: 30px; border-radius: 8px; border: 1px solid #c8d6cd; background: #fff; font: inherit; }
+.eco-demo output { font: 700 13px/1 monospace; color: #15803d; }
+.eco-row { display: flex; gap: 6px; align-items: center; font-weight: 400; }
+.eco-demo-stats { margin: 0; font-size: 11.5px; color: #43584c; }
+.eco-demo-tip { margin: 0; font-size: 11px; color: #6b7f73; }
+
+.eco-toast { position: absolute; z-index: 9; left: 50%; top: 90px; transform: translateX(-50%); max-width: min(560px, 90%); padding: 12px 18px; border-radius: 14px; background: rgba(8, 40, 26, 0.9); color: #fff; font-size: 14px; line-height: 1.6; box-shadow: 0 10px 30px rgba(0, 0, 0, .3); }
+.eco-toast[hidden] { display: none; }
+.eco-foot { position: absolute; z-index: 4; left: 0; right: 0; bottom: 6px; text-align: center; font-size: 11px; color: rgba(255, 255, 255, .85); text-shadow: 0 1px 2px rgba(0, 0, 0, .6); pointer-events: none; }
+
+/* 加载动画 */
+.eco-loader { position: absolute; inset: 0; z-index: 20; display: grid; place-items: center; color: #eafff2; background: radial-gradient(ellipse at 50% 35%, #1f5f43 0%, #0b2a1f 55%, #06140f 100%); transition: opacity 1s ease, visibility 1s; }
+.eco-loader.is-done { opacity: 0; visibility: hidden; }
+.eco-loader-inner { width: min(460px, 86vw); text-align: center; }
+.eco-loader-leaf { font-size: 56px; animation: eco-sway 2.4s ease-in-out infinite; transform-origin: 50% 90%; }
+.eco-loader h1 { margin: 10px 0 4px; font-size: 30px; letter-spacing: 6px; }
+.eco-loader-sub { margin: 0 0 26px; opacity: .8; letter-spacing: 2px; }
+.eco-bar { height: 10px; border-radius: 999px; background: rgba(255, 255, 255, .14); overflow: hidden; box-shadow: inset 0 1px 3px rgba(0, 0, 0, .4); }
+.eco-bar i { display: block; height: 100%; width: 0; border-radius: inherit; background: linear-gradient(90deg, #86efac, #34d399, #5eead4); box-shadow: 0 0 12px #34d399; }
+.eco-loader-msg { display: flex; justify-content: space-between; margin: 10px 2px 22px; font-size: 13px; opacity: .9; }
+.eco-enter { min-height: 46px; padding: 0 30px; font-size: 16px; animation: eco-pulse 1.6s ease-in-out infinite; }
+.eco-enter[hidden] { display: none; }
+.eco-loader-tip { margin-top: 18px; font-size: 12px; opacity: .65; }
+@keyframes eco-sway { 0%, 100% { transform: rotate(-8deg); } 50% { transform: rotate(8deg); } }
+@keyframes eco-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(52, 211, 153, .55); } 50% { box-shadow: 0 0 0 12px rgba(52, 211, 153, 0); } }
+
+/* 进入前隐藏 HUD，进入后淡入 */
+body:not(.eco-entered) .eco-top, body:not(.eco-entered) .eco-zones, body:not(.eco-entered) .eco-toolbar,
+body:not(.eco-entered) .eco-mini, body:not(.eco-entered) .eco-weather, body:not(.eco-entered) .eco-labels { opacity: 0; }
+.eco-top, .eco-zones, .eco-toolbar, .eco-mini, .eco-weather, .eco-labels { transition: opacity 1.2s ease .6s; }
+
+@media (max-width: 900px) {
+  .eco-zones, .eco-mini, .eco-clock { display: none; }
+  .eco-actions { margin-right: 0; position: absolute; top: 64px; left: 0; }
+  .eco-brand h1 { font-size: 16px; }
+  .eco-weather { width: 160px; padding: 10px; }
+  .eco-panel { left: 12px; right: 12px; width: auto; top: auto; bottom: 90px; max-height: 45%; }
+  .eco-demo { left: 12px; right: 12px; width: auto; bottom: 90px; }
+}
+
+/* 第二阶段：进入板块细节的过渡（镜头俯冲 + 淡出） */
+.eco-dive { position: absolute; inset: 0; z-index: 30; display: grid; place-items: center; pointer-events: all; opacity: 0; transition: opacity 1s ease .25s;
+  background: radial-gradient(circle at 50% 50%, rgba(4, 16, 12, 0.55) 0%, rgba(4, 16, 12, 0.92) 45%, #04100c 100%); color: #eafff2; }
+.eco-dive.is-on { opacity: 1; }
+.eco-dive-inner { text-align: center; transform: scale(.96); transition: transform 1.2s ease; }
+.eco-dive.is-on .eco-dive-inner { transform: scale(1); }
+.eco-dive-ring { width: 44px; height: 44px; margin: 0 auto 14px; border-radius: 50%; border: 3px solid rgba(134, 239, 172, .25); border-top-color: #86efac; animation: eco-spin 1s linear infinite; }
+.eco-dive p { margin: 0; font-size: 15px; letter-spacing: 2px; }
+@keyframes eco-spin { to { transform: rotate(360deg); } }

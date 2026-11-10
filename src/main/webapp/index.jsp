@@ -617,6 +617,7 @@
     </a>
 
     <nav class="nav-actions">
+        <a href="ecohome.jsp" class="nav-btn btn-secondary" style="border-color:#34d399;color:#047857;font-weight:700;" title="返回 3D 虚拟生态主页">🌱 生态主页</a>
         <a href="AreaServlet" class="nav-btn btn-primary">📍 园区网格与植株标绘</a>
         <a href="QueryServlet" class="nav-btn btn-secondary">🔍 绿植档案 (一树一码)</a>
         <a href="AnimalServlet" class="nav-btn btn-secondary" style="border-color:#bbf7d0;color:#166534;font-weight:700;">🐾 校园生态动物</a>
