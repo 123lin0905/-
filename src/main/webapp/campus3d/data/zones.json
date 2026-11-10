@@ -1,5 +1,5 @@
 {
-  "_note": "生态板块配置。坐标与 campus_layout.json 相同：官方平面图(2048x1998)像素坐标，x 向东、y 向南，1 像素约 0.4 米。center 为板块中心，polygon 为范围多边形，camera_distance 为点击后相机距离(米)。area_code 预留对接数据库 plant_area.area_code（当前为建议编码，第二阶段在 plant_area 中建同名记录即可关联）；detail_scene 预留第二阶段细节 3D 场景入口。",
+  "_note": "生态板块配置。坐标与 campus_layout.json 相同：官方平面图(2048x1998)像素坐标，x 向东、y 向南，1 像素约 0.4 米。center 为板块中心，polygon 为范围多边形，camera_distance 为点击后相机距离(米)。area_code 预留对接数据库 plant_area.area_code（当前为建议编码，第二阶段在 plant_area 中建同名记录即可关联）；detail_scene 为板块细节 3D 场景（相对 campus3d/ 的路径，打开时追加 ?zone=<id>&back=<主页路径>）：第二阶段“翠湖水景”“图书馆·荷花池”共用池塘场景 pond/pond.html，按 zone 参数区分布局；为 null 的板块点击“进入板块细节”仍提示建设中。",
   "version": 1,
   "zones": [
     {
@@ -11,7 +11,7 @@
       "polygon": [[256, 1029], [470, 1019], [491, 1045], [408, 1087], [468, 1212], [512, 1420], [515, 1530], [470, 1612], [340, 1600], [292, 1490], [288, 1225], [256, 1212]],
       "camera_distance": 260,
       "area_code": "MY-ECO-CUIHU",
-      "detail_scene": null,
+      "detail_scene": "pond/pond.html",
       "intro": "校园西部的翠湖与翠湖广场，湖心小岛上植有垂柳与香樟，岸边是 C 区宿舍。这里是校园最大的水体，承担雨水调蓄，也是水鸟、锦鲤和蜻蜓的栖息地。",
       "highlights": ["垂柳", "香樟", "睡莲", "水鸟栖息"]
     },
@@ -37,7 +37,7 @@
       "polygon": [[1150, 600], [1240, 540], [1340, 590], [1405, 730], [1452, 920], [1380, 1050], [1210, 1095], [1118, 960], [1128, 800]],
       "camera_distance": 240,
       "area_code": "MY-ECO-LOTUS",
-      "detail_scene": null,
+      "detail_scene": "pond/pond.html",
       "intro": "校园中轴北端的图书馆与北侧荷花池，馆前草坡开阔。夏季荷花盛开，池边种有紫薇与桂花，是安静的读书与观景区域。",
       "highlights": ["荷花", "紫薇", "桂花", "草坡"]
     },

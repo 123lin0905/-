@@ -1,0 +1,92 @@
+/* 校园池塘板块细节场景：中文界面布局（覆盖原 Koi Pond Garden 的部分界面位置） */
+.campus-pond { --cp-glass: rgba(12, 22, 20, 0.5); --cp-line: rgba(255, 255, 255, 0.14); --cp-ink: #eef4f0; --cp-muted: rgba(230, 240, 235, 0.72); --cp-accent: #4ade80; }
+.cp-glass { background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.01) 60%), var(--cp-glass);
+  -webkit-backdrop-filter: blur(18px) saturate(160%); backdrop-filter: blur(18px) saturate(160%);
+  border: 1px solid var(--cp-line); box-shadow: 0 10px 30px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.08); color: var(--cp-ink); }
+
+/* 原 HUD（帧率）移到左下，说明卡默认隐藏 */
+.campus-pond #hud { top: auto !important; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); left: 14px; opacity: .75; }
+.campus-pond #help { top: auto; bottom: 64px; }
+.campus-pond #help-open { top: auto; bottom: 64px; }
+.campus-pond #toast { top: auto; bottom: 78px; }
+
+/* 返回按钮 */
+.cp-back { position: fixed; left: 14px; top: calc(14px + env(safe-area-inset-top, 0px)); z-index: 9; height: 38px; padding: 0 16px; border-radius: 12px;
+  font: 600 13.5px/1 system-ui, "PingFang SC", "Microsoft YaHei", sans-serif; cursor: pointer; letter-spacing: .02em; }
+.cp-back:hover { background: rgba(74, 222, 128, .22); border-color: rgba(74, 222, 128, .55); }
+
+/* 左上：板块名与简介 */
+.cp-zone { position: fixed; left: 14px; top: calc(62px + env(safe-area-inset-top, 0px)); z-index: 6; width: 320px; max-width: calc(100vw - 28px); box-sizing: border-box;
+  padding: 12px 14px 10px; border-radius: 16px; }
+.cp-zone .cp-kicker { margin: 0 0 2px; font-size: 11px; letter-spacing: .14em; color: var(--cp-accent); }
+.cp-zone h1 { margin: 0 0 6px; font-size: 20px; font-weight: 700; letter-spacing: .04em; }
+.cp-zone .cp-intro { margin: 0 0 8px; font-size: 12.5px; line-height: 1.6; color: var(--cp-muted); }
+.cp-wx { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; padding: 6px 8px; margin: 0 -4px; border-radius: 10px; cursor: pointer; }
+.cp-wx:hover { background: rgba(255,255,255,.07); }
+.cp-wx-icon { font-size: 20px; }
+.cp-wx-temp { font-size: 18px; font-weight: 700; }
+.cp-wx-text { font-size: 12px; color: var(--cp-muted); }
+.cp-time { margin: 4px 0 0; font-size: 11.5px; color: var(--cp-muted); font-variant-numeric: tabular-nums; }
+.cp-src { margin: 2px 0 0; font-size: 11px; }
+.cp-src.is-live { color: #86efac; } .cp-src.is-virtual { color: #fcd34d; } .cp-src.is-demo { color: #93c5fd; }
+
+/* 右侧：池塘生态 */
+.cp-eco { position: fixed; right: 14px; top: calc(14px + env(safe-area-inset-top, 0px)); z-index: 6; width: 312px; max-width: calc(100vw - 28px); box-sizing: border-box;
+  max-height: calc(100vh - 100px - env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; border-radius: 16px; padding: 10px 0 8px; }
+.cp-eco header { display: flex; align-items: center; justify-content: space-between; padding: 0 14px; }
+.cp-eco header b { font-size: 15px; letter-spacing: .08em; }
+.cp-eco-sub { margin: 2px 14px 6px; font-size: 11.5px; color: var(--cp-muted); }
+.cp-eco-body { overflow-y: auto; padding: 0 8px; overscroll-behavior: contain; }
+.cp-eco-body::-webkit-scrollbar { width: 6px; } .cp-eco-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,.18); border-radius: 6px; }
+.cp-eco-body h3 { margin: 8px 6px 4px; font-size: 12px; letter-spacing: .12em; color: var(--cp-accent); }
+.cp-eco-body h3 small { color: var(--cp-muted); font-weight: 400; letter-spacing: 0; }
+.cp-eco-body ul { list-style: none; margin: 0; padding: 0; }
+.cp-sp { display: flex; gap: 8px; width: 100%; text-align: left; padding: 7px 8px; border: 0; border-radius: 10px; background: transparent; color: inherit; cursor: pointer; font: inherit; }
+.cp-sp:hover { background: rgba(255,255,255,.08); }
+.cp-sp.is-active { background: rgba(74, 222, 128, .16); box-shadow: inset 0 0 0 1px rgba(74, 222, 128, .45); }
+.cp-sp-icon { flex: none; width: 24px; font-size: 17px; line-height: 1.3; text-align: center; }
+.cp-sp-main { display: flex; flex-direction: column; min-width: 0; }
+.cp-sp-main b { font-size: 13px; font-weight: 600; }
+.cp-sp-main b em { margin-left: 6px; padding: 0 5px; border-radius: 6px; font-style: normal; font-size: 10px; font-weight: 500; color: #fde68a; background: rgba(250, 204, 21, .16); vertical-align: 1px; }
+.cp-sp-main span { font-size: 11.5px; line-height: 1.5; color: var(--cp-muted); }
+.cp-eco-note { margin: 6px 14px 0; font-size: 10.5px; line-height: 1.55; color: rgba(230,240,235,.55); }
+.cp-eco.is-folded .cp-eco-body, .cp-eco.is-folded .cp-eco-note, .cp-eco.is-folded .cp-eco-sub { display: none; }
+.cp-x { width: 26px; height: 26px; border: 0; border-radius: 8px; background: transparent; color: var(--cp-muted); font-size: 16px; cursor: pointer; }
+.cp-x:hover { background: rgba(255,255,255,.12); color: #fff; }
+.cp-muted { color: var(--cp-muted); padding: 6px; }
+
+/* 演示面板（W） */
+.cp-demo { position: fixed; left: 346px; top: calc(62px + env(safe-area-inset-top, 0px)); z-index: 10; width: 300px; box-sizing: border-box; padding: 10px 14px 12px; border-radius: 16px; font-size: 12.5px; }
+.cp-demo[hidden] { display: none; }
+.cp-demo header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.cp-demo label { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin: 6px 0; color: var(--cp-muted); }
+.cp-demo select { flex: 1; max-width: 190px; height: 26px; border-radius: 8px; border: 1px solid rgba(255,255,255,.16); background: rgba(255,255,255,.08); color: #fff; padding: 0 6px; }
+.cp-demo select option { background: #15211e; }
+.cp-row { display: flex; align-items: center; gap: 8px; }
+.cp-demo input[type=range] { flex: 1; accent-color: var(--cp-accent); }
+.cp-demo output { width: 44px; text-align: right; font-variant-numeric: tabular-nums; }
+.cp-quick { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 8px 0; color: var(--cp-muted); }
+.cp-quick button, .cp-btn { height: 26px; padding: 0 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,.16); background: rgba(255,255,255,.08); color: #fff; cursor: pointer; font: inherit; }
+.cp-quick button:hover, .cp-btn:hover { background: rgba(74, 222, 128, .22); }
+.cp-stats { margin: 6px 0 0; font-size: 11px; color: var(--cp-muted); }
+.cp-tip { margin: 4px 0 0; font-size: 10.5px; color: rgba(230,240,235,.5); }
+
+/* dat.gui 高级参数（H）移到左侧 */
+.campus-pond .dg.ac.cp-dg { right: auto !important; left: 346px !important; top: calc(62px + env(safe-area-inset-top, 0px)) !important; }
+
+/* 加载与离场过渡：从主页俯冲进入时黑场淡入，返回时淡出 */
+#loader h1 { font-family: system-ui, "PingFang SC", "Microsoft YaHei", sans-serif; letter-spacing: .12em; }
+#loader { animation: cpFadeIn .7s ease both; }
+@keyframes cpFadeIn { from { background: #000; } }
+body::after { content: ""; position: fixed; inset: 0; z-index: 50; pointer-events: none; background: #04100c; opacity: 0; transition: opacity .6s ease; }
+body.cp-leaving::after { opacity: 1; }
+body.campus-pond:not(.cp-ready) .cp-zone, body.campus-pond:not(.cp-ready) .cp-eco { opacity: 0; transform: translateY(-6px); }
+.cp-zone, .cp-eco { transition: opacity .6s ease .1s, transform .6s ease .1s; }
+
+@media (max-width: 760px) {
+  .cp-zone { width: calc(100vw - 28px); }
+  .cp-zone .cp-intro { display: none; }
+  .cp-eco { top: auto; bottom: 70px; max-height: 38vh; width: calc(100vw - 28px); }
+  .cp-demo { left: 14px; top: 150px; }
+  .campus-pond .dg.ac.cp-dg { left: 14px !important; top: 150px !important; }
+}

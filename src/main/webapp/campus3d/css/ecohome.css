@@ -143,3 +143,13 @@ body:not(.eco-entered) .eco-mini, body:not(.eco-entered) .eco-weather, body:not(
   .eco-panel { left: 12px; right: 12px; width: auto; top: auto; bottom: 90px; max-height: 45%; }
   .eco-demo { left: 12px; right: 12px; width: auto; bottom: 90px; }
 }
+
+/* 第二阶段：进入板块细节的过渡（镜头俯冲 + 淡出） */
+.eco-dive { position: absolute; inset: 0; z-index: 30; display: grid; place-items: center; pointer-events: all; opacity: 0; transition: opacity 1s ease .25s;
+  background: radial-gradient(circle at 50% 50%, rgba(4, 16, 12, 0.55) 0%, rgba(4, 16, 12, 0.92) 45%, #04100c 100%); color: #eafff2; }
+.eco-dive.is-on { opacity: 1; }
+.eco-dive-inner { text-align: center; transform: scale(.96); transition: transform 1.2s ease; }
+.eco-dive.is-on .eco-dive-inner { transform: scale(1); }
+.eco-dive-ring { width: 44px; height: 44px; margin: 0 auto 14px; border-radius: 50%; border: 3px solid rgba(134, 239, 172, .25); border-top-color: #86efac; animation: eco-spin 1s linear infinite; }
+.eco-dive p { margin: 0; font-size: 15px; letter-spacing: 2px; }
+@keyframes eco-spin { to { transform: rotate(360deg); } }

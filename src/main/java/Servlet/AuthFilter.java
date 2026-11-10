@@ -57,7 +57,8 @@ public class AuthFilter implements Filter {
                 "/ecohome.jsp".equals(path) || "/api/weather".equals(path)) {
             return null;
         }
-        // 生态动态主页的三维静态资源（js/css/json/图片/glb 模型）全部公开，未登录也能看到首页大屏
+        // 生态动态主页的三维静态资源（js/css/json/图片/glb 模型）全部公开，未登录也能看到首页大屏；
+        // 第二阶段的板块细节场景（如池塘 /campus3d/pond/pond.html）也在此目录下，同样公开
         if (path.startsWith("/campus3d/")) {
             return null;
         }

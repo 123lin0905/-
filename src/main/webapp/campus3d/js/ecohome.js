@@ -1,10 +1,12 @@
 /*
- * 生态动态主页（第一阶段）：加载动画 -> 全屏 3D 校园大屏。
+ * 生态动态主页：加载动画 -> 全屏 3D 校园大屏。
  * 页面只需提供 window.ECO_CONFIG（见 ecohome.jsp / campus3d/index.html），本脚本负责：
  *   1. 按顺序加载 three.js 等本地脚本并显示进度条；
  *   2. 构建校园、生态动态层、生态板块；
  *   3. 北京时间昼夜、季节、天气（代理 -> 直连 -> 虚拟）；
- *   4. 交互：板块悬浮高亮/点击飞行定位、建筑详情、演示切换面板（按 W）。
+ *   4. 交互：板块悬浮高亮/点击飞行定位、建筑详情、演示切换面板（按 W）；
+ *   5. 第二阶段：有 detail_scene 的板块“进入板块细节”俯冲淡出后打开细节场景（如池塘 pond/pond.html），
+ *      细节场景“返回校园全景”带 ?zone=<id>&autostart=1 回到本页并停在该板块。
  */
 (function () {
   "use strict";
@@ -288,12 +290,46 @@
         z.highlights,
         [["板块编号", z.id], ["树木（示意）", o.trees + " 株"], ["对应区域编码", z.area_code || "待关联"], ["当前天气", state.weatherText]],
         null,
-        "进入板块细节 →"
+        z.detail_scene ? "进入板块细节 3D 场景 →" : "进入板块细节（建设中）"
       );
       const t = o.pos.clone(); t.y = 0;
       flyAround(t, z.camera_distance || 260, 1400);
     }
-    $("eco-panel-enter").onclick = () => toast("「" + (selZone ? selZone.z.name : "该板块") + "」细节场景属于第二阶段，建设中：将接入板块细节 3D 场景、动植物增删与人脸识别跳转。");
+    // 进入板块细节：有 detail_scene 的板块镜头俯冲 + 淡出后跳转到细节场景；其他板块仍提示建设中
+    $("eco-panel-enter").onclick = () => {
+      const z = selZone ? selZone.z : null;
+      if (!z || !z.detail_scene) {
+        toast("「" + (z ? z.name : "该板块") + "」细节场景建设中：将接入板块细节 3D 场景、动植物增删与人脸识别跳转。");
+        return;
+      }
+      enterDetail(selZone);
+    };
+    let entering = false;
+    function enterDetail(o) {
+      if (entering) return;
+      entering = true;
+      stopTour();
+      const z = o.z, t = o.pos.clone(); t.y = 0;
+      const dir = camera.position.clone().sub(t); dir.y = 0;
+      if (dir.lengthSq() < 1) dir.set(0.6, 0, 0.8);
+      dir.normalize();
+      flyTo(t, t.clone().addScaledVector(dir, 22).setY(18), 1300);   // 镜头俯冲到板块上方
+      let url = BASE + z.detail_scene + (z.detail_scene.indexOf("?") >= 0 ? "&" : "?") + "zone=" + encodeURIComponent(z.id) + "&back=" + encodeURIComponent(location.pathname);
+      if (state.demoWeather !== "auto") url += "&weather=" + encodeURIComponent(state.demoWeather);
+      if (state.demoSeason !== "auto") url += "&season=" + encodeURIComponent(state.demoSeason);
+      if (!state.timeAuto) url += "&hour=" + state.demoHours.toFixed(2);
+      const veil = el("div", "eco-dive", '<div class="eco-dive-inner"><div class="eco-dive-ring"></div><p>正在进入「' + esc(z.name) + '」细节场景…</p></div>');
+      root.appendChild(veil);
+      requestAnimationFrame(() => veil.classList.add("is-on"));
+      setTimeout(() => { location.href = url; }, 1250);
+    }
+    // 从细节场景用浏览器“后退”回来（页面缓存恢复）时撤掉过渡遮罩
+    window.addEventListener("pageshow", (e) => {
+      if (!e.persisted) return;
+      entering = false;
+      root.querySelectorAll(".eco-dive").forEach((v) => v.remove());
+    });
+    window.__ecoEnterDetail = (id) => { const o = zoneById[id]; if (o) { selectZone(id); enterDetail(o); } };
     function selectItem(it) {
       stopTour();
       selZone = null;

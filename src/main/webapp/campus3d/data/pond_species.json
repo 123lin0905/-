@@ -1,0 +1,47 @@
+{
+  "_note": "池塘板块细节场景（campus3d/pond/pond.html）右侧“池塘生态”面板的动植物清单。view 为场景中的镜头名（见 pond.html 的 VIEWS / goToView）；illustrative=true 表示示意：学校官网“绵阳校区·校园风采”页（https://tfswufe.edu.cn/zjxy/myyq/xyfc.htm）只有照片、没有文字说明，照片中可见水边垂柳与带遮阳伞的亲水平台，其余物种按四川绵阳常见水生/湿地植物与池塘动物设计。第三阶段可改为从数据库 plant / animal 表按 area_code 读取。",
+  "version": 1,
+  "note": "说明：学校官网“校园风采”页仅有照片、无文字说明；照片中可见水边垂柳与亲水平台（据此设计），标“示意”的物种按绵阳常见水生 / 湿地动植物设计，非实地调查结果。",
+  "zones": {
+    "cuihu_water": [
+      { "id": "koi", "type": "animal", "icon": "🐟", "name": "锦鲤", "view": "锦鲤", "illustrative": true, "desc": "鲤鱼的观赏品种，红白、大正三色等花色在池中成群巡游，喂食时会围拢过来。" },
+      { "id": "frog", "type": "animal", "icon": "🐸", "name": "青蛙（黑斑侧褶蛙）", "view": "青蛙", "illustrative": true, "desc": "常蹲在睡莲叶上，捕食蚊虫，是池塘生态健康的指示动物。点它会跳。" },
+      { "id": "turtle", "type": "animal", "icon": "🐢", "name": "乌龟", "view": "乌龟", "illustrative": true, "desc": "晴天爬上池中石头晒背，冬季潜入池底冬眠。请勿向校园水体放生外来龟种。" },
+      { "id": "dragonfly", "type": "animal", "icon": "🪰", "name": "蜻蜓（红蜻蜓、白尾灰蜻、碧伟蜓）", "view": "蜻蜓", "illustrative": true, "desc": "幼虫（水虿）在水中生活，成虫在水面巡飞捕食蚊蝇，春秋最常见。" },
+      { "id": "willow", "type": "plant", "icon": "🌿", "name": "垂柳", "view": "垂柳", "illustrative": false, "desc": "水边最常见的乡土树种，枝条细长下垂、随风摆动；官网校园风采照片中水边可见成排垂柳。" },
+      { "id": "lotus", "type": "plant", "icon": "🪷", "name": "荷花", "view": "荷花", "illustrative": true, "desc": "挺水植物，叶片高出水面，6—8 月开花，秋季结莲蓬，地下茎即莲藕。" },
+      { "id": "waterlily", "type": "plant", "icon": "🌸", "name": "睡莲", "view": "睡莲", "illustrative": true, "desc": "浮叶植物，叶片平贴水面、有缺刻，花朵白天开放傍晚闭合，可为鱼蛙遮阴。" },
+      { "id": "iris", "type": "plant", "icon": "💜", "name": "鸢尾（花菖蒲）", "view": "鸢尾（花菖蒲）", "illustrative": true, "desc": "生长在浅水岸边，剑形叶成扇状排列，初夏开紫色花，能吸收水中氮磷。" },
+      { "id": "grass", "type": "plant", "icon": "🌾", "name": "芒草", "view": "芒草", "illustrative": true, "desc": "岸边的观赏草，细叶成丛，秋季抽出银白色花穗，固土护坡。" },
+      { "id": "bamboo", "type": "plant", "icon": "🎋", "name": "竹林", "view": "竹林", "illustrative": true, "desc": "四川最具代表性的植物之一，四季常绿，为鸟类提供栖息地。" },
+      { "id": "metasequoia", "type": "plant", "icon": "🌲", "name": "水杉", "view": "水杉", "illustrative": true, "desc": "国家一级保护植物、“活化石”，耐水湿，常在湖岸成排种植，秋季叶色转为棕红。" },
+      { "id": "pine", "type": "plant", "icon": "🌳", "name": "黑松", "view": "黑松", "illustrative": true, "desc": "常绿乔木，枝干苍劲，与假山跌水搭配成景。" },
+      { "id": "azalea", "type": "plant", "icon": "🌺", "name": "杜鹃", "view": "杜鹃", "illustrative": true, "desc": "四川山野常见花灌木，修剪成球形点缀池岸，春季开红、粉、白花。" },
+      { "id": "hydrangea", "type": "plant", "icon": "💠", "name": "绣球", "view": "绣球", "illustrative": true, "desc": "喜湿耐阴，初夏开蓝紫或粉色大花球，花色随土壤酸碱变化。" },
+      { "id": "wisteria", "type": "plant", "icon": "🍇", "name": "紫藤", "view": "紫藤架", "illustrative": true, "desc": "攀援在廊架上，春季垂下串串紫色花序，夏季成荫供师生休憩。" },
+      { "id": "camellia", "type": "plant", "icon": "🌹", "name": "山茶", "view": "山茶", "illustrative": true, "desc": "常绿灌木，冬末春初开花，整朵花落在地面。" },
+      { "id": "peony", "type": "plant", "icon": "🏵️", "name": "牡丹", "view": "牡丹", "illustrative": true, "desc": "传统名花，春季开大型花朵。" },
+      { "id": "lycoris", "type": "plant", "icon": "🔥", "name": "石蒜", "view": "石蒜", "illustrative": true, "desc": "秋季先开花后长叶，红色花丛点缀岸边。" },
+      { "id": "bridge", "type": "scene", "icon": "🌉", "name": "青石拱桥", "view": "石拱桥", "illustrative": true, "desc": "跨池石拱桥，桥下是锦鲤最爱聚集的阴凉处。" },
+      { "id": "pavilion", "type": "scene", "icon": "🏞️", "name": "六角亭", "view": "六角亭", "illustrative": true, "desc": "红柱灰瓦的中式小亭，池边读书、赏鱼的好去处。" },
+      { "id": "lamp", "type": "scene", "icon": "💡", "name": "庭院灯与长椅", "view": "庭院灯与长椅", "illustrative": true, "desc": "夜晚亮起的校园庭院灯，灯旁设木质长椅；夏夜岸边可见萤火虫。" }
+    ],
+    "library_lotus": [
+      { "id": "lotus", "type": "plant", "icon": "🪷", "name": "荷花（本池主景）", "view": "荷花", "illustrative": true, "desc": "满池荷叶田田，夏季荷花盛开，“接天莲叶无穷碧”，秋季留下莲蓬与残荷。" },
+      { "id": "waterlily", "type": "plant", "icon": "🌸", "name": "睡莲", "view": "睡莲", "illustrative": true, "desc": "浮叶植物，花朵白天开放傍晚闭合，与荷花一起覆盖水面，抑制藻类。" },
+      { "id": "willow", "type": "plant", "icon": "🌿", "name": "垂柳", "view": "垂柳", "illustrative": false, "desc": "池岸垂柳依依；官网校园风采照片中水边可见成排垂柳。" },
+      { "id": "iris", "type": "plant", "icon": "💜", "name": "鸢尾（花菖蒲）", "view": "鸢尾（花菖蒲）", "illustrative": true, "desc": "浅水岸边的挺水花卉，初夏开紫花，净化水质。" },
+      { "id": "grass", "type": "plant", "icon": "🌾", "name": "芒草", "view": "芒草", "illustrative": true, "desc": "岸边观赏草，秋季银白花穗随风摇曳。" },
+      { "id": "bamboo", "type": "plant", "icon": "🎋", "name": "竹林", "view": "竹林", "illustrative": true, "desc": "馆后竹林四季常绿，竹影映在池面。" },
+      { "id": "hydrangea", "type": "plant", "icon": "💠", "name": "绣球", "view": "绣球", "illustrative": true, "desc": "喜湿耐阴，初夏开大花球。" },
+      { "id": "azalea", "type": "plant", "icon": "🌺", "name": "杜鹃", "view": "杜鹃", "illustrative": true, "desc": "修剪成球的花灌木，春季开花。" },
+      { "id": "metasequoia", "type": "plant", "icon": "🌲", "name": "水杉", "view": "水杉", "illustrative": true, "desc": "“活化石”水杉，耐水湿，秋季叶色棕红。" },
+      { "id": "koi", "type": "animal", "icon": "🐟", "name": "锦鲤（少量）", "view": "锦鲤", "illustrative": true, "desc": "荷花池以荷为主，只放养少量锦鲤，在荷叶间穿梭。" },
+      { "id": "frog", "type": "animal", "icon": "🐸", "name": "青蛙（黑斑侧褶蛙）", "view": "青蛙", "illustrative": true, "desc": "夏夜蛙声一片，白天常蹲在睡莲叶上。点它会跳。" },
+      { "id": "dragonfly", "type": "animal", "icon": "🪰", "name": "蜻蜓", "view": "蜻蜓", "illustrative": true, "desc": "“小荷才露尖尖角，早有蜻蜓立上头”，常停在荷叶与鸢尾花茎上。" },
+      { "id": "turtle", "type": "animal", "icon": "🐢", "name": "乌龟", "view": "乌龟", "illustrative": true, "desc": "晴天在池中石头上晒背，冬季冬眠。请勿放生外来龟种。" },
+      { "id": "pavilion", "type": "scene", "icon": "🏞️", "name": "六角亭", "view": "六角亭", "illustrative": true, "desc": "池畔红柱小亭，读书累了可以来这里看荷。" },
+      { "id": "lamp", "type": "scene", "icon": "💡", "name": "庭院灯与长椅", "view": "庭院灯与长椅", "illustrative": true, "desc": "沿池庭院灯与长椅，夜晚亮灯，夏夜可见萤火虫。" }
+    ]
+  }
+}
