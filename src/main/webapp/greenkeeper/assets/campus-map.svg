@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000" viewBox="0 0 1600 1000" font-family="'PingFang SC','Microsoft YaHei',sans-serif">
+  <defs>
+    <linearGradient id="lawn" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#dcefd6"/>
+      <stop offset="1" stop-color="#cbe6c2"/>
+    </linearGradient>
+    <linearGradient id="pond" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#bcdff2"/>
+      <stop offset="1" stop-color="#94c6e6"/>
+    </linearGradient>
+    <pattern id="grass" width="14" height="14" patternUnits="userSpaceOnUse">
+      <circle cx="3" cy="4" r="1" fill="#bcdcb0"/>
+      <circle cx="10" cy="10" r="1" fill="#c6e2bb"/>
+    </pattern>
+  </defs>
+
+  <!-- 底板 -->
+  <rect width="1600" height="1000" fill="#f4f8f2"/>
+
+  <!-- 外围绿化带 -->
+  <rect x="0" y="0" width="1600" height="1000" fill="url(#lawn)"/>
+  <rect x="0" y="0" width="1600" height="1000" fill="url(#grass)" opacity="0.55"/>
+
+  <!-- 环路 -->
+  <rect x="70" y="70" width="1460" height="860" rx="90" fill="none" stroke="#efe7d6" stroke-width="46"/>
+  <rect x="70" y="70" width="1460" height="860" rx="90" fill="none" stroke="#e0d5bd" stroke-width="2" stroke-dasharray="16 14"/>
+
+  <!-- 中心轴线步道 -->
+  <path d="M800 116 L800 884" stroke="#efe7d6" stroke-width="34" stroke-linecap="round"/>
+  <path d="M116 500 L1484 500" stroke="#efe7d6" stroke-width="34" stroke-linecap="round"/>
+
+  <!-- 中央广场 -->
+  <circle cx="800" cy="500" r="132" fill="#f6f2e6" stroke="#e2d7c0" stroke-width="4"/>
+  <circle cx="800" cy="500" r="86" fill="#dff0d4" stroke="#cbe3bd" stroke-width="3"/>
+  <circle cx="800" cy="500" r="34" fill="#bfe0b0" stroke="#a8d196" stroke-width="3"/>
+  <text x="800" y="507" text-anchor="middle" font-size="22" fill="#5b7a4e">中心广场</text>
+
+  <!-- 景观湖 -->
+  <ellipse cx="1240" cy="300" rx="190" ry="118" fill="url(#pond)"/>
+  <ellipse cx="1240" cy="300" rx="190" ry="118" fill="none" stroke="#7fb7d8" stroke-width="3"/>
+  <path d="M1120 320 q60 -26 120 0 t120 0" fill="none" stroke="#ffffff" stroke-width="3" opacity=".7"/>
+  <text x="1240" y="308" text-anchor="middle" font-size="22" fill="#3f7392">景观湖</text>
+
+  <!-- 建筑 -->
+  <g>
+    <rect x="180" y="150" width="330" height="196" rx="14" fill="#e6ebf2" stroke="#cfd8e4" stroke-width="3"/>
+    <rect x="180" y="150" width="330" height="34" rx="14" fill="#d6dfe9"/>
+    <text x="345" y="272" text-anchor="middle" font-size="24" fill="#5d6d83">综合办公区</text>
+  </g>
+  <g>
+    <rect x="180" y="656" width="330" height="180" rx="14" fill="#e6ebf2" stroke="#cfd8e4" stroke-width="3"/>
+    <rect x="180" y="656" width="330" height="34" rx="14" fill="#d6dfe9"/>
+    <text x="345" y="762" text-anchor="middle" font-size="24" fill="#5d6d83">员工生活区</text>
+  </g>
+  <g>
+    <rect x="1120" y="656" width="330" height="180" rx="14" fill="#e6ebf2" stroke="#cfd8e4" stroke-width="3"/>
+    <rect x="1120" y="656" width="330" height="34" rx="14" fill="#d6dfe9"/>
+    <text x="1285" y="762" text-anchor="middle" font-size="24" fill="#5d6d83">访客中心</text>
+  </g>
+
+  <!-- 弧形绿化带 -->
+  <path d="M600 240 q200 -96 400 0" fill="none" stroke="#a9d69a" stroke-width="66" stroke-linecap="round" opacity=".9"/>
+  <path d="M600 760 q200 96 400 0" fill="none" stroke="#a9d69a" stroke-width="66" stroke-linecap="round" opacity=".9"/>
+  <path d="M300 400 q-70 100 0 200" fill="none" stroke="#b6dda9" stroke-width="48" stroke-linecap="round"/>
+  <path d="M1300 400 q70 100 0 200" fill="none" stroke="#b6dda9" stroke-width="48" stroke-linecap="round"/>
+
+  <!-- 停車/球場 -->
+  <rect x="1180" y="120" width="0" height="0" fill="none"/>
+  <rect x="610" y="150" width="132" height="82" rx="10" fill="#dbe6cd" stroke="#c3d8b1" stroke-width="3"/>
+  <text x="676" y="198" text-anchor="middle" font-size="17" fill="#6b8560">花圃</text>
+  <rect x="858" y="768" width="132" height="82" rx="10" fill="#dbe6cd" stroke="#c3d8b1" stroke-width="3"/>
+  <text x="924" y="816" text-anchor="middle" font-size="17" fill="#6b8560">苗圃</text>
+
+  <!-- 主入口 -->
+  <path d="M800 1000 L800 906" stroke="#efe7d6" stroke-width="40" stroke-linecap="round"/>
+  <rect x="742" y="944" width="116" height="40" rx="10" fill="#dfe6ee" stroke="#c8d3df" stroke-width="3"/>
+  <text x="800" y="972" text-anchor="middle" font-size="19" fill="#5d6d83">主入口</text>
+
+  <!-- 指北针 -->
+  <g transform="translate(1508,120)">
+    <circle r="34" fill="#ffffff" stroke="#d8e2d4" stroke-width="3"/>
+    <path d="M0 -22 L9 8 L0 2 L-9 8 Z" fill="#2f9e63"/>
+    <text y="27" text-anchor="middle" font-size="14" fill="#6b8560">N</text>
+  </g>
+
+  <!-- 图例 -->
+  <g transform="translate(96,952)">
+    <rect x="-14" y="-26" width="300" height="46" rx="10" fill="#ffffff" stroke="#e3eae6" stroke-width="2"/>
+    <circle cx="6" cy="0" r="8" fill="#cbe6c2" stroke="#a8d196" stroke-width="2"/>
+    <text x="24" y="5" font-size="15" fill="#5d6d83">绿化种植区</text>
+    <rect x="126" y="-8" width="16" height="16" rx="3" fill="#e6ebf2" stroke="#cfd8e4" stroke-width="2"/>
+    <text x="150" y="5" font-size="15" fill="#5d6d83">建筑</text>
+  </g>
+</svg>

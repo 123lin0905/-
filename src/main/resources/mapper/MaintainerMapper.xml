@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.example.demo1.mapper.MaintainerMapper">
+
+    <resultMap id="MaintainerResultMap" type="org.example.demo1.Maintainer">
+        <id property="id" column="id"/>
+        <result property="staffNo" column="staff_no"/>
+        <result property="name" column="name"/>
+        <result property="gender" column="gender"/>
+        <result property="phone" column="phone"/>
+        <result property="department" column="department"/>
+        <result property="duty" column="duty"/>
+        <result property="status" column="status"/>
+        <result property="entryDate" column="entry_date"/>
+        <result property="remark" column="remark"/>
+    </resultMap>
+
+    <insert id="insertMaintainer" parameterType="org.example.demo1.Maintainer" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO maintainer (staff_no, name, gender, phone, department, duty, status, entry_date, remark)
+        VALUES (#{staffNo}, #{name}, #{gender}, #{phone}, #{department}, #{duty}, #{status}, #{entryDate}, #{remark})
+    </insert>
+
+    <select id="selectAllMaintainers" resultMap="MaintainerResultMap">
+        SELECT id, staff_no, name, gender, phone, department, duty, status, entry_date, remark
+        FROM maintainer
+        <where>
+            <if test="keyword != null and keyword.trim() != ''">
+                AND (
+                    staff_no LIKE CONCAT('%', #{keyword}, '%')
+                    OR name LIKE CONCAT('%', #{keyword}, '%')
+                    OR phone LIKE CONCAT('%', #{keyword}, '%')
+                    OR duty LIKE CONCAT('%', #{keyword}, '%')
+                    OR remark LIKE CONCAT('%', #{keyword}, '%')
+                )
+            </if>
+            <if test="department != null and department.trim() != ''">
+                AND department = #{department}
+            </if>
+            <if test="status != null and status.trim() != ''">
+                AND status = #{status}
+            </if>
+        </where>
+        ORDER BY id ASC
+    </select>
+
+    <select id="selectMaintainerById" resultMap="MaintainerResultMap">
+        SELECT id, staff_no, name, gender, phone, department, duty, status, entry_date, remark
+        FROM maintainer
+        WHERE id = #{id}
+    </select>
+
+    <update id="updateMaintainer" parameterType="org.example.demo1.Maintainer">
+        UPDATE maintainer
+        SET staff_no = #{staffNo},
+            name = #{name},
+            gender = #{gender},
+            phone = #{phone},
+            department = #{department},
+            duty = #{duty},
+            status = #{status},
+            entry_date = #{entryDate},
+            remark = #{remark}
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteMaintainer">
+        DELETE FROM maintainer WHERE id = #{id}
+    </delete>
+
+    <select id="selectActiveMaintainerNames" resultType="string">
+        SELECT name
+        FROM maintainer
+        WHERE status = '在岗'
+        ORDER BY id ASC
+    </select>
+
+    <select id="countMaintainers" resultType="int">
+        SELECT COUNT(*) FROM maintainer
+    </select>
+
+    <insert id="assignPlantToMaintainer">
+        INSERT INTO maintainer_plant (maintainer_id, pid, is_primary, status)
+        VALUES (#{maintainerId}, #{pid}, #{isPrimary}, '有效')
+        ON DUPLICATE KEY UPDATE is_primary = VALUES(is_primary), status = '有效'
+    </insert>
+
+    <delete id="removePlantFromMaintainer">
+        DELETE FROM maintainer_plant
+        WHERE maintainer_id = #{maintainerId} AND pid = #{pid}
+    </delete>
+
+    <delete id="deletePlantMaintainer">
+        DELETE FROM maintainer_plant WHERE pid = #{pid}
+    </delete>
+
+    <select id="selectDirectPlantMaintainers" resultType="map">
+        SELECT mp.pid, m.id, m.staff_no AS staffNo, m.name, m.gender, m.phone, m.department, m.duty, m.status
+        FROM maintainer_plant mp
+        INNER JOIN maintainer m ON m.id = mp.maintainer_id
+        WHERE mp.status = '有效'
+    </select>
+
+    <select id="selectAreaPlantMaintainers" resultType="map">
+        SELECT p.pid, m.id, m.staff_no AS staffNo, m.name, m.gender, m.phone, m.department, m.duty, m.status
+        FROM plant p
+        INNER JOIN plant_area a ON p.area_id = a.id
+        INNER JOIN maintainer m ON m.id = a.maintainer_id
+        WHERE a.maintainer_id IS NOT NULL
+    </select>
+
+    <insert id="syncAreaPlantsToMaintainer">
+        INSERT INTO maintainer_plant (maintainer_id, pid, is_primary, status)
+        SELECT #{maintainerId}, p.pid, 1, '有效'
+        FROM plant p
+        WHERE p.area_id = #{areaId}
+          AND NOT EXISTS (
+              SELECT 1 FROM maintainer_plant mp
+              WHERE mp.pid = p.pid AND mp.status = '有效' AND mp.is_primary = 1
+          )
+        ON DUPLICATE KEY UPDATE status = '有效'
+    </insert>
+
+</mapper>

@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300">
+  <defs>
+    <linearGradient id="sky4" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#eef6fb"/><stop offset="1" stop-color="#f8fbf3"/>
+    </linearGradient>
+    <linearGradient id="hedge" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#5cb079"/><stop offset="1" stop-color="#2f7a4d"/>
+    </linearGradient>
+  </defs>
+  <rect width="400" height="300" fill="url(#sky4)"/>
+  <rect y="238" width="400" height="62" fill="#d9ebcf"/>
+  <rect y="252" width="400" height="48" fill="#c8e2ba"/>
+  <path d="M24 240V196c0-14 12-24 26-24h300c14 0 26 10 26 24v44z" fill="url(#hedge)"/>
+  <path d="M24 200h352" stroke="#6fc08a" stroke-width="3" opacity=".5"/>
+  <g fill="#6fc08a" opacity=".65">
+    <circle cx="66" cy="192" r="13"/><circle cx="112" cy="186" r="15"/>
+    <circle cx="160" cy="190" r="12"/><circle cx="206" cy="184" r="16"/>
+    <circle cx="254" cy="190" r="13"/><circle cx="302" cy="185" r="15"/>
+    <circle cx="348" cy="191" r="12"/>
+  </g>
+  <g fill="#3d8c5d" opacity=".5">
+    <ellipse cx="88" cy="212" rx="9" ry="5"/><ellipse cx="152" cy="218" rx="9" ry="5"/>
+    <ellipse cx="228" cy="210" rx="9" ry="5"/><ellipse cx="292" cy="218" rx="9" ry="5"/>
+  </g>
+  <rect x="24" y="240" width="352" height="8" rx="4" fill="#9c8f74" opacity=".35"/>
+  <g transform="translate(340,150)">
+    <rect x="-12" y="0" width="24" height="46" rx="5" fill="#dfe6ee" stroke="#c8d3df" stroke-width="2"/>
+    <text x="0" y="30" text-anchor="middle" font-size="14" fill="#5d6d83" font-family="sans-serif">绿</text>
+  </g>
+  <text x="200" y="286" text-anchor="middle" font-size="15" fill="#6b8560" font-family="sans-serif">金叶女贞绿篱 · 环路</text>
+</svg>

@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.example.demo1.mapper.PlantMaintenanceMapper">
+
+    <resultMap id="PlantMaintenanceResultMap" type="org.example.demo1.PlantMaintenance">
+        <id property="mid" column="mid"/>
+        <result property="pid" column="pid"/>
+        <result property="pname" column="pname"/>
+        <result property="mtype" column="mtype"/>
+        <result property="mdate" column="mdate"/>
+        <result property="operator" column="operator"/>
+        <result property="healthStatus" column="health_status"/>
+        <result property="notes" column="notes"/>
+    </resultMap>
+
+    <insert id="insertMaintenance" parameterType="org.example.demo1.PlantMaintenance" useGeneratedKeys="true" keyProperty="mid">
+        INSERT INTO plant_maintenance (pid, pname, mtype, mdate, operator, health_status, notes)
+        VALUES (#{pid}, #{pname}, #{mtype}, #{mdate}, #{operator}, #{healthStatus}, #{notes})
+    </insert>
+
+    <select id="selectAllMaintenance" resultMap="PlantMaintenanceResultMap">
+        SELECT mid, pid, pname, mtype, mdate, operator, health_status, notes
+        FROM plant_maintenance
+        <where>
+            <if test="keyword != null and keyword.trim() != ''">
+                AND (
+                    pid LIKE CONCAT('%', #{keyword}, '%')
+                    OR pname LIKE CONCAT('%', #{keyword}, '%')
+                    OR operator LIKE CONCAT('%', #{keyword}, '%')
+                    OR notes LIKE CONCAT('%', #{keyword}, '%')
+                )
+            </if>
+            <if test="mtype != null and mtype.trim() != ''">
+                AND mtype = #{mtype}
+            </if>
+        </where>
+        ORDER BY mid DESC
+    </select>
+
+    <delete id="deleteMaintenance">
+        DELETE FROM plant_maintenance WHERE mid = #{mid}
+    </delete>
+
+    <select id="selectAllOrderAsc" resultMap="PlantMaintenanceResultMap">
+        SELECT mid, pid, pname, mtype, mdate, operator, health_status, notes
+        FROM plant_maintenance
+        ORDER BY mid ASC
+    </select>
+
+    <select id="countTodayMaintenance" resultType="int">
+        SELECT COUNT(*)
+        FROM plant_maintenance
+        WHERE mdate LIKE CONCAT(#{todayPrefix}, '%')
+    </select>
+
+    <select id="selectMaintenanceByPid" resultMap="PlantMaintenanceResultMap">
+        SELECT mid, pid, pname, mtype, mdate, operator, health_status, notes
+        FROM plant_maintenance
+        WHERE pid = #{pid}
+        ORDER BY mid DESC
+    </select>
+
+    <select id="selectRecentMaintenance" resultMap="PlantMaintenanceResultMap">
+        SELECT mid, pid, pname, mtype, mdate, operator, health_status, notes
+        FROM plant_maintenance
+        ORDER BY mid DESC
+        LIMIT #{limit}
+    </select>
+
+</mapper>

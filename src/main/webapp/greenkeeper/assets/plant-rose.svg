@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300">
+  <defs>
+    <linearGradient id="sky3" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fdeef4"/><stop offset="1" stop-color="#f9fbf4"/>
+    </linearGradient>
+  </defs>
+  <rect width="400" height="300" fill="url(#sky3)"/>
+  <rect y="228" width="400" height="72" fill="#e2efda"/>
+  <rect y="244" width="400" height="56" fill="#d0e6c2"/>
+  <ellipse cx="200" cy="248" rx="140" ry="14" fill="#beddac" opacity=".5"/>
+  <g stroke="#3f8d5f" stroke-width="4" fill="none" stroke-linecap="round">
+    <path d="M120 248V150"/><path d="M200 252V132"/><path d="M280 248V156"/>
+    <path d="M120 190l-26-20"/><path d="M120 172l26-20"/>
+    <path d="M200 180l-28-22"/><path d="M200 162l28-22"/>
+    <path d="M280 196l26-20"/><path d="M280 178l-26-20"/>
+  </g>
+  <g fill="#4c9e6d">
+    <ellipse cx="94" cy="168" rx="15" ry="9" transform="rotate(-28 94 168)"/>
+    <ellipse cx="146" cy="150" rx="15" ry="9" transform="rotate(26 146 150)"/>
+    <ellipse cx="172" cy="156" rx="15" ry="9" transform="rotate(-30 172 156)"/>
+    <ellipse cx="228" cy="138" rx="15" ry="9" transform="rotate(28 228 138)"/>
+    <ellipse cx="306" cy="174" rx="15" ry="9" transform="rotate(-26 306 174)"/>
+    <ellipse cx="254" cy="156" rx="15" ry="9" transform="rotate(24 254 156)"/>
+  </g>
+  <g>
+    <circle cx="126" cy="128" r="19" fill="#ef7fa4"/>
+    <circle cx="114" cy="118" r="12" fill="#f6a3bd"/>
+    <circle cx="138" cy="120" r="12" fill="#f6a3bd"/>
+    <circle cx="127" cy="143" r="13" fill="#f8b8cb"/>
+    <circle cx="127" cy="128" r="6" fill="#fbe3a1"/>
+
+    <circle cx="206" cy="108" r="21" fill="#e9628f"/>
+    <circle cx="192" cy="96" r="13" fill="#f6a3bd"/>
+    <circle cx="220" cy="98" r="13" fill="#f6a3bd"/>
+    <circle cx="207" cy="126" r="14" fill="#f8b8cb"/>
+    <circle cx="207" cy="108" r="6.5" fill="#fbe3a1"/>
+
+    <circle cx="286" cy="134" r="18" fill="#ef7fa4"/>
+    <circle cx="274" cy="124" r="11" fill="#f6a3bd"/>
+    <circle cx="297" cy="126" r="11" fill="#f6a3bd"/>
+    <circle cx="287" cy="148" r="12" fill="#f8b8cb"/>
+    <circle cx="287" cy="134" r="5.6" fill="#fbe3a1"/>
+  </g>
+  <text x="200" y="288" text-anchor="middle" font-size="15" fill="#6b8560" font-family="sans-serif">月季 · 花境带</text>
+</svg>

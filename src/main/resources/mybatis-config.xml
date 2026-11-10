@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE configuration
+        PUBLIC "-//mybatis.org//DTD Config 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-config.dtd">
+<configuration>
+    <!-- 引入外部数据库属性配置 -->
+    <properties resource="db.properties"/>
+
+    <!-- 全局参数设置 -->
+    <settings>
+        <!-- 开启驼峰命名自动映射 (如 area_id -> areaId) -->
+        <setting name="mapUnderscoreToCamelCase" value="true"/>
+        <!-- 启用标准控制台日志打印，便于直观查看 MyBatis 执行的 SQL 语句 -->
+        <setting name="logImpl" value="STDOUT_LOGGING"/>
+        <!-- 延迟加载设置 -->
+        <setting name="lazyLoadingEnabled" value="false"/>
+        <!-- 允许空值映射到 JDBC 类型 -->
+        <setting name="jdbcTypeForNull" value="NULL"/>
+    </settings>
+
+    <!-- 实体类型别名配置 -->
+    <typeAliases>
+        <package name="org.example.demo1"/>
+    </typeAliases>
+
+    <!-- 环境配置 -->
+    <environments default="development">
+        <environment id="development">
+            <!-- 使用 JDBC 事务管理器 -->
+            <transactionManager type="JDBC"/>
+            <!-- 使用 POOLED 连接池数据源 -->
+            <dataSource type="POOLED">
+                <property name="driver" value="${jdbc.driver}"/>
+                <property name="url" value="${jdbc.url}"/>
+                <property name="username" value="${jdbc.username}"/>
+                <property name="password" value="${jdbc.password}"/>
+            </dataSource>
+        </environment>
+    </environments>
+
+    <!-- 映射器列表 -->
+    <mappers>
+        <mapper resource="mapper/SchemaMapper.xml"/>
+        <mapper resource="mapper/PlantMapper.xml"/>
+        <mapper resource="mapper/PlantTypeMapper.xml"/>
+        <mapper resource="mapper/PlantMaintenanceMapper.xml"/>
+        <mapper resource="mapper/MaintainerMapper.xml"/>
+        <mapper resource="mapper/PlantAreaMapper.xml"/>
+        <mapper resource="mapper/AdminUserMapper.xml"/>
+        <mapper resource="mapper/SystemNoticeMapper.xml"/>
+        <mapper resource="mapper/AnimalMapper.xml"/>
+    </mappers>
+</configuration>

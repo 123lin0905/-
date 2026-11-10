@@ -1,0 +1,262 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.example.demo1.mapper.SchemaMapper">
+
+    <update id="createPlantTable">
+        CREATE TABLE IF NOT EXISTS plant (
+            pid VARCHAR(64) PRIMARY KEY,
+            pname VARCHAR(100) NOT NULL,
+            ptype VARCHAR(50) NOT NULL,
+            pdatetime VARCHAR(50),
+            pprice INT DEFAULT 0,
+            ppic VARCHAR(500),
+            pdesc TEXT,
+            area_id INT DEFAULT NULL,
+            latitude DOUBLE DEFAULT NULL,
+            longitude DOUBLE DEFAULT NULL,
+            trim_period_days INT DEFAULT NULL,
+            fertilize_period_days INT DEFAULT NULL,
+            water_period_days INT DEFAULT NULL,
+            pest_period_days INT DEFAULT NULL,
+            next_trim_date DATE DEFAULT NULL,
+            next_fertilize_date DATE DEFAULT NULL,
+            next_water_date DATE DEFAULT NULL,
+            next_pest_date DATE DEFAULT NULL
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    </update>
+
+    <update id="createTypeTable">
+        CREATE TABLE IF NOT EXISTS type (
+            tid VARCHAR(50) PRIMARY KEY,
+            tname VARCHAR(500) NOT NULL,
+            tdesc VARCHAR(500)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    </update>
+
+    <update id="createMaintenanceTable">
+        CREATE TABLE IF NOT EXISTS plant_maintenance (
+            mid INT AUTO_INCREMENT PRIMARY KEY,
+            pid VARCHAR(64) NOT NULL,
+            pname VARCHAR(100),
+            mtype VARCHAR(50) NOT NULL,
+            mdate VARCHAR(50) NOT NULL,
+            operator VARCHAR(50) NOT NULL,
+            health_status VARCHAR(50) DEFAULT '状态良好',
+            notes TEXT
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    </update>
+
+    <update id="createMaintainerTable">
+        CREATE TABLE IF NOT EXISTS maintainer (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            staff_no VARCHAR(50) NOT NULL UNIQUE,
+            name VARCHAR(50) NOT NULL,
+            gender VARCHAR(10) DEFAULT '男',
+            phone VARCHAR(50),
+            department VARCHAR(100),
+            duty VARCHAR(100),
+            status VARCHAR(20) DEFAULT '在岗',
+            entry_date VARCHAR(50),
+            remark TEXT
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    </update>
+
+    <update id="createAreaTable">
+        CREATE TABLE IF NOT EXISTS plant_area (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            area_code VARCHAR(50) NOT NULL UNIQUE,
+            area_name VARCHAR(100) NOT NULL,
+            maintainer_id INT,
+            center_latitude DOUBLE,
+            center_longitude DOUBLE,
+            radius_m INT DEFAULT 200,
+            boundary_json TEXT,
+            status VARCHAR(20) DEFAULT '启用'
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    </update>
+
+    <update id="createMaintainerPlantTable">
+        CREATE TABLE IF NOT EXISTS maintainer_plant (
+            maintainer_id INT NOT NULL,
+            pid VARCHAR(64) NOT NULL,
+            is_primary INT DEFAULT 1,
+            status VARCHAR(20) DEFAULT '有效',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (maintainer_id, pid)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    </update>
+
+    <update id="createAdminUserTable">
+        CREATE TABLE IF NOT EXISTS admin_user (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            username VARCHAR(50) NOT NULL UNIQUE,
+            password_hash VARCHAR(128) NOT NULL,
+            display_name VARCHAR(50) NOT NULL,
+            role_code VARCHAR(50) NOT NULL DEFAULT 'ADMIN',
+            status INT DEFAULT 1,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    </update>
+
+    <update id="createNoticeTable">
+        CREATE TABLE IF NOT EXISTS system_notice (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            title VARCHAR(200) NOT NULL,
+            content TEXT NOT NULL,
+            category VARCHAR(50) DEFAULT '养护通知',
+            publisher VARCHAR(50) DEFAULT '绿化管理中心',
+            priority VARCHAR(20) DEFAULT '普通',
+            publish_date DATE NOT NULL,
+            status VARCHAR(20) DEFAULT '发布'
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    </update>
+
+    <update id="createAnimalTable">
+        CREATE TABLE IF NOT EXISTS animal (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            animal_no VARCHAR(50) NOT NULL UNIQUE,
+            name VARCHAR(100) NOT NULL,
+            species VARCHAR(100) DEFAULT NULL,
+            category VARCHAR(50) NOT NULL DEFAULT '水禽鸟类',
+            count INT DEFAULT 1,
+            area_id INT DEFAULT NULL,
+            area_name VARCHAR(100) DEFAULT '天府湖水域生态区',
+            latitude DOUBLE DEFAULT NULL,
+            longitude DOUBLE DEFAULT NULL,
+            health_status VARCHAR(50) DEFAULT '健康活泼',
+            diet_type VARCHAR(100) DEFAULT '专用禽粮/水草',
+            feeding_cycle_days INT DEFAULT 1,
+            next_feeding_date VARCHAR(50) DEFAULT NULL,
+            keeper_name VARCHAR(50) DEFAULT '生态保育员',
+            birth_date VARCHAR(50) DEFAULT NULL,
+            pic_url VARCHAR(255) DEFAULT NULL,
+            remark TEXT
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    </update>
+
+    <update id="addColumnAreaId">
+        ALTER TABLE plant ADD COLUMN area_id INT DEFAULT NULL
+    </update>
+    <update id="addColumnLatitude">
+        ALTER TABLE plant ADD COLUMN latitude DOUBLE DEFAULT NULL
+    </update>
+    <update id="addColumnLongitude">
+        ALTER TABLE plant ADD COLUMN longitude DOUBLE DEFAULT NULL
+    </update>
+    <update id="addColumnAnimalLatitude">
+        ALTER TABLE animal ADD COLUMN latitude DOUBLE DEFAULT NULL
+    </update>
+    <update id="addColumnAnimalLongitude">
+        ALTER TABLE animal ADD COLUMN longitude DOUBLE DEFAULT NULL
+    </update>
+    <update id="updateSampleAnimalCoordinates">
+        UPDATE animal
+        SET latitude = CASE
+                WHEN animal_no = 'AN-1001' THEN 31.492200
+                WHEN animal_no = 'AN-1002' THEN 31.492800
+                WHEN animal_no = 'AN-1003' THEN 31.493600
+                WHEN animal_no = 'AN-1004' THEN 31.492000
+                WHEN animal_no = 'AN-1005' THEN 31.492400
+                ELSE 31.492200
+            END,
+            longitude = CASE
+                WHEN animal_no = 'AN-1001' THEN 104.688200
+                WHEN animal_no = 'AN-1002' THEN 104.687800
+                WHEN animal_no = 'AN-1003' THEN 104.687500
+                WHEN animal_no = 'AN-1004' THEN 104.688800
+                WHEN animal_no = 'AN-1005' THEN 104.688500
+                ELSE 104.688200
+            END
+        WHERE latitude IS NULL OR longitude IS NULL
+    </update>
+    <update id="addColumnTrimPeriodDays">
+        ALTER TABLE plant ADD COLUMN trim_period_days INT DEFAULT NULL
+    </update>
+    <update id="addColumnFertilizePeriodDays">
+        ALTER TABLE plant ADD COLUMN fertilize_period_days INT DEFAULT NULL
+    </update>
+    <update id="addColumnWaterPeriodDays">
+        ALTER TABLE plant ADD COLUMN water_period_days INT DEFAULT NULL
+    </update>
+    <update id="addColumnPestPeriodDays">
+        ALTER TABLE plant ADD COLUMN pest_period_days INT DEFAULT NULL
+    </update>
+    <update id="addColumnNextTrimDate">
+        ALTER TABLE plant ADD COLUMN next_trim_date DATE DEFAULT NULL
+    </update>
+    <update id="addColumnNextFertilizeDate">
+        ALTER TABLE plant ADD COLUMN next_fertilize_date DATE DEFAULT NULL
+    </update>
+    <update id="addColumnNextWaterDate">
+        ALTER TABLE plant ADD COLUMN next_water_date DATE DEFAULT NULL
+    </update>
+    <update id="addColumnNextPestDate">
+        ALTER TABLE plant ADD COLUMN next_pest_date DATE DEFAULT NULL
+    </update>
+
+    <select id="countTypes" resultType="int">
+        SELECT COUNT(*) FROM type
+    </select>
+
+    <select id="countMaintainers" resultType="int">
+        SELECT COUNT(*) FROM maintainer
+    </select>
+
+    <select id="countAdminUsers" resultType="int">
+        SELECT COUNT(*) FROM admin_user
+    </select>
+
+    <select id="countNotices" resultType="int">
+        SELECT COUNT(*) FROM system_notice
+    </select>
+
+    <select id="countAnimals" resultType="int">
+        SELECT COUNT(*) FROM animal
+    </select>
+
+    <insert id="insertDefaultType">
+        INSERT INTO type(tid, tname, tdesc) VALUES(#{param1}, #{param2}, #{param3})
+        ON DUPLICATE KEY UPDATE tname = VALUES(tname), tdesc = VALUES(tdesc)
+    </insert>
+
+    <insert id="insertSampleMaintainers">
+        INSERT INTO maintainer (staff_no, name, gender, phone, department, duty, status, entry_date, remark) VALUES
+        ('WH-1001', '张师傅', '男', '13800138001', '户外乔木班', '高级园艺师', '在岗', '2023-05-10', '擅长乔木高枝修剪、大型树冠造型与抗风防倒加固'),
+        ('WH-1002', '李工', '女', '13912345678', '室内绿化组', '花卉养护专家', '在岗', '2024-02-18', '精通微孔水培、阴生观叶植物光照温湿度科学调控'),
+        ('WH-1003', '王专员', '男', '13766668888', '综合养护组', '水肥一体化技术员', '在岗', '2024-06-01', '负责园区自动喷滴灌管网维护与有机营养液配比巡检'),
+        ('WH-1004', '赵师傅', '男', '13699887766', '植保防治组', '病虫害防治技师', '轮休', '2022-11-20', '负责天府苗圃生态防虫治病、生物药剂定期防治')
+    </insert>
+
+    <insert id="insertDefaultAdmin">
+        INSERT INTO admin_user (username, password_hash, display_name, role_code, status)
+        VALUES (#{param1}, #{param2}, #{param3}, #{param4}, 1)
+        ON DUPLICATE KEY UPDATE display_name = VALUES(display_name), role_code = VALUES(role_code)
+    </insert>
+
+    <insert id="insertSampleNotices">
+        INSERT INTO system_notice (title, content, category, publisher, priority, publish_date, status) VALUES
+        ('关于开展天府学院秋季校园林木修剪的通知', '后勤管理处绿化中心将于本周对时代广场及正校门迎宾大道乔木进行枯枝修剪与防风加固作业，请广大师生注意避让。', '修剪作业', '绿化管理中心', '重要', CURDATE(), '发布'),
+        ('银杏大道落叶景观保护与日常缓扫倡议', '为留住天府学院美丽秋景，时代广场及图书馆后林银杏落叶区实行“只捡垃圾不扫落叶”的缓扫作业模式，共赏金色校园。', '景观保护', '绿化管理中心', '温馨提示', CURDATE(), '发布'),
+        ('天府生命科技馆温室花卉滴灌系统检修完成', '室内绿化组已完成微孔喷滴灌设施巡检与营养液校准，室内观叶植物长势优良。', '设施巡检', '室内绿化组', '普通', CURDATE(), '发布')
+    </insert>
+
+    <insert id="insertSampleAnimals">
+        INSERT INTO animal (animal_no, name, species, category, count, area_id, area_name, latitude, longitude, health_status, diet_type, feeding_cycle_days, next_feeding_date, keeper_name, birth_date, remark) VALUES
+        ('AN-1001', '天府黑天鹅', 'Cygnus atratus', '水禽鸟类', 4, 20, '天府湖水域生态区', 31.492200, 104.688200, '健康活泼', '专用禽粮/水生软植物', 1, CURDATE(), '张师傅', '2023-04-15', '天府学院标志性生态水禽，常在湖面集群游弋，深受全校师生喜爱'),
+        ('AN-1002', '锦鲤群', 'Cyprinus rubrofuscus', '观赏鱼类', 88, 20, '时代广场水系喷泉池', 31.492800, 104.687800, '生长良好', '高蛋白浮水膨化配合颗粒料', 1, CURDATE(), '王专员', '2023-09-01', '全校景观水系核心生态群落，体色艳丽，水质保持清澈见底'),
+        ('AN-1003', '赤腹松鼠', 'Callosciurus erythraeus', '林栖哺乳类', 12, 22, '银杏大道生态林带', 31.493600, 104.687500, '野化健康', '坚果/松塔/浆果/植物嫩芽', 3, CURDATE(), '李工', '2024-01-10', '校区自然繁衍生态伴生种群，常活跃于高大乔木冠层与主干之间'),
+        ('AN-1004', '蓝孔雀', 'Pavo cristatus', '陆禽鸟类', 2, 23, '康养学院生态绿地', 31.492000, 104.688800, '重点观察', '精选混合谷物/青绿多汁饲料', 1, CURDATE(), '张师傅', '2024-03-20', '科普观赏重点保育物种，羽色华丽，按计划开展疫苗免疫接种'),
+        ('AN-1005', '绿头鸭', 'Anas platyrhynchos', '水禽鸟类', 6, 20, '天府湖水域生态区', 31.492400, 104.688500, '生长良好', '水生昆虫/草籽/专用小谷粒', 2, CURDATE(), '李工', '2023-11-05', '与黑天鹅混栖共生，繁殖状况优异，构建校园多层次湿地生态')
+    </insert>
+
+    <delete id="cleanMockMaintenance">
+        DELETE FROM plant_maintenance WHERE notes IN (
+            '完成晨间根部浇水，土壤透水良好，枝叶无发黄',
+            '擦拭叶面粉尘，喷洒细雾保湿',
+            '低浓度多肉专用营养液薄肥勤施',
+            '修除底部细弱枯枝，促进通风透光'
+        )
+    </delete>
+</mapper>

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.example.demo1.mapper.PlantTypeMapper">
+
+    <resultMap id="PlantTypeResultMap" type="org.example.demo1.PlantType">
+        <id property="tid" column="tid"/>
+        <result property="tname" column="tname"/>
+        <result property="tdesc" column="tdesc"/>
+    </resultMap>
+
+    <select id="selectAllPlantTypes" resultMap="PlantTypeResultMap">
+        SELECT tid, tname, tdesc
+        FROM type
+        ORDER BY CAST(tid AS UNSIGNED) ASC, tid ASC
+    </select>
+
+    <select id="selectAllFromPlantType" resultMap="PlantTypeResultMap">
+        SELECT tid, tname, tdesc
+        FROM plant_type
+        ORDER BY tid ASC
+    </select>
+
+    <select id="countByTypeOrId" resultType="int">
+        SELECT COUNT(*)
+        FROM type
+        WHERE tname = #{tname} OR tid = #{tid}
+    </select>
+
+    <insert id="insertPlantType">
+        INSERT INTO type (tid, tname, tdesc)
+        VALUES (#{tid}, #{tname}, #{tdesc})
+    </insert>
+
+</mapper>

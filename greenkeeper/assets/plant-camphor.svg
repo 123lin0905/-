@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300">
+  <defs>
+    <linearGradient id="sky1" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#eaf4fb"/><stop offset="1" stop-color="#f7fbf5"/>
+    </linearGradient>
+    <linearGradient id="leaf1" x1="0.2" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#4fb37a"/><stop offset="1" stop-color="#256f47"/>
+    </linearGradient>
+  </defs>
+  <rect width="400" height="300" fill="url(#sky1)"/>
+  <rect y="216" width="400" height="84" fill="#dcecd3"/>
+  <rect y="230" width="400" height="70" fill="#cbe4bd"/>
+  <ellipse cx="200" cy="238" rx="150" ry="18" fill="#b9d9a8" opacity=".6"/>
+  <path d="M188 236V132h24v104z" fill="#8a6a4b"/>
+  <path d="M188 200l-30-26 6-8 30 24zM212 190l30-30 8 8-30 30z" fill="#7c5f42"/>
+  <circle cx="200" cy="112" r="66" fill="url(#leaf1)"/>
+  <circle cx="146" cy="138" r="40" fill="#3d9a65"/>
+  <circle cx="256" cy="134" r="44" fill="#43a26e"/>
+  <circle cx="200" cy="78" r="40" fill="#57b981"/>
+  <circle cx="162" cy="102" r="26" fill="#66c48d" opacity=".85"/>
+  <circle cx="238" cy="98" r="22" fill="#66c48d" opacity=".7"/>
+  <g fill="#2b8556" opacity=".55">
+    <ellipse cx="176" cy="126" rx="9" ry="5" transform="rotate(-24 176 126)"/>
+    <ellipse cx="228" cy="118" rx="9" ry="5" transform="rotate(20 228 118)"/>
+    <ellipse cx="204" cy="152" rx="9" ry="5" transform="rotate(8 204 152)"/>
+  </g>
+  <text x="200" y="288" text-anchor="middle" font-size="15" fill="#6b8560" font-family="sans-serif">香樟 · 主干道</text>
+</svg>

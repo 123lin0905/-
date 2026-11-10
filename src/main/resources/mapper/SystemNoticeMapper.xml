@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.example.demo1.mapper.SystemNoticeMapper">
+
+    <resultMap id="SystemNoticeResultMap" type="org.example.demo1.SystemNotice">
+        <id property="id" column="id"/>
+        <result property="title" column="title"/>
+        <result property="content" column="content"/>
+        <result property="category" column="category"/>
+        <result property="publisher" column="publisher"/>
+        <result property="priority" column="priority"/>
+        <result property="publishDate" column="publish_date"/>
+        <result property="status" column="status"/>
+    </resultMap>
+
+    <select id="selectRecentNotices" resultMap="SystemNoticeResultMap">
+        SELECT id, title, content, category, publisher, priority, publish_date, status
+        FROM system_notice
+        WHERE status = '发布'
+        ORDER BY publish_date DESC, id DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="selectAllNotices" resultMap="SystemNoticeResultMap">
+        SELECT id, title, content, category, publisher, priority, publish_date, status
+        FROM system_notice
+        ORDER BY publish_date DESC, id DESC
+    </select>
+
+    <select id="countNotices" resultType="int">
+        SELECT COUNT(*) FROM system_notice
+    </select>
+
+    <insert id="insertNotice" parameterType="org.example.demo1.SystemNotice" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO system_notice (title, content, category, publisher, priority, publish_date, status)
+        VALUES (#{title}, #{content}, #{category}, #{publisher}, #{priority}, #{publishDate}, #{status})
+    </insert>
+
+    <update id="updateNotice" parameterType="org.example.demo1.SystemNotice">
+        UPDATE system_notice
+        SET title = #{title},
+            content = #{content},
+            category = #{category},
+            publisher = #{publisher},
+            priority = #{priority},
+            publish_date = #{publishDate},
+            status = #{status}
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteNotice">
+        DELETE FROM system_notice WHERE id = #{id}
+    </delete>
+
+</mapper>

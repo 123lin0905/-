@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.example.demo1.mapper.PlantMapper">
+
+    <resultMap id="PlantResultMap" type="org.example.demo1.Plant">
+        <id property="pid" column="pid"/>
+        <result property="pname" column="pname"/>
+        <result property="ptype" column="ptype"/>
+        <result property="pdatetime" column="pdatetime"/>
+        <result property="pprice" column="pprice"/>
+        <result property="ppic" column="ppic"/>
+        <result property="pdesc" column="pdesc"/>
+        <result property="areaId" column="area_id"/>
+        <result property="latitude" column="latitude"/>
+        <result property="longitude" column="longitude"/>
+        <result property="trimPeriodDays" column="trim_period_days"/>
+        <result property="fertilizePeriodDays" column="fertilize_period_days"/>
+        <result property="waterPeriodDays" column="water_period_days"/>
+        <result property="pestPeriodDays" column="pest_period_days"/>
+        <result property="nextTrimDate" column="next_trim_date"/>
+        <result property="nextFertilizeDate" column="next_fertilize_date"/>
+        <result property="nextWaterDate" column="next_water_date"/>
+        <result property="nextPestDate" column="next_pest_date"/>
+    </resultMap>
+
+    <resultMap id="PlantReminderResultMap" type="org.example.demo1.PlantReminder">
+        <result property="pid" column="pid"/>
+        <result property="plantName" column="plant_name"/>
+        <result property="taskType" column="task_type"/>
+        <result property="dueDate" column="due_date"/>
+        <result property="maintainerName" column="maintainer_name"/>
+    </resultMap>
+
+    <sql id="PlantColumns">
+        pid, pname, ptype, pdatetime, pprice, ppic, pdesc, area_id, latitude, longitude,
+        trim_period_days, fertilize_period_days, water_period_days, pest_period_days,
+        next_trim_date, next_fertilize_date, next_water_date, next_pest_date
+    </sql>
+
+    <insert id="insertPlant" parameterType="org.example.demo1.Plant">
+        INSERT INTO plant (
+            pid, pname, ptype, pdatetime, pprice, ppic, pdesc, area_id, latitude, longitude,
+            trim_period_days, fertilize_period_days, water_period_days, pest_period_days,
+            next_trim_date, next_fertilize_date, next_water_date, next_pest_date
+        ) VALUES (
+            #{pid}, #{pname}, #{ptype}, #{pdatetime}, #{pprice}, #{ppic}, #{pdesc},
+            #{areaId}, #{latitude}, #{longitude},
+            #{trimPeriodDays}, #{fertilizePeriodDays}, #{waterPeriodDays}, #{pestPeriodDays},
+            #{nextTrimDate}, #{nextFertilizeDate}, #{nextWaterDate}, #{nextPestDate}
+        )
+    </insert>
+
+    <select id="selectAllPlants" resultMap="PlantResultMap">
+        SELECT <include refid="PlantColumns"/>
+        FROM plant
+        ORDER BY pdatetime DESC, pid ASC
+    </select>
+
+    <select id="selectPlantById" resultMap="PlantResultMap">
+        SELECT <include refid="PlantColumns"/>
+        FROM plant
+        WHERE pid = #{pid}
+    </select>
+
+    <update id="updatePlant" parameterType="org.example.demo1.Plant">
+        UPDATE plant
+        SET pname = #{pname},
+            ptype = #{ptype},
+            pdatetime = #{pdatetime},
+            pprice = #{pprice},
+            ppic = #{ppic},
+            pdesc = #{pdesc},
+            area_id = #{areaId},
+            latitude = #{latitude},
+            longitude = #{longitude},
+            trim_period_days = #{trimPeriodDays},
+            fertilize_period_days = #{fertilizePeriodDays},
+            water_period_days = #{waterPeriodDays},
+            pest_period_days = #{pestPeriodDays},
+            next_trim_date = #{nextTrimDate},
+            next_fertilize_date = #{nextFertilizeDate},
+            next_water_date = #{nextWaterDate},
+            next_pest_date = #{nextPestDate}
+        WHERE pid = #{pid}
+    </update>
+
+    <update id="updatePlantLocation">
+        UPDATE plant
+        SET latitude = #{latitude},
+            longitude = #{longitude}
+            <if test="areaId != null">
+                , area_id = #{areaId}
+            </if>
+        WHERE pid = #{pid}
+    </update>
+
+    <update id="updatePlantCareDate">
+        UPDATE plant
+        <set>
+            <choose>
+                <when test="dateCol == 'next_water_date'">next_water_date = #{nextDate}</when>
+                <when test="dateCol == 'next_fertilize_date'">next_fertilize_date = #{nextDate}</when>
+                <when test="dateCol == 'next_trim_date'">next_trim_date = #{nextDate}</when>
+                <when test="dateCol == 'next_pest_date'">next_pest_date = #{nextDate}</when>
+            </choose>
+        </set>
+        WHERE pid = #{pid}
+    </update>
+
+    <delete id="deletePlant">
+        DELETE FROM plant WHERE pid = #{pid}
+    </delete>
+
+    <select id="countPlants" resultType="int">
+        SELECT COUNT(*) FROM plant
+    </select>
+
+    <select id="countDuePlants" resultType="int">
+        SELECT COUNT(*) FROM plant
+        WHERE (next_trim_date IS NOT NULL AND next_trim_date &lt;= CURDATE())
+           OR (next_fertilize_date IS NOT NULL AND next_fertilize_date &lt;= CURDATE())
+           OR (next_water_date IS NOT NULL AND next_water_date &lt;= CURDATE())
+           OR (next_pest_date IS NOT NULL AND next_pest_date &lt;= CURDATE())
+    </select>
+
+    <select id="countUnassignedPlants" resultType="int">
+        SELECT COUNT(*) FROM plant p
+        WHERE p.area_id IS NULL
+          AND NOT EXISTS (
+            SELECT 1 FROM maintainer_plant mp
+            WHERE mp.pid = p.pid AND mp.status = '有效'
+          )
+    </select>
+
+    <select id="selectPlantsByMaintainer" resultMap="PlantResultMap">
+        SELECT p.pid, p.pname, p.ptype, p.pdatetime, p.pprice, p.ppic, p.pdesc,
+               p.area_id, p.latitude, p.longitude, p.trim_period_days,
+               p.fertilize_period_days, p.water_period_days, p.pest_period_days,
+               p.next_trim_date, p.next_fertilize_date, p.next_water_date, p.next_pest_date
+        FROM plant p
+        INNER JOIN maintainer_plant mp ON mp.pid = p.pid
+        WHERE mp.maintainer_id = #{maintainerId}
+          AND mp.status = '有效'
+        ORDER BY p.pname ASC
+    </select>
+
+    <select id="selectPlantReminders" resultMap="PlantReminderResultMap">
+        SELECT p.pid, p.pname AS plant_name, t.task_type, t.due_date, m.name AS maintainer_name
+        FROM plant p
+        LEFT JOIN maintainer_plant mp ON mp.pid = p.pid AND mp.status = '有效' AND mp.is_primary = 1
+        LEFT JOIN maintainer m ON m.id = mp.maintainer_id
+        JOIN (
+            SELECT pid, '修剪' AS task_type, next_trim_date AS due_date FROM plant WHERE next_trim_date IS NOT NULL
+            UNION ALL
+            SELECT pid, '施肥' AS task_type, next_fertilize_date AS due_date FROM plant WHERE next_fertilize_date IS NOT NULL
+            UNION ALL
+            SELECT pid, '施水' AS task_type, next_water_date AS due_date FROM plant WHERE next_water_date IS NOT NULL
+            UNION ALL
+            SELECT pid, '除害' AS task_type, next_pest_date AS due_date FROM plant WHERE next_pest_date IS NOT NULL
+        ) t ON t.pid = p.pid
+        WHERE t.due_date &lt;= DATE_ADD(CURDATE(), INTERVAL #{daysAhead} DAY)
+        ORDER BY t.due_date ASC, p.pname ASC
+    </select>
+
+</mapper>

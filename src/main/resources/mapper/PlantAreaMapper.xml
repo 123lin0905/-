@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.example.demo1.mapper.PlantAreaMapper">
+
+    <resultMap id="PlantAreaResultMap" type="org.example.demo1.PlantArea">
+        <id property="id" column="id"/>
+        <result property="areaCode" column="area_code"/>
+        <result property="areaName" column="area_name"/>
+        <result property="maintainerId" column="maintainer_id"/>
+        <result property="maintainerName" column="maintainer_name"/>
+        <result property="centerLatitude" column="center_latitude"/>
+        <result property="centerLongitude" column="center_longitude"/>
+        <result property="radiusM" column="radius_m"/>
+        <result property="boundaryJson" column="boundary_json"/>
+        <result property="status" column="status"/>
+        <result property="plantCount" column="plant_count"/>
+    </resultMap>
+
+    <sql id="AreaSelectColumns">
+        a.id, a.area_code, a.area_name, a.maintainer_id, m.name AS maintainer_name,
+        a.center_latitude, a.center_longitude, a.radius_m, a.boundary_json, a.status,
+        (SELECT COUNT(*) FROM plant p WHERE p.area_id = a.id) AS plant_count
+    </sql>
+
+    <select id="selectAllAreas" resultMap="PlantAreaResultMap">
+        SELECT <include refid="AreaSelectColumns"/>
+        FROM plant_area a
+        LEFT JOIN maintainer m ON m.id = a.maintainer_id
+        ORDER BY a.id ASC
+    </select>
+
+    <select id="selectAreaByCode" resultMap="PlantAreaResultMap">
+        SELECT <include refid="AreaSelectColumns"/>
+        FROM plant_area a
+        LEFT JOIN maintainer m ON m.id = a.maintainer_id
+        WHERE a.area_code = #{areaCode}
+    </select>
+
+    <select id="selectAreaById" resultMap="PlantAreaResultMap">
+        SELECT <include refid="AreaSelectColumns"/>
+        FROM plant_area a
+        LEFT JOIN maintainer m ON m.id = a.maintainer_id
+        WHERE a.id = #{id}
+    </select>
+
+    <insert id="insertOrUpdateArea" parameterType="org.example.demo1.PlantArea" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO plant_area (area_code, area_name, maintainer_id, center_latitude, center_longitude, radius_m)
+        VALUES (#{areaCode}, #{areaName}, #{maintainerId}, #{centerLatitude}, #{centerLongitude}, #{radiusM})
+        ON DUPLICATE KEY UPDATE
+            area_name = VALUES(area_name),
+            maintainer_id = VALUES(maintainer_id),
+            center_latitude = VALUES(center_latitude),
+            center_longitude = VALUES(center_longitude),
+            radius_m = VALUES(radius_m)
+    </insert>
+
+    <update id="updateArea" parameterType="org.example.demo1.PlantArea">
+        UPDATE plant_area
+        SET area_code = #{areaCode},
+            area_name = #{areaName},
+            maintainer_id = #{maintainerId},
+            center_latitude = #{centerLatitude},
+            center_longitude = #{centerLongitude},
+            radius_m = #{radiusM},
+            status = #{status}
+        WHERE id = #{id}
+    </update>
+
+    <update id="clearAreaPlants">
+        UPDATE plant SET area_id = NULL WHERE area_id = #{areaId}
+    </update>
+
+    <delete id="deleteArea">
+        DELETE FROM plant_area WHERE id = #{id}
+    </delete>
+
+</mapper>

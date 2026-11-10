@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-page-node-id="sIqxNmgBD8H5CEKJ9lrq6n">
+<head data-page-node-id="jF31B4TPXtAHs095DNVdEp">
+<meta charset="UTF-8" data-page-node-id="mzArVjCwJezI3NoKwG2i8F">
+<meta name="viewport" content="width=device-width, initial-scale=1" data-page-node-id="hoZDTHneq7T7qTS5wEL6li">
+<title>GreenKeeper · 园区绿植智能管理插件</title>
+<link rel="stylesheet" href="greenkeeper.css" data-page-node-id="RskAIAMLtknPv6RkewOJfN">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: linear-gradient(180deg, #eef5f0 0%, #f7faf8 220px, #f7faf8 100%);
+    color: #1e2a26;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  }
+  .page {
+    max-width: 1320px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 22px 22px 28px;
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+  .page__head { display: flex; align-items: flex-start; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
+  .page__head h1 { margin: 0; font-size: 21px; letter-spacing: .3px; }
+  .page__head p { margin: 5px 0 0; font-size: 13px; color: #64756e; max-width: 720px; line-height: 1.7; }
+  .page__head .spacer { flex: 1 1 auto; }
+  .btn {
+    height: 34px; padding: 0 14px; border-radius: 9px; cursor: pointer;
+    border: 1px solid #dbe4df; background: #fff; color: #1e2a26;
+    font: inherit; font-size: 13px;
+  }
+  .btn:hover { background: #f4f8f5; }
+  .steps {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 10px; margin-bottom: 16px;
+  }
+  .step {
+    background: #fff; border: 1px solid #e3eae6; border-radius: 10px;
+    padding: 10px 13px; font-size: 12.5px; color: #4c5c56; line-height: 1.65;
+  }
+  .step b { display: block; color: #1e2a26; font-size: 13px; margin-bottom: 2px; }
+  #app { flex: 1 1 auto; min-height: 620px; box-shadow: 0 10px 34px rgba(20,45,35,.10); border-radius: 12px; }
+  .page__foot { margin-top: 14px; font-size: 12px; color: #889790; line-height: 1.7; }
+  .page__foot code { background: #eef3f0; padding: 1px 5px; border-radius: 4px; font-size: 11.5px; }
+</style>
+</head>
+<body data-page-node-id="vBiUMzYf6pfDXfRhmBSL14">
+<div class="page" data-page-node-id="HvCrofWzULk9r0ciTGjI7D">
+  <div class="page__head" data-page-node-id="OjXJpQGc69HuYCmsU12nrO">
+    <div data-page-node-id="HKuYOWoQYu2bt3MeahHcXk">
+      <h1 data-page-node-id="5QlV10GKMsGuAepAk8kGo1">园区绿植智能管理</h1>
+      <p data-page-node-id="4CETegduWchTY4MYTifMn4">GreenKeeper.js —— 零依赖的园区绿植可视化管理插件。在平面图上点选位置新增绿植、上传展示照片，按养护周期自动提醒施肥 / 放药 / 修剪，并沉淀完整维护台账。</p>
+    </div>
+    <div class="spacer" data-page-node-id="Myjh3Xf5wv4hoDUT3sBSmD"></div>
+    <button class="btn" id="reset" data-page-node-id="vZ50xNTAYJ5zbVHcvvv3Z7">重置示例数据</button>
+  </div>
+
+  <div class="steps" data-page-node-id="41vB29VTZKgvL9g0MeXHZO">
+    <div class="step" data-page-node-id="MTQdzYZOGNHw2vsY2DhI9D"><b data-page-node-id="wHiq0GoRNYZaTyxtSGVZCA">① 新增绿植</b>点工具栏「新增绿植」，在地图上单击落点，填写档案并上传照片。</div>
+    <div class="step" data-page-node-id="kLBvzF8ExvxCt9H933UeK7"><b data-page-node-id="LfjwGJ9us3LKWTDC9JqTqX">② 养护作业</b>点击地图上的绿植标记，选「施肥 / 放药 / 修剪」记录作业。</div>
+    <div class="step" data-page-node-id="BaQxKjxl2CGGDDif6L1Q1V"><b data-page-node-id="WapRa8TiGh9r8xjxoSC33I">③ 状态预警</b>超过养护周期的植株边框变橙 / 变红，可一眼识别待办。</div>
+    <div class="step" data-page-node-id="wYDpaxMyHFaNYzwMpoxUUb"><b data-page-node-id="agD2Vu4AO5c5W6hfyit1vA">④ 拖拽调整</b>编辑模式下可直接拖动标记改位置，数据自动存本地。</div>
+  </div>
+
+  <div id="app" data-page-node-id="KLF309AjHJ3bJ7dO50kSjT"></div>
+
+  <div class="page__foot" data-page-node-id="r0K5tt02GP2cuWs4e3txEs">
+    数据保存在浏览器 <code data-page-node-id="grd0mBI5INRsvBqG0YgRjV">localStorage</code> 的 <code data-page-node-id="WF4TdAOIuKydp4Sb9PPSZM">greenkeeper.data.v1</code>；点「导出」可下载 JSON 台账，也可用「导入」还原。
+  </div>
+</div>
+
+<script src="greenkeeper.js"></script>
+<script>
+(function () {
+  // 生成相对今天的日期，让示例数据的养护状态始终有层次
+  function d(ago) {
+    var t = new Date();
+    t.setDate(t.getDate() - ago);
+    var m = String(t.getMonth() + 1), day = String(t.getDate());
+    return t.getFullYear() + '-' + (m.length < 2 ? '0' + m : m) + '-' + (day.length < 2 ? '0' + day : day);
+  }
+  function rec(type, ago, operator, amount, note) {
+    return { type: type, date: d(ago), operator: operator, amount: amount, note: note };
+  }
+
+  var seed = [
+    {
+      name: '1号香樟', species: '香樟 Cinnamomum camphora', code: 'YQ-A-001',
+      plantedAt: '2019-03-12', keeper: '张建国', image: 'assets/plant-camphor.svg',
+      note: '主干道行道树，长势良好，树冠完整。',
+      x: 39, y: 63,
+      records: [
+        rec('施肥', 6, '张建国', '有机肥 2.0kg', '环状沟施，覆土浇水'),
+        rec('放药', 18, '李敏', '吡虫啉 25ml', '叶面喷雾，防治蚜虫'),
+        rec('修剪', 36, '王强', '疏枝 3 处', '清理下垂枝与内膛枝')
+      ]
+    },
+    {
+      name: '2号香樟', species: '香樟 Cinnamomum camphora', code: 'YQ-A-002',
+      plantedAt: '2019-03-12', keeper: '张建国', image: 'assets/plant-camphor.svg',
+      note: '需重点补肥，去年冬季轻微冻害。',
+      x: 61, y: 63,
+      records: [
+        rec('施肥', 41, '张建国', '复合肥 1.5kg', '常规追肥'),
+        rec('放药', 52, '李敏', '代森锰锌 40g', '预防炭疽病'),
+        rec('修剪', 74, '王强', '-', '枯枝清理')
+      ]
+    },
+    {
+      name: '中心广场桂花', species: '桂花 Osmanthus fragrans', code: 'YQ-B-010',
+      plantedAt: '2020-09-20', keeper: '李敏', image: 'assets/plant-osmanthus.svg',
+      note: '广场主景树，花期需注意补水。',
+      x: 50, y: 50,
+      records: [
+        rec('施肥', 33, '李敏', '磷钾肥 1.2kg', '花前追肥'),
+        rec('放药', 27, '李敏', '多菌灵 30g', '预防叶斑病'),
+        rec('修剪', 21, '王强', '整形修剪', '调整冠形')
+      ]
+    },
+    {
+      name: '花圃月季', species: '月季 Rosa chinensis', code: 'YQ-C-021',
+      plantedAt: '2023-04-08', keeper: '陈晓', image: 'assets/plant-rose.svg',
+      note: '花境带主要观花品种，注意白粉病。',
+      x: 42, y: 19.5,
+      records: [
+        rec('施肥', 7, '陈晓', '水溶肥 800ml', '灌根 + 叶面喷施'),
+        rec('放药', 13, '陈晓', '戊唑醇 15ml', '防治白粉病'),
+        rec('修剪', 24, '陈晓', '残花修剪', '促二次开花')
+      ]
+    },
+    {
+      name: '环路绿篱', species: '金叶女贞 Ligustrum vicaryi', code: 'YQ-D-100',
+      plantedAt: '2021-05-18', keeper: '绿化一班', image: 'assets/plant-hedge.svg',
+      note: '全长约 180m，分段修剪，尚未建立台账。',
+      x: 20, y: 86,
+      records: []
+    },
+    {
+      name: '景观湖垂柳', species: '垂柳 Salix babylonica', code: 'YQ-E-033',
+      plantedAt: '2018-11-02', keeper: '王强', image: 'assets/plant-camphor.svg',
+      note: '临水乔木，汛期前需检查枝干稳固性。',
+      x: 77.5, y: 25,
+      records: [
+        rec('施肥', 20, '王强', '有机肥 1.0kg', '沿湖岸线施肥'),
+        rec('修剪', 9, '王强', '下垂枝短截', '防枝条触及水面')
+      ]
+    }
+  ];
+
+  var KEY = 'greenkeeper.data.v1';
+  if (localStorage.getItem('greenkeeper.demo.reset') === '1') {
+    localStorage.removeItem(KEY);
+    localStorage.removeItem('greenkeeper.demo.reset');
+  }
+
+  window.gk = new GreenKeeper({
+    container: '#app',
+    mapImage: 'assets/campus-map.svg',
+    storageKey: KEY,
+    seed: seed,
+    editable: true,
+    careRules: [
+      { type: '施肥', interval: 30, icon: 'fertilize', color: '#d98613' },
+      { type: '放药', interval: 45, icon: 'pesticide', color: '#7c6cf0' },
+      { type: '修剪', interval: 60, icon: 'prune', color: '#2f9e63' }
+    ],
+    onChange: function (plants) {
+      // 可在此处同步到后端，例如：
+      // fetch('/api/greenery/sync', { method:'POST', body: JSON.stringify(plants) })
+      void plants;
+    }
+  });
+
+  document.getElementById('reset').addEventListener('click', function () {
+    localStorage.setItem('greenkeeper.demo.reset', '1');
+    location.reload();
+  });
+})();
+</script>
+</body>
+</html>
