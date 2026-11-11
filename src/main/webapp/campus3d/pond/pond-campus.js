@@ -27,18 +27,18 @@
   const zoneId = VARIANTS[Q.get("zone")] ? Q.get("zone") : "cuihu_water";
   const V = VARIANTS[zoneId];
 
-  // ---------------- 设备分级 ----------------
-  const ua = navigator.userAgent || "";
-  const mobile = /Android|iPhone|iPad|iPod|Mobile|HarmonyOS/i.test(ua) || (navigator.maxTouchPoints > 1 && Math.min(screen.width, screen.height) < 820);
-  const weak = (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4) || (navigator.deviceMemory && navigator.deviceMemory <= 4);
+  // ---------------- 画质档（与校园全景共用：js/pond-style.js → PondQuality，“清晰 / 流畅”） ----------------
+  // 清晰 = High（像素比 min(dpr,2)、SSAO/体积光/景深）；流畅 = Low（像素比 min(dpr,1.25)、关闭这些特效）。
+  // 未手动选择时：手机默认流畅，电脑默认清晰，之后按实测帧率自动降档（不再因 ≤4 核就默认低画质）。
   const test = Q.get("test") === "1";
-  const qp = (Q.get("quality") || "").toLowerCase();
-  const lowPower = qp === "low" || test || (qp !== "high" && (mobile || weak));
+  const smooth = PondQuality.mode === "smooth";
+  const lowPower = test || smooth;
+  if (test && !smooth) PondQuality.set("smooth", false);   // 自动化测试固定低画质：切换按钮同步显示“流畅”（不写入本地设置）
   window.CAMPUS_POND = Object.assign({}, V, {
     zone: zoneId, test, lowPower,
-    quality: qp === "high" ? "High" : lowPower ? "Low" : "High",
-    maxDpr: lowPower ? 1.25 : 1.6,        // 始终 ≤ 2
-    simN: lowPower ? 128 : 256,            // 水面涟漪模拟网格
+    quality: (Q.get("quality") || "").toLowerCase() === "high" || !lowPower ? "High" : "Low",
+    maxDpr: smooth ? 1.25 : 2,             // 高：min(devicePixelRatio, 2)
+    simN: PondQuality.mobile || smooth ? 128 : 256,   // 水面涟漪模拟网格
   });
 
   // ---------------- 工具 ----------------
@@ -91,32 +91,8 @@
 
   // ---------------- 天气 → 场景预设 ----------------
   // 主页的 WMO 天气类型 + 季节 → koi 场景已有预设（晴 Sunny / 雨 Rain / 秋 Autumn / 冬雪 Winter）再叠加云量、雾
-  function campusPreset(kind, season) {
-    const P0 = WX_PRESETS;
-    const rainy = ["drizzle", "rain", "heavyrain", "thunder"].indexOf(kind) >= 0;
-    let baseName = "Sunny";
-    if (kind === "snow") baseName = "Winter";
-    else if (rainy) baseName = "Rain";
-    else if (season === "autumn") baseName = "Autumn";
-    else if (season === "winter") baseName = "Autumn";
-    const p = JSON.parse(JSON.stringify(P0[baseName]));
-    let label = { Sunny: "晴", Rain: "雨", Autumn: "秋日晴", Winter: "冬雪" }[baseName];
-    if (season === "winter" && baseName === "Autumn") { Object.assign(p, { autumn: 0.75, cloud: 0.75, overcast: 0.35, sunMul: 0.55, hemiMul: 1.4, fog: 0.018, fogCol: [0.55, 0.58, 0.62], grade: [0.97, 1.0, 1.04], expo: 1.0 }); label = "冬日"; }
-    if (season === "summer" && baseName === "Sunny") { Object.assign(p, { cloud: 0.45, grade: [1.03, 1.0, 0.95] }); }
-    if (rainy && season === "autumn") p.autumn = 1;
-    if (rainy && season === "winter") p.autumn = 0.75;
-    if (kind === "partly") { p.cloud = Math.max(p.cloud, 0.65); label = season === "autumn" ? "秋日少云" : "少云"; }
-    if (kind === "cloudy") { Object.assign(p, { cloud: 0.88, overcast: Math.max(p.overcast, 0.35), sunMul: Math.min(p.sunMul, 0.6), hemiMul: Math.max(p.hemiMul, 1.35) }); label = "多云"; }
-    if (kind === "overcast") { Object.assign(p, { cloud: 1, overcast: 0.75, sunMul: 0.25, hemiMul: 1.9, cloudBright: 0.75, fog: Math.max(p.fog, 0.014), fogCol: [0.42, 0.45, 0.48], expo: 1.05 }); label = "阴"; }
-    if (kind === "fog") { Object.assign(p, { cloud: 0.9, overcast: 0.7, sunMul: 0.3, hemiMul: 1.8, fog: 0.06, fogCol: [0.62, 0.65, 0.67], expo: 1.05 }); label = "雾"; }
-    if (kind === "drizzle") { p.rain = 0.45; label = "毛毛雨"; }
-    if (kind === "heavyrain") { label = "大雨"; p.wind = 0.75; }
-    if (kind === "thunder") { label = "雷阵雨"; p.wind = 0.85; p.cloudBright = 0.4; }
-    if (kind === "snow") label = "雪";
-    const letter = kind === "snow" || season === "winter" ? "W" : season === "autumn" ? "A" : rainy ? "R" : "S";
-    p.label = label; p.silent = true;
-    return { p, letter, label };
-  }
+  // WMO 天气类型 + 季节 → 场景预设：与校园全景共用（js/pond-style.js → pondWeatherPreset）
+  const campusPreset = (kind, season) => pondWeatherPreset(kind, season);
   // 手动预设（演示面板 / dat.gui / T 键）：晴 Sunny / 雨 Rain / 秋 Autumn / 冬雪 Winter
   const PRESET_TO_DEMO = { Sunny: { w: "0", s: "summer" }, Rain: { w: "61", s: "auto" }, Autumn: { w: "0", s: "autumn" }, Winter: { w: "71", s: "winter" } };
 
@@ -212,9 +188,28 @@
     syncDemoForm();
     if (Q.get("demo") === "1") toggleDemo(true);
 
+    // 画质：清晰 / 流畅（两页共用）
+    const gfx = PondQuality.button(); gfx.id = "cp-gfx"; gfx.classList.add("cp-gfx");
+    document.body.appendChild(gfx);
+    PondQuality.onChange((mode, explicit) => applyGfx(mode, explicit));
+
     // 高级参数（dat.gui）放到左侧，避免与右侧生态面板重叠
     const dg = document.querySelector(".dg.ac"); if (dg) dg.classList.add("cp-dg");
     const loader = $("loader"); if (loader) loader.classList.add("cp-loader");
+  }
+  function applyGfx(mode, explicit) {
+    if (explicit) P.autoQuality = false;          // 手动选了就不再自动降档
+    if (mode === "clear") {
+      RES.scale = 1; P.ssao = P.godRays = P.dof = true; P.bloomStrength = 0.3; window.setQuality("High", true);
+    } else {
+      P.ssao = P.godRays = P.dof = false; P.bloomStrength = 0.22; window.setQuality("Low", true);
+    }
+    for (const k of ["ssao", "god", "bloom", "quality"]) if (window.GUI_CTRL && GUI_CTRL[k]) GUI_CTRL[k].updateDisplay();
+  }
+  // 自动降档时的提示：带“恢复清晰”按钮（恢复后本页不再自动降档）
+  function degraded(msg) {
+    PondQuality.set("smooth", false);
+    PondQuality.degradeToast(msg, () => {});
   }
   function syncDemoForm() {
     if (!$("cpd-weather")) return;
@@ -324,6 +319,9 @@
     envT -= dt; if (envT <= 0) { envT = state.speed > 1 ? 0.2 : 1; applyEnv(); }
     const out = $("cpd-time-out");
     if (out) { const h = currentBJ().hours, hh = Math.floor(h), mm = Math.floor((h - hh) * 60); out.textContent = String(hh).padStart(2, "0") + ":" + String(mm).padStart(2, "0"); }
+    // 抚摸 / 喂食特写时暂时淡出两侧面板，避免挡住手和锦鲤
+    const closeup = (typeof STROKE !== "undefined" && STROKE.active) || (typeof FEED !== "undefined" && FEED.active);
+    if (closeup !== document.body.classList.contains("cp-closeup")) document.body.classList.toggle("cp-closeup", closeup);
     frames++; statT += dt; window.__pondFrames = (window.__pondFrames || 0) + 1;
     if (statT > 1 && !$("cp-demo").hidden) {
       $("cpd-stats").textContent = "帧率 " + (frames / statT).toFixed(0) + " fps · 画质 " + (P.quality === "High" ? "高" : "低") + " · 像素比 " + renderer.getPixelRatio().toFixed(2) + " · 水面网格 " + window.CAMPUS_POND.simN + "² · 锦鲤 " + P.fishCount + " 条";
@@ -341,5 +339,5 @@
   }
   function ready() { document.body.classList.add("cp-ready"); window.__pondReady = true; }
 
-  window.PondCampus = { setEnv, init, update, ready, toggleDemo, cycleWeather, setPreset, flyToSpecies, state, backUrl, applyEnv };
+  window.PondCampus = { setEnv, init, update, ready, toggleDemo, cycleWeather, setPreset, flyToSpecies, state, backUrl, applyEnv, degraded, applyGfx };
 })();
