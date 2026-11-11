@@ -119,57 +119,53 @@
     if (CFG.systemUrl) { b.hidden = false; b.textContent = "直接进入管理系统"; b.onclick = () => (location.href = CFG.systemUrl); }
   }
 
+  // three 与池塘细节场景统一为 r160；pond-style-core.js / pond-style.js 为两边共用的池塘画风（纹理、天空、光照、色调、植被、画质档）
   const SCRIPTS = [
-    ["lib/three.classic.min.js", 45, "加载三维引擎…"],
-    ["lib/OrbitControls.classic.js", 3, "加载交互控件…"],
-    ["lib/GLTFLoader.classic.js", 6, "加载模型解析器…"],
-    ["js/campus-info.js", 2, "加载校园资料…"],
-    ["js/campus-scene.js", 3, "加载校园底图…"],
-    ["js/eco-weather.js", 2, "加载天气模块…"],
-    ["js/eco-life.js", 4, "加载生态动态层…"],
+    ["lib/three-r160.min.js", 30, "加载三维引擎…"],
+    ["lib/OrbitControls.classic.js", 2, "加载交互控件…"],
+    ["lib/GLTFLoader.classic.js", 3, "加载模型解析器…"],
+    ["js/pond-style-core.js", 3, "加载池塘画风（共享）…"],
+    ["js/pond-style.js", 1, "加载光照与画质设置…"],
+    ["js/campus-info.js", 1, "加载校园资料…"],
+    ["js/campus-look.js", 2, "加载渲染层…"],
+    ["js/campus-scene.js", 2, "加载校园底图…"],
+    ["js/eco-weather.js", 1, "加载天气模块…"],
+    ["js/eco-life.js", 2, "加载生态动态层…"],
   ];
   let acc = 0;
   SCRIPTS.reduce((p, [src, w, msg]) => p.then(() => { progress(acc, msg); return loadScript(BASE + src).then(() => { acc += w; progress(acc); }); }), Promise.resolve())
     .then(() => { progress(acc, "加载校园布局与生态板块…"); return Promise.all([fetchJSON(BASE + "data/campus_layout.json"), fetchJSON(BASE + "data/zones.json")]); })
-    .then(([layout, zones]) => { progress(72, "生成三维校园…"); return new Promise((r) => setTimeout(() => r([layout, zones]), 30)); })
+    .then(([layout, zones]) => { progress(50, "生成三维校园…"); return new Promise((r) => setTimeout(() => r([layout, zones]), 30)); })
     .then(([layout, zones]) => start(layout, zones.zones || []))
     .catch(fail);
 
   // ================================================================
-  function start(L, ZONES) {
+  async function start(L, ZONES) {
     const THREE = window.THREE;
     const WX = window.EcoWeather;
     // WebGL 检测
     let renderer;
     try {
       const c = document.createElement("canvas");
-      if (!(c.getContext("webgl2") || c.getContext("webgl"))) throw new Error("浏览器不支持 WebGL");
-      renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+      if (!c.getContext("webgl2")) throw new Error("浏览器不支持 WebGL 2");
+      renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance", stencil: false });
     } catch (e) { fail(new Error("此设备无法显示三维场景（" + e.message + "）")); return; }
-    let maxPR = Math.min(window.devicePixelRatio || 1, 2);
-    if (params.get("pr")) maxPR = Math.min(2, parseFloat(params.get("pr")) || 1);
-    renderer.setPixelRatio(maxPR);
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     const stage = $("eco-stage");
     stage.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
-    scene.fog = new THREE.Fog("#cfe3f2", 1100, 3400);
     const camera = new THREE.PerspectiveCamera(42, 1, 2, 12000);
-    const hemi = new THREE.HemisphereLight("#ffffff", "#6d7c5a", 1.4);
-    scene.add(hemi);
-    const sun = new THREE.DirectionalLight("#fff4e0", 2.6);
-    sun.castShadow = true;
-    sun.shadow.mapSize.set(2048, 2048);
-    Object.assign(sun.shadow.camera, { left: -470, right: 470, top: 470, bottom: -470, near: 10, far: 2000 });
-    sun.shadow.bias = -0.0008;
-    sun.shadow.normalBias = 0.6;
-    scene.add(sun, sun.target);
-
-    const campus = window.EcoCampus.build(scene, L, { sculptureUrl: BASE + "models/sculpture_ai.glb" });
+    // 池塘画风渲染层：天空、太阳/月光、IBL、雾、阴影、水面反射、后期（清晰档）——与池塘细节场景共用同一套参数
+    const look = window.EcoLook.create({ renderer, scene, camera, quality: PondQuality.mode, waterLevel: 0.35 });
+    // 与池塘相同的程序化纹理（草地、花岗岩、卵石、木纹、树皮、灰瓦、水面法线、叶片卡）
+    pondStyleProgress = async (f, msg) => { progress(50 + f * 22, msg); await new Promise((r) => setTimeout(r, 0)); };
+    await buildTextures();
+    progress(74, "生成三维校园…");
+    await new Promise((r) => setTimeout(r, 0));
+    const campus = window.EcoCampus.build(scene, L, { look, sculptureUrl: BASE + "models/sculpture_ai.glb" });
     progress(84, "唤醒小动物与花草树木…");
-    const life = window.EcoLife.create(scene, campus, { zones: ZONES, renderer, layout: L });
+    await new Promise((r) => setTimeout(r, 0));
+    const life = window.EcoLife.create(scene, campus, { zones: ZONES, renderer, layout: L, look });
     progress(92, "划分生态板块…");
 
     // ---------------- 生态板块 ----------------
@@ -179,15 +175,16 @@
     const listEl = $("eco-zone-list");
     ZONES.forEach((z) => {
       const shape = campus.shapeOf(z.polygon);
-      const fillMat = new THREE.MeshBasicMaterial({ color: z.color, transparent: true, opacity: 0.0, depthWrite: false, fog: false });
+      const fillMat = new THREE.MeshBasicMaterial({ color: z.color, transparent: true, opacity: 0.0, depthWrite: false, fog: false, toneMapped: false });
       const g = new THREE.ShapeGeometry(shape); g.rotateX(-Math.PI / 2);
       const fillMesh = new THREE.Mesh(g, fillMat); fillMesh.position.y = 1.1; fillMesh.renderOrder = 1;
       scene.add(fillMesh);
       const pts = z.polygon.map((p) => { const [x, zz] = PX(p); return new THREE.Vector3(x, 1.4, zz); });
-      const lineMat = new THREE.LineDashedMaterial({ color: z.color, dashSize: 6, gapSize: 4, transparent: true, opacity: 0.75, fog: false });
+      const lineMat = new THREE.LineDashedMaterial({ color: z.color, dashSize: 6, gapSize: 4, transparent: true, opacity: 0.75, fog: false, toneMapped: false });
       const line = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(pts), lineMat);
       line.computeLineDistances();
       scene.add(line);
+      look.noReflect.push(fillMesh, line);
       const [cx, cz] = PX(z.center);
       const lab = el("button", "eco-zlabel", '<span class="eco-zi">' + esc(z.icon || "🌿") + "</span><span>" + esc(z.name) + "</span>");
       lab.type = "button";
@@ -353,7 +350,8 @@
     }
 
     // ---------------- 拾取：建筑优先，其次板块 ----------------
-    const ray = new THREE.Raycaster(), ndc = new THREE.Vector2(), groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -1), hitP = new THREE.Vector3();
+    const ray = new THREE.Raycaster(); ray.layers.enable(campus.PICK_LAYER);   // 建筑拾取网格在单独图层（不渲染）
+    const ndc = new THREE.Vector2(), groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -1), hitP = new THREE.Vector3();
     function setNDC(e) { const r = renderer.domElement.getBoundingClientRect(); ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1); ray.setFromCamera(ndc, camera); }
     function groundPx() { if (!ray.ray.intersectPlane(groundPlane, hitP)) return null; return [hitP.x / campus.S + 1024, hitP.z / campus.S + 999]; }
     const buildingPicks = campus.pickables;
@@ -472,34 +470,9 @@
       clearTimeout(toast._t); toast._t = setTimeout(() => (t.hidden = true), 3800);
     }
 
-    // ---------------- 昼夜 / 天气 -> 场景 ----------------
-    const C = (h) => new THREE.Color(h);
-    const SKY_KEYS = [ // [太阳高度, 天顶, 地平线, 光色]
-      [-14, C("#040916"), C("#0d1a33"), C("#8fa3d6")],
-      [-6, C("#0f1d43"), C("#3b3f66"), C("#8fa3d6")],
-      [-2, C("#28407a"), C("#e0805e"), C("#ff9a62")],
-      [3, C("#4b78bf"), C("#ffbc86"), C("#ffc58a")],
-      [12, C("#3f82d4"), C("#c4dcef"), C("#fff0d8")],
-      [40, C("#2a6fcf"), C("#d3e7f6"), C("#fff6e8")],
-    ];
-    const cTop = new THREE.Color(), cHor = new THREE.Color(), cLight = new THREE.Color(), grey = new THREE.Color();
-    function skyAt(el) {
-      let a = SKY_KEYS[0], b = SKY_KEYS[SKY_KEYS.length - 1];
-      if (el <= a[0]) { cTop.copy(a[1]); cHor.copy(a[2]); cLight.copy(a[3]); return; }
-      if (el >= b[0]) { cTop.copy(b[1]); cHor.copy(b[2]); cLight.copy(b[3]); return; }
-      for (let i = 0; i < SKY_KEYS.length - 1; i++) {
-        if (el >= SKY_KEYS[i][0] && el <= SKY_KEYS[i + 1][0]) {
-          const k = (el - SKY_KEYS[i][0]) / (SKY_KEYS[i + 1][0] - SKY_KEYS[i][0]);
-          cTop.copy(SKY_KEYS[i][1]).lerp(SKY_KEYS[i + 1][1], k);
-          cHor.copy(SKY_KEYS[i][2]).lerp(SKY_KEYS[i + 1][2], k);
-          cLight.copy(SKY_KEYS[i][3]).lerp(SKY_KEYS[i + 1][3], k);
-          return;
-        }
-      }
-    }
-    const groundBase = campus.groundMats.map((m) => m.color.clone());
-    const sunDir = new THREE.Vector3();
-    let envCache = null;
+    // ---------------- 昼夜 / 天气 -> 场景（池塘画风：pondWeatherPreset + pondSunLight，见 campus-look.js） ----------------
+    const ss = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+    let envCache = null, firstEnv = true;
     function applyEnvironment(dtReal) {
       if (!state.timeAuto && state.speed > 1) { state.demoHours = (state.demoHours + (dtReal * state.speed) / 3600) % 24; $("d-time").value = state.demoHours; }
       else if (state.timeAuto && state.speed > 1) state.simOffsetMs += dtReal * 1000 * (state.speed - 1);
@@ -509,60 +482,20 @@
       if (season !== state.season || nightNow !== state.lastNight) { state.season = season; state.lastNight = nightNow; renderWeatherCard(); }
       const sp = WX.sunPosition(bj.doy, bj.hours);
       const el = sp.elevation;
-      sunDir.set(sp.dir[0], sp.dir[1], sp.dir[2]).normalize();
       const w = weatherNow();
       const d = WX.describe(w.code);
-      const snow = season === "winter" || d.snow > 0 ? d.snow : 0;
-      const env = { cloud: d.cloud, rain: d.rain, snow: d.kind === "snow" ? Math.max(snow, 0.8) : 0, fog: d.fog, thunder: d.thunder, wind: w.wind || 8, season };
-      // 平滑过渡，避免切换天气时跳变
+      const snow = d.kind === "snow" ? Math.max(d.snow, 0.8) : 0;
+      const env = { cloud: d.cloud, rain: d.rain, snow, fog: d.fog, thunder: d.thunder, wind: w.wind || 8, season };
+      // 平滑过渡，避免切换天气时跳变（粒子量等）
       if (!envCache) envCache = Object.assign({}, env);
       ["cloud", "rain", "snow", "fog"].forEach((k) => (envCache[k] += (env[k] - envCache[k]) * Math.min(1, dtReal * 0.8)));
       envCache.thunder = env.thunder; envCache.wind = env.wind; envCache.season = season;
       const E = envCache;
-      const night = THREE.MathUtils.clamp((2 - el) / 10, 0, 1);
-      const day = THREE.MathUtils.clamp((el + 2) / 14, 0, 1);
-      skyAt(el);
-      // 阴雨：天空去饱和、变暗
-      const overcast = Math.max(E.cloud - 0.35, 0) / 0.65;
-      const dim = 1 - 0.35 * E.rain - 0.15 * overcast;
-      grey.setScalar((cHor.r + cHor.g + cHor.b) / 3);
-      cTop.lerp(grey, overcast * 0.75).multiplyScalar(dim);
-      cHor.lerp(grey, overcast * 0.6).multiplyScalar(dim);
-      const fogCol = cHor.clone().lerp(new THREE.Color(0.75, 0.77, 0.78).multiplyScalar(0.25 + 0.75 * day), 0.5);
-      const flash = life.flash;
-      const su = life.skyUniforms;
-      su.topColor.value.copy(cTop).addScalar(flash * 0.35);
-      su.horizonColor.value.copy(cHor).addScalar(flash * 0.25);
-      su.bottomColor.value.copy(cHor).multiplyScalar(0.8);
-      su.sunDir.value.copy(sunDir);
-      su.sunColor.value.copy(cLight);
-      su.sunVis.value = THREE.MathUtils.clamp((el + 1.5) / 3, 0, 1) * (1 - overcast * 0.95) * (1 - E.fog * 0.9);
-      su.glow.value = (0.4 + 0.6 * (1 - overcast)) * THREE.MathUtils.clamp((el + 8) / 8, 0, 1) * (1 - E.fog * 0.7);
-      su.moonVis.value = night * (1 - overcast) * (1 - E.fog);
-      su.fogColor.value.copy(fogCol);
-      su.fogAmt.value = E.fog * 0.85;
-      // 雾
-      scene.fog.color.copy(E.fog > 0.3 ? fogCol : cHor);
-      scene.fog.near = THREE.MathUtils.lerp(1500, 40, E.fog) * (1 - E.rain * 0.4);
-      scene.fog.far = THREE.MathUtils.lerp(5600, 520, E.fog) * (1 - E.rain * 0.45);
-      // 光照
-      const sunUp = THREE.MathUtils.clamp(el / 12, 0, 1);
-      const lightDir = el > -4 ? sunDir : sunDir.clone().negate(); // 夜间用“月光”方向
-      sun.position.copy(controls.target).addScaledVector(lightDir.y < 0.12 ? new THREE.Vector3(lightDir.x, 0.12, lightDir.z).normalize() : lightDir, 900);
-      sun.target.position.copy(controls.target);
-      sun.color.copy(el > -4 ? cLight : C("#9fb4ff"));
-      sun.intensity = (el > -4 ? 0.15 + 2.6 * sunUp * (1 - 0.65 * overcast) * (1 - 0.5 * E.fog) : 0.28 * (1 - overcast)) + flash * 2;
-      sun.castShadow = sun.intensity > 0.35;
-      hemi.intensity = 0.28 + 1.15 * day * (1 - 0.2 * overcast) + flash * 1.5;
-      hemi.color.copy(day > 0.3 ? C("#ffffff") : C("#8fa3d6"));
-      // 雨雪：地面变暗/泛白
-      const wet = E.rain * 0.4;
-      campus.groundMats.forEach((m, i) => {
-        m.color.copy(groundBase[i]).multiplyScalar(1 - wet);
-        if (E.snow > 0.05) m.color.lerp(C("#eef2f5"), E.snow * 0.55);
-      });
-      renderer.toneMappingExposure = 1;
-      life.setEnvironment({ night, cloud: E.cloud, rain: E.rain, snow: E.snow, fog: E.fog, thunder: E.thunder, wind: E.wind, season });
+      const night = ss(2, -8, el);   // 与池塘相同：太阳高度 < -2° 进入夜晚，-8° 完全入夜
+      look.setEnvironment({ elevDeg: el, dir: sp.dir, night, kind: d.kind, season, flash: life.flash, windKmh: w.wind || 8, immediate: firstEnv }, dtReal);
+      firstEnv = false;
+      state.sceneLabel = look.state.label;
+      life.setEnvironment({ night, cloud: E.cloud, rain: E.rain, snow: E.snow, fog: E.fog, thunder: E.thunder, wind: E.wind, season, letter: look.state.letter });
       // 时钟
       const pad = (n) => String(n).padStart(2, "0");
       $("d-time-out").textContent = pad(bj.h) + ":" + pad(bj.mi) + (state.timeAuto ? "（北京时间）" : "（演示）");
@@ -593,21 +526,21 @@
       mark.style.setProperty("--a", (Math.atan2(-dx, dz) * 180) / Math.PI + "deg");
     }
 
-    function resize() {
-      const w = stage.clientWidth, h = stage.clientHeight;
-      if (!w || !h) return;
-      renderer.setSize(w, h, false);
-      camera.aspect = w / h;
-      camera.updateProjectionMatrix();
-    }
+    function resize() { look.resize(); }
     new ResizeObserver(resize).observe(stage);
     resize();
 
-    // ---------------- 主循环 + 自适应像素比 ----------------
+    // ---------------- 画质：清晰 / 流畅（与池塘共用 PondQuality；未手动选择时按实测帧率自动降档） ----------------
+    const gfx = PondQuality.button(); gfx.id = "eco-gfx";
+    document.querySelector(".eco-toolbar").appendChild(gfx);
+    PondQuality.onChange((mode) => { look.setQuality(mode); life.setQuality(mode); });
+
+    // ---------------- 主循环 ----------------
     const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
-    let last = performance.now(), t0 = last, frames = 0, fpsT = last, fps = 60, lowFor = 0;
+    let last = performance.now(), t0 = last, frames = 0, fpsT = last, fps = 60, lowFor = 0, sinceStart = 0;
     let envTimer = 0;
-    window.__eco = { state, camera, controls, scene, renderer, life, campus, selectZone, selectItem, get fps() { return fps; } };
+    const renderStats = { calls: 0, triangles: 0 };
+    window.__eco = { state, camera, controls, scene, renderer, life, campus, look, selectZone, selectItem, renderStats, get fps() { return fps; } };
     function tick(now) {
       const dt = Math.min(0.1, (now - last) / 1000);
       last = now;
@@ -628,23 +561,31 @@
         }
       }
       controls.update();
+      camera.updateMatrixWorld();
       envTimer -= dt;
       if (envTimer <= 0) { applyEnvironment(0.25 + Math.max(0, -envTimer)); envTimer = 0.25; } // 环境每 0.25 秒更新一次足够平滑
       life.update(dt, t, camera, controls.target);
-      renderer.render(scene, camera);
+      renderer.info.autoReset = false; renderer.info.reset();
+      look.render(dt, t, controls.target);
+      renderStats.calls = renderer.info.render.calls; renderStats.triangles = renderer.info.render.triangles;
       placeLabels();
       frames++;
       if (now - fpsT > 1000) {
+        sinceStart += (now - fpsT) / 1000;
         fps = (frames * 1000) / (now - fpsT); frames = 0; fpsT = now;
-        // 连续 3 秒低于 35fps 时自动降低像素比
-        if (fps < 35 && renderer.getPixelRatio() > 1) { if (++lowFor >= 3) { renderer.setPixelRatio(Math.max(1, renderer.getPixelRatio() - 0.5)); resize(); lowFor = 0; } }
-        else lowFor = 0;
-        if (!demo.hidden) $("d-stats").textContent = "帧率 " + fps.toFixed(0) + " fps · 像素比 " + renderer.getPixelRatio() + " · 树 " + life.stats.trees + " · 路灯 " + life.stats.lamps + " · 鸟 " + life.stats.birds;
+        // 未手动选择画质时：连续 4 秒低于 40 fps 自动切到“流畅”，提示里可一键恢复清晰
+        if (!PondQuality.explicit && PondQuality.mode === "clear" && sinceStart > 6 && document.visibilityState === "visible") {
+          if (fps < 40) { if (++lowFor >= 4) { lowFor = 0; PondQuality.set("smooth", false); PondQuality.degradeToast("帧率偏低，已自动切换到“流畅”画质"); } }
+          else lowFor = 0;
+        }
+        if (!demo.hidden) $("d-stats").textContent = "帧率 " + fps.toFixed(0) + " fps · 画质 " + (look.quality === "clear" ? "清晰" : "流畅") + " · 像素比 " + renderer.getPixelRatio().toFixed(2) +
+          " · draw calls " + renderStats.calls + " · 三角形 " + (renderStats.triangles / 1000).toFixed(0) + "k · 树 " + life.stats.trees + "（近 " + life.stats.lod.near + "）· 路灯 " + life.stats.lamps + " · 鸟 " + life.stats.birds;
       }
       requestAnimationFrame(tick);
     }
     applyEnvironment(0);
     renderWeatherCard();
+    look.updateEnv();
     renderer.compile(scene, camera);
     progress(100, "生态校园已就绪");
     requestAnimationFrame(tick);
