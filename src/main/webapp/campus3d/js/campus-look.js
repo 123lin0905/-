@@ -271,7 +271,7 @@ void main(){
   c = toSRGB(c);
   c += (h12(gl_FragCoord.xy + fract(uTime * 13.7) * 311.0) - 0.5) * uGrain * 2.0;
   gl_FragColor = vec4(c, 1.0);
-}`, { tColor: { value: null }, tBloom: { value: null }, uExposure: { value: 0.9 }, uBloom: { value: 0.12 }, uVignette: { value: 0.32 }, uGrain: { value: 0.01 },
+}`, { tColor: { value: null }, tBloom: { value: null }, uExposure: { value: 0.9 }, uBloom: { value: 0.06 }, uVignette: { value: 0.32 }, uGrain: { value: 0.01 },
       uTime: U.uTime, uAspect: { value: 1 }, uGrade: { value: new THREE.Vector3(1.035, 1, 0.955) } });
     function fsPass(mat, target) { FS_QUAD.material = mat; renderer.setRenderTarget(target); renderer.render(FS_SCENE, FS_CAM); }
     function buildPost(w, h) {

@@ -100,8 +100,8 @@ const PondQuality = (function () {
     const s = document.createElement("style"); s.id = "pq-css";
     s.textContent = [
       ".pq-toggle{display:inline-flex;align-items:center;gap:2px;padding:3px;border-radius:999px;background:rgba(12,20,18,.45);border:1px solid rgba(255,255,255,.16);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);font:12px/1 system-ui,-apple-system,'PingFang SC','Microsoft YaHei',sans-serif;color:#e6ede8}",
-      ".pq-toggle span{padding:0 6px;opacity:.75}",
-      ".pq-toggle button{all:unset;cursor:pointer;padding:6px 10px;border-radius:999px;color:#cfe0d8}",
+      ".pq-toggle span{padding:0 6px;opacity:.75;white-space:nowrap}",
+      ".pq-toggle button{all:unset;cursor:pointer;white-space:nowrap;padding:6px 10px;border-radius:999px;color:#cfe0d8}",
       ".pq-toggle button.is-on{background:rgba(228,122,61,.9);color:#fff}",
       ".pq-toast{position:fixed;left:50%;bottom:86px;transform:translateX(-50%);z-index:60;display:flex;gap:12px;align-items:center;padding:10px 12px 10px 16px;border-radius:12px;background:rgba(14,22,20,.82);border:1px solid rgba(255,255,255,.14);color:#e6ede8;font:13px/1.4 system-ui,-apple-system,'PingFang SC','Microsoft YaHei',sans-serif;box-shadow:0 8px 30px rgba(0,0,0,.35)}",
       ".pq-toast button{all:unset;cursor:pointer;padding:6px 12px;border-radius:8px;background:#e47a3d;color:#fff;font-weight:600}",

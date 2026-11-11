@@ -586,6 +586,7 @@
     applyEnvironment(0);
     renderWeatherCard();
     look.updateEnv();
+    life.refreshLOD(camera.position);   // 首帧就分配好近处树 / 远处公告板（否则要等第一次 0.25 秒 LOD 更新，慢设备上首屏没有树）
     renderer.compile(scene, camera);
     progress(100, "生态校园已就绪");
     requestAnimationFrame(tick);
