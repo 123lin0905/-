@@ -96,6 +96,5 @@ body.campus-pond:not(.cp-ready) .cp-zone, body.campus-pond:not(.cp-ready) .cp-ec
 body.campus-pond:not(.cp-ready) .cp-gfx { opacity: 0; }
 @media (max-width: 720px) { .cp-gfx { left: auto; right: 14px; } }
 
-/* 抚摸 / 喂食特写：两侧面板淡出 */
-.cp-zone, .cp-eco { transition: opacity .4s ease; }
-body.cp-closeup .cp-zone, body.cp-closeup .cp-eco { opacity: 0; pointer-events: none; }
+/* 抚摸 / 喂食特写：两侧面板立即隐藏，结束后淡入 */
+body.cp-closeup .cp-zone, body.cp-closeup .cp-eco { opacity: 0; pointer-events: none; transition: none; }
