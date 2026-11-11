@@ -126,21 +126,24 @@ function genSurface(size, fn, normalStrength) {
 
 const TEX = {};
 async function buildTextures() {
+  await pondTexCache.open();
+  try {
   const S = 256;
 
-  // --- Water detail normal: tileable FBM ripples
-  {
+  // --- Water detail normal: tileable FBM ripples（命中缓存时跳过生成）
+  if (!pondTexRestore('waterNormal')) {
     const N = 512, H = new Float32Array(N * N);
     for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
       const u = x / N, v = y / N;
       H[y * N + x] = fbm2P(u * 8, v * 8, 8, 5, 11, 0.55) * 0.6 + fbm2P(u * 16 + 3.1, v * 16, 16, 3, 29) * 0.25;
     }
     TEX.waterNormal = dataTex(heightToNormal(H, N, N, 26), N, N, false);
+    pondTexRecord('waterNormal', TEX.waterNormal);
   }
   await pondStyleProgress(0.08, '生成水面波纹');
 
-  // --- Caustics: Voronoi cell-edge network, softened (two copies are multiplied in-shader)
-  {
+  // --- Caustics: Voronoi cell-edge network（命中缓存时跳过生成）
+  if (!pondTexRestore('caustics')) {
     const N = 512, data = new Uint8Array(N * N * 4); let sum = 0;
     for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
       const u = x / N * 7, v = y / N * 7;
@@ -154,12 +157,13 @@ async function buildTextures() {
     }
     TEX.caustics = dataTex(data, N, N, false);
     TEX.causticMean = sum / (N * N);
+    pondTexRecord('caustics', TEX.caustics, { mean: TEX.causticMean });
   }
   await pondStyleProgress(0.16, '生成水下焦散');
 
   // --- Granite: speckled feldspar/quartz/biotite with subtle grain
   {
-    TEX.granite = genSurface(512, (u, v) => {
+    TEX.granite = genSurfaceCached('granite', 512, (u, v) => {
       const base = fbm2P(u * 6, v * 6, 6, 4, 101) * 0.5 + 0.5;
       const sp = hash3i(Math.floor(u * 512), Math.floor(v * 512), 7, 3);
       const sp2 = fbm2P(u * 96, v * 96, 96, 2, 7) * 0.5 + 0.5;
@@ -170,7 +174,7 @@ async function buildTextures() {
       const h = base * 0.4 + sp2 * 0.5 + sp * 0.1;
       return [c[0], c[1], c[2], h, 0.78];
     }, 5);
-    TEX.boulder = genSurface(512, (u, v) => {
+    TEX.boulder = genSurfaceCached('boulder', 512, (u, v) => {
       const b = fbm2P(u * 5, v * 5, 5, 5, 211) * 0.5 + 0.5;
       const f = fbm2P(u * 40, v * 40, 40, 3, 17) * 0.5 + 0.5;
       const lich = smoothstep(0.62, 0.72, fbm2P(u * 9, v * 9, 9, 4, 303) * 0.5 + 0.5);
@@ -178,7 +182,7 @@ async function buildTextures() {
       c = mix3(c, srgbHex(0xa7a48f), lich * 0.55);
       return [c[0], c[1], c[2], b * 0.6 + f * 0.4, 0.8];
     }, 6);
-    TEX.moss = genSurface(256, (u, v) => {
+    TEX.moss = genSurfaceCached('moss', 256, (u, v) => {
       const a = fbm2P(u * 16, v * 16, 16, 4, 404) * 0.5 + 0.5, b = hash3i(u * 256 | 0, v * 256 | 0, 1, 9);
       const c = mix3(srgbHex(0x3f5a1c), srgbHex(0x7f9a34), a * 0.8 + b * 0.2);
       return [c[0], c[1], c[2], a * 0.7 + b * 0.3, 0.9];
@@ -188,7 +192,7 @@ async function buildTextures() {
 
   // --- Gravel: dense pebbles (Worley domes), fine & high-frequency normal
   {
-    TEX.gravel = genSurface(512, (u, v) => {
+    TEX.gravel = genSurfaceCached('gravel', 512, (u, v) => {
       // two interleaved pebble sizes bedded in coarse sand
       worleyP(u * 14, v * 14, 14, 55); const f1a = WOR.f1, ea = WOR.f2 - WOR.f1, ida = WOR.id;
       worleyP(u * 27 + 0.37, v * 27 + 0.11, 27, 56); const f1b = WOR.f1, eb = WOR.f2 - WOR.f1, idb = WOR.id;
@@ -207,7 +211,7 @@ async function buildTextures() {
 
   // --- Ground: fine moss/grass lawn with soil patches
   {
-    TEX.ground = genSurface(512, (u, v, x, y) => {
+    TEX.ground = genSurfaceCached('ground', 512, (u, v, x, y) => {
       const patch = fbm2P(u * 4, v * 4, 4, 4, 606) * 0.5 + 0.5;
       const blade = hash3i(x, y >> 1, 3, 1);
       const fine = fbm2P(u * 48, v * 48, 48, 3, 88) * 0.5 + 0.5;
@@ -222,7 +226,7 @@ async function buildTextures() {
 
   // --- Wood (cedar): grain stretched along u, annual rings, pores
   {
-    TEX.wood = genSurface(512, (u, v) => {
+    TEX.wood = genSurfaceCached('wood', 512, (u, v) => {
       // flat-sawn cedar: warped annual rings with dark latewood, fine fibres along the grain, occasional knots
       const warp = fbm2P(u * 2, v * 6, 2, 3, 71) * 0.9 + fbm2P(u * 8, v * 16, 8, 2, 13) * 0.15;
       let kd = 9;
@@ -237,7 +241,7 @@ async function buildTextures() {
   }
   // --- Bark: deep vertical fissures
   {
-    TEX.bark = genSurface(512, (u, v) => {
+    TEX.bark = genSurfaceCached('bark', 512, (u, v) => {
       // furrowed bark: long, slightly wandering vertical fissures that break the surface into small elongated plates,
       // flaking edges, grey-green lichen patches and a few specks of moss (no big regular "snakeskin" cells)
       const warp = fbm2P(u * 6, v * 2, 6, 3, 12) * 0.05;
@@ -257,7 +261,7 @@ async function buildTextures() {
   }
   // --- Roof tiles (kawara): rows of round-profile pan tiles
   {
-    TEX.roof = genSurface(512, (u, v) => {
+    TEX.roof = genSurfaceCached('roof', 512, (u, v) => {
       const cols = 16, rows = 12;
       const cu = (u * cols) % 1, rv = (v * rows) % 1;
       const barrel = Math.sin(cu * Math.PI);                 // round tile profile
@@ -281,7 +285,7 @@ async function buildTextures() {
   TEX.sakura = leafCard('willow');   // 校园版：原樱花叶卡换成垂柳叶卡
   TEX.hydrangea = leafCard('hydrangea'); TEX.bigleaf = leafCard('bigleaf'); TEX.camellia = leafCard('camellia'); TEX.bambooLeaves = leafCard('bamboo'); TEX.kikyo = leafCard('kikyo');
   // cherry bark: smooth, dark red-brown with horizontal lenticel dashes and peeling coppery bands
-  TEX.sakuraBark = genSurface(512, (u, v) => {
+  TEX.sakuraBark = genSurfaceCached('sakuraBark', 512, (u, v) => {
     const n = fbm2P(u * 6, v * 6, 6, 4, 31) * 0.5 + 0.5, fine = fbm2P(u * 48, v * 48, 48, 2, 32) * 0.5 + 0.5;
     const row = v * 30, rid = Math.floor(row), fr = row - rid, cols = 5, off = hash3i(rid, 0, 1, 77) * cols;
     const cu = (u * cols + off) % 1, len = 0.25 + 0.5 * hash3i(rid, Math.floor(u * cols + off), 2, 78);
@@ -295,6 +299,7 @@ async function buildTextures() {
   }, 5);
   TEX.lily = lilyTex();
   await pondStyleProgress(0.56, '生成枝叶');
+  } finally { pondTexCache.save(); }
 }
 
 // Palmate maple, pine needle tufts, etc. Each card holds a cluster of leaves on transparent ground.
@@ -1000,3 +1005,59 @@ vec3 acesFilmic(vec3 c){
 }
 vec3 toSRGB(vec3 c){ return mix(pow(c, vec3(1.0 / 2.4)) * 1.055 - 0.055, c * 12.92, vec3(lessThanEqual(c, vec3(0.0031308)))); }
 `;
+
+// ==== 程序化纹理缓存（IndexedDB）====（由 tools/build_pond.py 追加；全景 ecohome 与池塘 pond 共用）
+// 第一次生成的花岗岩、卵石、草地、木纹、树皮、瓦片、水面法线、焦散等像素数据存进 IndexedDB，下次（包括从主页进入池塘）直接读取，
+// 省掉逐像素噪声计算。键 = 本脚本内容哈希：生成算法一改，旧缓存自动作废。读不到 / 浏览器禁用存储时照常现场生成。
+const pondTexCache = (() => {
+  const VERSION = '571b67d42df4', DB = 'campus-pond-cache', STORE = 'tex';
+  let items = {}, dirty = false, hits = 0, misses = 0;
+  const idb = () => new Promise((res, rej) => {
+    if (!window.indexedDB) { rej(new Error('no indexedDB')); return; }
+    const r = indexedDB.open(DB, 1);
+    r.onupgradeneeded = () => r.result.createObjectStore(STORE);
+    r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+  });
+  const timeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
+  return {
+    get stats() { return { hits, misses, version: VERSION }; },
+    async open() {
+      if (new URLSearchParams(location.search).get('texcache') === '0') return;
+      try {
+        const db = await timeout(idb(), 2000);
+        const rec = await timeout(new Promise((res, rej) => { const q = db.transaction(STORE).objectStore(STORE).get(VERSION); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); }), 4000);
+        db.close();
+        if (rec && rec.items) items = rec.items;
+      } catch (e) { items = {}; }
+    },
+    get(key) { const it = items[key]; if (it) hits++; else misses++; return it; },
+    put(key, it) { items[key] = it; dirty = true; },
+    save() {
+      if (!dirty || new URLSearchParams(location.search).get('texcache') === '0') return;
+      dirty = false;
+      const rec = { v: VERSION, at: Date.now(), items };
+      idb().then((db) => {
+        const tx = db.transaction(STORE, 'readwrite'), st = tx.objectStore(STORE);
+        st.clear(); st.put(rec, VERSION);
+        tx.oncomplete = () => db.close(); tx.onerror = () => db.close();
+      }).catch(() => {});
+    },
+  };
+})();
+function genSurfaceCached(key, size, fn, normalStrength) {
+  const it = pondTexCache.get('s:' + key);
+  if (it && it.w === size) return { map: dataTex(it.a, size, size, true), normalMap: dataTex(it.b, size, size, false) };
+  const r = genSurface(size, fn, normalStrength);
+  pondTexCache.put('s:' + key, { w: size, a: r.map.image.data, b: r.normalMap.image.data });
+  return r;
+}
+function pondTexRestore(key) {
+  const it = pondTexCache.get('d:' + key);
+  if (!it) return false;
+  TEX[key] = dataTex(it.a, it.w, it.h, false);
+  if (key === 'caustics' && it.meta) TEX.causticMean = it.meta.mean;
+  return true;
+}
+function pondTexRecord(key, tex, meta) {
+  pondTexCache.put('d:' + key, { w: tex.image.width, h: tex.image.height, a: tex.image.data, meta: meta || null });
+}

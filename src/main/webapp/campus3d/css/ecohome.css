@@ -145,11 +145,14 @@ body:not(.eco-entered) .eco-mini, body:not(.eco-entered) .eco-weather, body:not(
 }
 
 /* 第二阶段：进入板块细节的过渡（镜头俯冲 + 淡出） */
-.eco-dive { position: absolute; inset: 0; z-index: 30; display: grid; place-items: center; pointer-events: all; opacity: 0; transition: opacity 1s ease .25s;
+.eco-dive { position: absolute; inset: 0; z-index: 30; display: grid; place-items: center; pointer-events: all; opacity: 0; transition: opacity .45s ease .1s;
   background: radial-gradient(circle at 50% 50%, rgba(4, 16, 12, 0.55) 0%, rgba(4, 16, 12, 0.92) 45%, #04100c 100%); color: #eafff2; }
 .eco-dive.is-on { opacity: 1; }
 .eco-dive-inner { text-align: center; transform: scale(.96); transition: transform 1.2s ease; }
 .eco-dive.is-on .eco-dive-inner { transform: scale(1); }
 .eco-dive-ring { width: 44px; height: 44px; margin: 0 auto 14px; border-radius: 50%; border: 3px solid rgba(134, 239, 172, .25); border-top-color: #86efac; animation: eco-spin 1s linear infinite; }
 .eco-dive p { margin: 0; font-size: 15px; letter-spacing: 2px; }
+.eco-dive-bar { width: min(320px, 70vw); height: 3px; margin: 16px auto 8px; background: rgba(255, 255, 255, .14); border-radius: 2px; overflow: hidden; }
+.eco-dive-bar i { display: block; height: 100%; width: 0; background: #86efac; transition: width .2s ease; }
+.eco-dive-msg { display: block; min-height: 1.4em; font-size: 12px; color: rgba(255, 255, 255, .7); letter-spacing: .5px; }
 @keyframes eco-spin { to { transform: rotate(360deg); } }

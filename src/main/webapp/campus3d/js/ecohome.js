@@ -139,6 +139,54 @@
     .then(([layout, zones]) => start(layout, zones.zones || []))
     .catch(fail);
 
+  // ---------------- 板块细节场景预取 ----------------
+  // 主页空闲时把细节场景（如池塘 pond/pond.html 及其脚本）提前下载进浏览器缓存；点击“进入板块细节”时若还没下完，
+  // 过渡遮罩显示真实下载进度（按字节；服务器 StaticAssetFilter 在 gzip 响应里带 X-Raw-Length 解压后大小），下完再跳转。
+  // ?prefetch=0 可关闭预取。
+  const PREFETCH = {};
+  function prefetchDetail(rel) {
+    if (!rel || params.get("prefetch") === "0" || !window.fetch) return null;
+    const page = new URL(BASE + rel.split("?")[0], location.href).href;
+    if (PREFETCH[page]) return PREFETCH[page];
+    const st = (PREFETCH[page] = { loaded: 0, total: 0, files: 1, done: 0, finished: false, cb: [] });
+    const notify = () => st.cb.forEach((f) => { try { f(st); } catch (e) { /* ignore */ } });
+    const grab = (url, keepText) => fetch(url, { credentials: "same-origin" }).then((r) => {
+      if (!r.ok) throw new Error("HTTP " + r.status + " " + url);
+      const enc = r.headers.get("Content-Encoding");
+      const raw = +(r.headers.get("X-Raw-Length") || (enc ? 0 : r.headers.get("Content-Length")) || 0);
+      st.total += raw; notify();
+      if (!r.body || !r.body.getReader) return r.text().then((t) => { st.loaded += t.length; return keepText ? t : null; });
+      const rd = r.body.getReader(), parts = [];
+      const pump = () => rd.read().then(({ done, value }) => {
+        if (done) return;
+        st.loaded += value.length; if (keepText) parts.push(value); notify(); return pump();
+      });
+      return pump().then(() => {
+        if (!keepText) return null;
+        const all = new Uint8Array(parts.reduce((a, p) => a + p.length, 0)); let o = 0;
+        parts.forEach((p) => { all.set(p, o); o += p.length; });
+        return new TextDecoder().decode(all);
+      });
+    }).finally(() => { st.done++; notify(); });
+    st.promise = grab(page, true).then((html) => {
+      const urls = [];
+      html.replace(/<(?:script[^>]+src|link[^>]+href)="([^"]+)"/g, (m, u) => {
+        const abs = new URL(u, page);
+        if (abs.origin === location.origin && urls.indexOf(abs.href) < 0) urls.push(abs.href);
+        return m;
+      });
+      st.files += urls.length; notify();
+      return Promise.all(urls.map((u) => grab(u, false).catch(() => null)));
+    }).catch((e) => { st.error = e; }).then(() => { st.finished = true; notify(); });
+    return st;
+  }
+  function prefetchFrac(st) {
+    if (!st) return 1;
+    if (st.finished) return 1;
+    const byFiles = st.done / Math.max(1, st.files);
+    return st.total > 0 ? Math.min(0.99, Math.min(st.loaded / Math.max(st.total, st.loaded), 0.4 + byFiles)) : byFiles * 0.99;
+  }
+
   // ================================================================
   async function start(L, ZONES) {
     const THREE = window.THREE;
@@ -291,6 +339,7 @@
       );
       const t = o.pos.clone(); t.y = 0;
       flyAround(t, z.camera_distance || 260, 1400);
+      if (z.detail_scene) prefetchDetail(z.detail_scene);   // 选中有细节场景的板块：马上开始预取
     }
     // 进入板块细节：有 detail_scene 的板块镜头俯冲 + 淡出后跳转到细节场景；其他板块仍提示建设中
     $("eco-panel-enter").onclick = () => {
@@ -301,7 +350,7 @@
       }
       enterDetail(selZone);
     };
-    let entering = false;
+    let entering = false, halted = false;
     function enterDetail(o) {
       if (entering) return;
       entering = true;
@@ -310,21 +359,40 @@
       const dir = camera.position.clone().sub(t); dir.y = 0;
       if (dir.lengthSq() < 1) dir.set(0.6, 0, 0.8);
       dir.normalize();
-      flyTo(t, t.clone().addScaledVector(dir, 22).setY(18), 1300);   // 镜头俯冲到板块上方
+      flyTo(t, t.clone().addScaledVector(dir, 22).setY(18), 900);   // 镜头俯冲到板块上方
       let url = BASE + z.detail_scene + (z.detail_scene.indexOf("?") >= 0 ? "&" : "?") + "zone=" + encodeURIComponent(z.id) + "&back=" + encodeURIComponent(location.pathname);
       if (state.demoWeather !== "auto") url += "&weather=" + encodeURIComponent(state.demoWeather);
       if (state.demoSeason !== "auto") url += "&season=" + encodeURIComponent(state.demoSeason);
       if (!state.timeAuto) url += "&hour=" + state.demoHours.toFixed(2);
-      const veil = el("div", "eco-dive", '<div class="eco-dive-inner"><div class="eco-dive-ring"></div><p>正在进入「' + esc(z.name) + '」细节场景…</p></div>');
+      const veil = el("div", "eco-dive", '<div class="eco-dive-inner"><div class="eco-dive-ring"></div><p>正在进入「' + esc(z.name) + '」细节场景…</p>' +
+        '<div class="eco-dive-bar"><i></i></div><small class="eco-dive-msg"></small></div>');
       root.appendChild(veil);
       requestAnimationFrame(() => veil.classList.add("is-on"));
-      setTimeout(() => { location.href = url; }, 1250);
+      const bar = veil.querySelector(".eco-dive-bar i"), msg = veil.querySelector(".eco-dive-msg");
+      const st = prefetchDetail(z.detail_scene);
+      const show = (s2) => {
+        const f = prefetchFrac(s2);
+        bar.style.width = (f * 100).toFixed(0) + "%";
+        msg.textContent = !s2 ? "" : s2.finished ? (s2.error ? "预取失败，直接打开…" : "场景资源已就绪，正在打开…")
+          : "下载场景资源 " + Math.round(f * 100) + "% · " + (s2.loaded / 1024).toFixed(0) + (s2.total ? " / " + (s2.total / 1024).toFixed(0) : "") + " KB";
+      };
+      if (st) { st.cb.push(show); show(st); }
+      let gone = false;
+      const go = () => {
+        if (gone) return; gone = true;
+        halted = true;                 // 停掉主页渲染循环，把 GPU / 主线程让给细节场景
+        location.href = url;
+      };
+      const minDive = new Promise((r) => setTimeout(r, 700));
+      Promise.all([st ? st.promise : null, minDive]).then(go);
+      setTimeout(go, 20000);           // 网络异常时兜底：最多等 20 秒
     }
-    // 从细节场景用浏览器“后退”回来（页面缓存恢复）时撤掉过渡遮罩
+    // 从细节场景用浏览器“后退”回来（页面缓存恢复）时撤掉过渡遮罩、恢复渲染
     window.addEventListener("pageshow", (e) => {
       if (!e.persisted) return;
       entering = false;
       root.querySelectorAll(".eco-dive").forEach((v) => v.remove());
+      if (halted) { halted = false; last = performance.now(); requestAnimationFrame(tick); }
     });
     window.__ecoEnterDetail = (id) => { const o = zoneById[id]; if (o) { selectZone(id); enterDetail(o); } };
     function selectItem(it) {
@@ -542,6 +610,7 @@
     const renderStats = { calls: 0, triangles: 0 };
     window.__eco = { state, camera, controls, scene, renderer, life, campus, look, selectZone, selectItem, renderStats, get fps() { return fps; } };
     function tick(now) {
+      if (halted) return;
       const dt = Math.min(0.1, (now - last) / 1000);
       last = now;
       const t = (now - t0) / 1000;
@@ -607,5 +676,8 @@
     if (params.get("autostart") === "1") enter();
     else if (CFG.autoEnterMs > 0) setTimeout(enter, CFG.autoEnterMs);
     if (params.get("zone")) setTimeout(() => selectZone(params.get("zone")), params.get("autostart") === "1" ? 50 : CFG.autoEnterMs + 2700);
+    // 主页就绪后空闲时预取各板块细节场景（同一场景只下载一次）
+    const idle = window.requestIdleCallback || ((f) => setTimeout(f, 200));
+    setTimeout(() => idle(() => ZONES.forEach((z) => z.detail_scene && prefetchDetail(z.detail_scene)), { timeout: 4000 }), 2500);
   }
 })();
