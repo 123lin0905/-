@@ -33,6 +33,7 @@
   const test = Q.get("test") === "1";
   const smooth = PondQuality.mode === "smooth";
   const lowPower = test || smooth;
+  if (test && !smooth) PondQuality.set("smooth", false);   // 自动化测试固定低画质：切换按钮同步显示“流畅”（不写入本地设置）
   window.CAMPUS_POND = Object.assign({}, V, {
     zone: zoneId, test, lowPower,
     quality: (Q.get("quality") || "").toLowerCase() === "high" || !lowPower ? "High" : "Low",

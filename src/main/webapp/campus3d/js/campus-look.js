@@ -420,8 +420,8 @@ if (uPlanar > 0.5) {
       U.uSunColor.value.copy(sun.color).multiplyScalar(sun.intensity);
       U.uSnowCover.value = c.cover; U.uWet.value = c.wet; U.uAutumn.value = c.autumn;
       U.uWind.value = c.wind + Math.min(0.4, (e.windKmh || 8) / 60);
-      // 雾：池塘的 fog 是每米密度（池塘约 30 米见方）；全景按 FogExp2 换算，晴天 800 米外约 6%、2 公里外约 30%
-      state.fogDensity = 0.0003 * Math.sqrt(Math.max(c.fog, 0.002) / 0.004);
+      // 雾：池塘的 fog 是每米密度（池塘约 30 米见方）；全景按 FogExp2 换算，晴天 800 米外约 4%、2 公里外约 21%
+      state.fogDensity = 0.00024 * Math.sqrt(Math.max(c.fog, 0.002) / 0.004);
       scene.fog.density = state.fogDensity;
       scene.fog.color.setRGB(fc[0], fc[1], fc[2]);
       state.night = e.night; state.elev = LIT.elev / DEGR; state.expo = c.expo * LIT.expo * (1 + e.flash * 0.6);
