@@ -319,6 +319,9 @@
     envT -= dt; if (envT <= 0) { envT = state.speed > 1 ? 0.2 : 1; applyEnv(); }
     const out = $("cpd-time-out");
     if (out) { const h = currentBJ().hours, hh = Math.floor(h), mm = Math.floor((h - hh) * 60); out.textContent = String(hh).padStart(2, "0") + ":" + String(mm).padStart(2, "0"); }
+    // 抚摸 / 喂食特写时暂时淡出两侧面板，避免挡住手和锦鲤
+    const closeup = (typeof STROKE !== "undefined" && STROKE.active) || (typeof FEED !== "undefined" && FEED.active);
+    if (closeup !== document.body.classList.contains("cp-closeup")) document.body.classList.toggle("cp-closeup", closeup);
     frames++; statT += dt; window.__pondFrames = (window.__pondFrames || 0) + 1;
     if (statT > 1 && !$("cp-demo").hidden) {
       $("cpd-stats").textContent = "帧率 " + (frames / statT).toFixed(0) + " fps · 画质 " + (P.quality === "High" ? "高" : "低") + " · 像素比 " + renderer.getPixelRatio().toFixed(2) + " · 水面网格 " + window.CAMPUS_POND.simN + "² · 锦鲤 " + P.fishCount + " 条";
