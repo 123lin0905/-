@@ -558,7 +558,7 @@
       p.innerHTML =
         '<div class="se-mode"><button type="button" class="se-btn" data-m="add">＋ 新增</button><button type="button" class="se-btn" data-m="move">↔ 移植</button>' +
         '<button type="button" class="se-btn danger" id="se-del" disabled>🗑 删除</button><button type="button" class="se-btn" id="se-undo" disabled>↶ 撤销</button></div>' +
-        '<div class="se-cat" id="se-cat">' + groups.map(([t, title]) => '<h4>' + title + '</h4>' + catalog.filter((c) => c.type === t).map((c) =>
+        '<div class="se-cat" id="se-cat">' + groups.map(([t, title]) => '<h4>' + title + '</h4>' + catalog.filter((c) => c.type === t && !c.hidden).map((c) =>
           '<button type="button" data-k="' + esc(c.key) + '" title="' + esc(c.desc || c.name) + '"><span>' + esc(c.icon || "•") + '</span>' + esc(c.name) + '<b class="se-count" data-c="' + esc(c.key) + '"></b></button>').join("")).join("") + "</div>" +
         '<p class="se-status" id="se-status">选择“新增”后点目录里的物种，再点场景放下；或点中已有个体拖动移植。</p><p class="se-save" id="se-save"></p>';
       host.appendChild(p); ui.panel = p;

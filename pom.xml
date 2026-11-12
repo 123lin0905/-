@@ -76,6 +76,12 @@
                 <artifactId>maven-war-plugin</artifactId>
                 <version>3.3.2</version>
             </plugin>
+            <plugin>
+                <!-- 默认的 surefire 2.12 不识别 JUnit 5：升级后 mvn -Dtest=ZoneSpeciesServiceTest test 才会真正执行 -->
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.2.5</version>
+            </plugin>
         </plugins>
     </build>
 </project>

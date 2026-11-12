@@ -13,9 +13,31 @@
   const ZONE = (window.CAMPUS_POND && window.CAMPUS_POND.zone) || "cuihu_water";
   const API = Q.get("speciesApi") || "../../api/zones/";
   let editor = null;
+  // 板块配置（zones.json）：editable=false 的板块不开放编辑；catalog 为该板块可增删的物种 key 列表
+  let zoneCfg = null;
+  const cfgReady = fetch("../data/zones.json").then((r) => r.json()).then((j) => { zoneCfg = (j.zones || []).find((z) => z.id === ZONE) || null; }).catch(() => null);
+
+  // 植被在首帧后分帧补上：补完（pond:full）之前，“管理动植物”按钮先置灰并提示“生态加载中”
+  function placeholder() {
+    const panel = document.getElementById("cp-eco");
+    if (!panel) return false;
+    if (document.getElementById("se-wait") || editor) return true;
+    const b = document.createElement("button"); b.type = "button"; b.id = "se-wait"; b.disabled = true;
+    b.textContent = "✏️ 管理动植物 · 生态加载中…"; b.title = "植被还在后台补种，补完后即可增删 / 移植动植物";
+    b.style.cssText = "margin:2px 0 6px;padding:6px 10px;border-radius:9px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.06);color:#cfdcd4;font:600 12px/1.2 inherit;opacity:.6;cursor:progress";
+    panel.insertBefore(b, document.getElementById("cp-eco-body"));
+    return true;
+  }
+  if (!window.__pondFull) { const iv = setInterval(() => { if (placeholder() || window.__pondFull) clearInterval(iv); }, 300); }
 
   function start() {
     if (editor || !window.SpeciesEditor || typeof PondEdit === "undefined") return;
+    cfgReady.then(startEditor);
+  }
+  function startEditor() {
+    if (editor) return;
+    const wait = document.getElementById("se-wait");
+    if (zoneCfg && zoneCfg.editable === false) { if (wait) wait.remove(); return; }
     const V3 = THREE.Vector3, rnd = (a, b) => a + (b - a) * Math.random();
     const inGarden = (x, z) => Math.abs(x) < 8.6 && z > -11.5 && z < 8.6;
     const nearBridge = (x, z, r) => window.CAMPUS_POND.bridge && Math.abs(z - BRIDGE.z) < 0.9 + r && Math.abs(x) < BRIDGE.half + 0.6;
@@ -311,6 +333,11 @@
         idle(ind, dt) { const o = ind.obj; if (!o) return; ind._t = (ind._t || Math.random() * 6) + dt; o.position.y = groundOrWater(ind.x, ind.z) + 0.5 + Math.sin(ind._t * 1.7) * 0.05; o.rotation.y += Math.sin(ind._t * 0.6) * 0.004; flap(o, performance.now() / 1000, true); } },
     ];
 
+    const allowed = zoneCfg && Array.isArray(zoneCfg.catalog) ? zoneCfg.catalog : null;
+    const zoneCatalog = allowed ? catalog.filter((c) => allowed.indexOf(c.key) >= 0) : catalog;
+    // 原有个体所属物种即使不在 catalog 里也要能识别（只是不能新增）
+    for (const c of catalog) if (zoneCatalog.indexOf(c) < 0 && ["willow", "lotus", "waterlily", "koi"].indexOf(c.key) >= 0) zoneCatalog.push(Object.assign({}, c, { hidden: true }));
+
     // ---------------- 放置规则 ----------------
     function canPlace(e, x, z) {
       if (!inGarden(x, z)) return { ok: false, reason: "超出池塘庭院范围" };
@@ -372,7 +399,7 @@
 
     editor = window.SpeciesEditor.create({
       zoneId: ZONE, zoneName: window.CAMPUS_POND.zoneName, apiBase: API, storageKey: "pond-species-demo:" + ZONE,
-      THREE, scene, camera, dom: renderer.domElement, catalog, seeds, canPlace, pick, surfaceY, layer: LAYER.ABOVE,
+      THREE, scene, camera, dom: renderer.domElement, catalog: zoneCatalog, seeds, canPlace, pick, surfaceY, layer: LAYER.ABOVE,
       hooks: {
         ripple: (x, z, r0, r1) => addDrop(x, z, Math.min(0.25, 0.08 + r1 * 0.15), -0.01),
         splash: (x, z, e) => { spawnSplash(x, z, e, WATER_Y, true); bubbleBurst(x, WATER_Y - 0.02, z, 8, 0.03, 0.0005, 0.003, 0.2); },
@@ -386,16 +413,21 @@
         },
       },
       onCounts: (c) => {
+        // 右侧清单实时数量：垂柳 / 荷叶 / 睡莲 / 锦鲤的原有个体都登记在编辑器里，显示总数“×N”；
+        // 其余物种场景里原有的是成片装饰（如花菖蒲丛），只显示编辑器新增的数量“＋N”
+        const seedKeys = { willow: 1, lotus: 1, waterlily: 1, koi: 1 }, added = {};
+        for (const ind of editor ? editor.inds : []) if (!ind.seed && ind.status === "active") added[ind.key] = (added[ind.key] || 0) + 1;
         document.querySelectorAll(".cp-sp[data-id]").forEach((b) => {
-          const k = b.getAttribute("data-id") === "waterlily" ? "waterlily" : b.getAttribute("data-id");
-          if (!(k in editor.byKey)) return;
+          const k = b.getAttribute("data-id");
+          if (!editor || !(k in editor.byKey)) return;
           let tag = b.querySelector(".cp-sp-n"); if (!tag) { tag = document.createElement("i"); tag.className = "cp-sp-n"; b.querySelector("b").appendChild(tag); }
-          tag.textContent = " ×" + (c[k] || 0);
+          tag.textContent = seedKeys[k] ? " ×" + (c[k] || 0) : added[k] ? " ＋" + added[k] : "";
         });
       },
     });
     const panel = document.getElementById("cp-eco");
     const host = document.createElement("div"); host.className = "cp-se-host"; panel.insertBefore(host, document.getElementById("cp-eco-body"));
+    if (wait) wait.remove();
     editor.buildUI(host);
     window.__se = editor;
     editor.load().then((n) => { window.__seLoaded = true; window.__seRows = n; }).catch((e) => { console.warn(e); window.__seLoaded = true; });

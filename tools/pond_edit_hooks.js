@@ -148,7 +148,7 @@ const PondEdit = (() => {
     const out = [];
     (WORLD.willowTrees || []).forEach((g, i) => out.push({ ref: 'willow#' + i, key: 'willow', obj: g }));
     (WORLD.lotus || []).forEach((L, i) => { if (L.leaf && L.leaf.parent) out.push({ ref: 'lotus#' + i, key: 'lotus', obj: L.leaf.parent }); });
-    (WORLD.lilies || []).forEach((L, i) => { if (L.kind !== 'frog') out.push({ ref: 'lily#' + i, key: 'lily', lily: L, obj: L.mesh }); });
+    (WORLD.lilies || []).forEach((L, i) => { if (L.kind !== 'frog') out.push({ ref: 'waterlily#' + i, key: 'waterlily', lily: L, obj: L.mesh }); });
     const n = Math.min(P.fishCount | 0, KOI.fish.length);
     for (let i = 0; i < n; i++) out.push({ ref: 'koi#' + i, key: 'koi', fish: KOI.fish[i], index: i });
     return out;
