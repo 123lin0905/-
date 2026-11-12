@@ -218,14 +218,22 @@ float wxn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
     // ---------- 画质档 ----------
     const Q = { mode: opts.quality || "clear" };
     let post = null, refl = null;
+    // 像素比：清晰 ≤2；流畅 / 省电固定 1（系统缩放 150–200% 的笔记本也按 1 渲染，CSS 拉伸）
     function maxPR() { return Q.mode === "clear" ? Math.min(window.devicePixelRatio || 1, 2) : Math.min(window.devicePixelRatio || 1, 1); }
+    // 阴影贴图：清晰 2048 / 流畅 1024 / 省电 512（省电档只在阴影范围、太阳方向变化时重画，见 render）
+    function shadowSize() { return Q.mode === "clear" ? 2048 : Q.mode === "eco" ? 512 : 1024; }
     function setQuality(mode) {
+      const changed = mode !== Q.mode;
       Q.mode = mode;
-      renderer.setPixelRatio(maxPR());
-      const sm = mode === "clear" ? 2048 : 1024;
-      sun.shadow.mapSize.set(sm, sm);
-      if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; }
-      resize();
+      // 只改真正变化的部分：像素比相同就不 setPixelRatio（它会触发 setSize → 下一次 resize 重建后期目标）
+      if (Math.abs(renderer.getPixelRatio() - maxPR()) > 1e-3) renderer.setPixelRatio(maxPR());
+      const sm = shadowSize();
+      if (sun.shadow.mapSize.x !== sm) {
+        sun.shadow.mapSize.set(sm, sm);
+        if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; }
+      }
+      shadowKey = ""; shadowHalf = 0;
+      resize(changed);
       (opts.onQuality || (() => {}))(mode);
     }
 
@@ -380,16 +388,23 @@ if (uPlanar > 0.5) {
 
     // ---------- 尺寸 ----------
     const size = { w: 1, h: 1 };
-    function resize() {
+    // 尺寸变化：只有画布像素尺寸或画质档真的变了才重建后期 / 反射目标（ResizeObserver 抖动、同尺寸回调不再每次 dispose 重建 → 不闪）
+    let lastBuf = "";
+    function resize(force) {
       const el = renderer.domElement.parentElement || document.body;
       const w = el.clientWidth || window.innerWidth, h = el.clientHeight || window.innerHeight;
       if (!w || !h) return;
       size.w = w; size.h = h;
-      renderer.setSize(w, h, false);
+      const pr = renderer.getPixelRatio();
+      if (renderer.domElement.width !== Math.floor(w * pr) || renderer.domElement.height !== Math.floor(h * pr)) renderer.setSize(w, h, false);
       camera.aspect = w / h; camera.updateProjectionMatrix();
       const bw = renderer.domElement.width, bh = renderer.domElement.height;
-      if (Q.mode === "clear") buildPost(bw, bh); else if (post) { post.main.dispose(); post.a.dispose(); post.b.dispose(); post = null; }
-      if (refl) { refl.dispose(); refl = null; }
+      const key = bw + "x" + bh + "|" + Q.mode;
+      if (key === lastBuf && !force) return;
+      lastBuf = key;
+      if (Q.mode === "clear") { if (!post || post.w !== bw || post.h !== bh) buildPost(bw, bh); }
+      else if (post) { post.main.dispose(); post.a.dispose(); post.b.dispose(); post = null; }
+      if (refl && (Q.mode !== "clear" || refl.width !== Math.max(2, bw >> 1) || refl.height !== Math.max(2, bh >> 1))) { refl.dispose(); refl = null; }
     }
 
     // ---------- 每帧：环境 ----------
@@ -437,29 +452,45 @@ if (uPlanar > 0.5) {
     }
 
     // ---------- 每帧：渲染 ----------
-    const _sd = new THREE.Vector3();
+    const _sd = new THREE.Vector3(), _lx = new THREE.Vector3(), _ly = new THREE.Vector3(), _lc = new THREE.Vector3(), _yUp = new THREE.Vector3(0, 1, 0);
+    let shadowHalf = 0, shadowKey = "", shadowAge = 0, shadowOn = true;
     function render(dt, t, target) {
       U.uTime.value = t;
       U.uGust.value = clamp(0.5 + 0.9 * fbm3(t * 0.12, 3.3, 1.1, 3, 77), 0, 1);
       envTimer -= dt;
       if (envDirty && envTimer <= 0) { updateEnv(); envTimer = Q.mode === "clear" ? 0.5 : 1.5; }
-      // 阴影只罩相机附近：正交阴影相机跟随观察点，范围随相机距离缩放
+      // 阴影只罩相机附近：正交阴影相机跟随观察点，范围随相机距离缩放。
+      // 防闪烁：① 范围按 1.25 倍分级并带滞回（以前拉近拉远时每帧都在变，纹素大小连续变化 → 阴影边缘不停抖动）；
+      //        ② 在光源空间里按纹素对齐（以前只在世界 xz 上取整，太阳斜射时并没有对齐到阴影贴图纹素 → 镜头平移时阴影闪烁）。
       const dist = camera.position.distanceTo(target);
-      const half = clamp(dist * (Q.mode === "clear" ? 0.62 : 0.5), 60, Q.mode === "clear" ? 380 : 260);
+      const want = clamp(dist * (Q.mode === "clear" ? 0.62 : 0.5), 60, Q.mode === "clear" ? 380 : 260);
+      if (!shadowHalf || Math.abs(Math.log(want / shadowHalf)) > Math.log(1.25) * 0.8) {
+        shadowHalf = Math.min(Q.mode === "clear" ? 380 : 260, 60 * Math.pow(1.25, Math.round(Math.log(want / 60) / Math.log(1.25))));
+      }
+      const half = shadowHalf;
       const sc = sun.shadow.camera;
-      if (Math.abs(sc.right - half) > 1) { sc.left = -half; sc.right = half; sc.top = half; sc.bottom = -half; sc.updateProjectionMatrix(); }
+      if (Math.abs(sc.right - half) > 0.01) { sc.left = -half; sc.right = half; sc.top = half; sc.bottom = -half; sc.updateProjectionMatrix(); }
       _sd.copy(U.uSunDir.value);
-      // 阴影贴图纹素对齐，减少镜头移动时的闪烁
       const texel = (2 * half) / sun.shadow.mapSize.x;
-      const tx = Math.round(target.x / texel) * texel, tz = Math.round(target.z / texel) * texel;
-      sun.target.position.set(tx, 0, tz);
-      sun.position.set(tx, 0, tz).addScaledVector(_sd, 1400);
+      // 光源空间基（与 three 阴影相机 lookAt 相同：z = 指向太阳，x = up × z，y = z × x）
+      _lx.crossVectors(Math.abs(_sd.y) > 0.999 ? _lx.set(0, 0, 1) : _yUp, _sd).normalize(); _ly.crossVectors(_sd, _lx);
+      const lu = Math.round(target.dot(_lx) / texel) * texel, lv = Math.round(target.dot(_ly) / texel) * texel, lw = target.dot(_sd);
+      _lc.copy(_lx).multiplyScalar(lu).addScaledVector(_ly, lv).addScaledVector(_sd, lw);
+      sun.target.position.copy(_lc);
+      sun.position.copy(_lc).addScaledVector(_sd, 1400);
       sun.target.updateMatrixWorld();
-      sun.castShadow = sun.intensity > 0.25;
+      // 阴影开关带滞回：太阳强度在阈值附近波动时不再反复开关（开关会让所有材质重编译并让阴影一闪）
+      if (shadowOn && sun.intensity < 0.2) shadowOn = false; else if (!shadowOn && sun.intensity > 0.3) shadowOn = true;
+      sun.castShadow = shadowOn;
       sun.shadow.normalBias = 0.25 + texel * 0.9;
       sky.position.copy(camera.position);
       renderer.toneMappingExposure = state.expo;
-      renderer.shadowMap.needsUpdate = true;
+      // 省电档：512 静态阴影 —— 只在阴影中心 / 范围 / 太阳方向变化时重画，另外每 2 秒刷新一次（小猫、飞鸟等移动物体）
+      if (Q.mode === "eco") {
+        const k = lu.toFixed(1) + "," + lv.toFixed(1) + "," + half.toFixed(1) + "," + _sd.x.toFixed(3) + "," + _sd.y.toFixed(3) + "," + shadowOn;
+        shadowAge += dt;
+        if (k !== shadowKey || shadowAge > 2) { shadowKey = k; shadowAge = 0; renderer.shadowMap.needsUpdate = true; }
+      } else renderer.shadowMap.needsUpdate = true;
       // 平面反射（清晰档、且水面在画面里）
       reflU.uPlanar.value = 0;
       if (Q.mode === "clear" && waters.length && waterVisible()) { renderReflection(); reflU.uPlanar.value = 1; }

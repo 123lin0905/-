@@ -141,7 +141,7 @@ const PondEdit = (() => {
   function koiActivate(i, x, z) {
     const f = KOI.fish[i];
     if (i >= (P.fishCount | 0)) P.fishCount = i + 1;
-    f.gone = false; f.vis = 0; f.p.set(x, WATER_Y - 0.08, z); f.heading = rand() * 6.28; f.speed = 0.25; f.bursting = true;
+    f.gone = false; f.userKoi = true; f.ecoOff = false; f.vis = 0; f.p.set(x, WATER_Y - 0.08, z);   // 编辑器放入的锦鲤：省电档也不隐藏 f.heading = rand() * 6.28; f.speed = 0.25; f.bursting = true;
     return f;
   }
   function seeds() {

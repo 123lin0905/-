@@ -338,13 +338,16 @@
     const graniteT = tex(TEX.granite, 2.5);
     const curbMat = std({ map: graniteT.map, normalMap: graniteT.normalMap, roughness: 0.75, color: 0xd6d2ca }, { key: "curb" });
     ribbon(L.boundary, 3, 0.05, curbMat, true);
+    // 防 z-fighting：贴地的薄层（路缘、标线、压顶石、场地线）离下层只有 5–15 厘米，远景下深度精度不够会交替闪烁 → 加 polygonOffset 往镜头方向偏
+    const decal = (m, k) => { m.polygonOffset = true; m.polygonOffsetFactor = -k; m.polygonOffsetUnits = -4 * k; return m; };
+    decal(curbMat, 1);
 
     // 校外道路：沥青 + 白色标线
     const asphaltT = tex(T.asphalt, 5);
     const roadMat = std({ map: asphaltT.map, normalMap: asphaltT.normalMap, normalScale: new THREE.Vector2(0.6, 0.6), roughness: 0.9 }, { key: "asphalt", macro: { scale: 0.02, amp: 0.15 } });
     groundMats.push(roadMat);
     L.outer_roads.forEach((r) => ribbon(r.path, r.width, -0.2, roadMat, false));
-    const paintMat = std({ color: 0xd9d6cc, roughness: 0.7 }, { key: "paint" });
+    const paintMat = decal(std({ color: 0xd9d6cc, roughness: 0.7 }, { key: "paint" }), 2);
     L.outer_roads.forEach((r) => ribbon(r.path, 1.2, -0.1, paintMat, false));
 
     const pickables = [];
@@ -362,7 +365,7 @@
     const poolMat = look ? look.waterMaterial({ key: "pool", color: 0x2d7f8c, scale: 0.12 }) : new THREE.MeshStandardMaterial({ color: "#4fb9e0" });
     const waterMeshes = [];
     // 驳岸：花岗岩压顶石（池塘同款 TEX.granite）
-    const copingMat = std({ map: graniteT.map, normalMap: graniteT.normalMap, roughness: 0.78, color: 0xc9c4ba }, { key: "coping" });
+    const copingMat = decal(std({ map: graniteT.map, normalMap: graniteT.normalMap, roughness: 0.78, color: 0xc9c4ba }, { key: "coping" }), 1);
     const islandMat = std({ map: lawnT.map, normalMap: lawnT.normalMap, roughness: 0.95 }, { key: "island", macro: { scale: 0.03, amp: 0.2 } });
     L.water.forEach((w) => {
       const m = flat(shapeOf(w.poly), waterMat, 0.35);
@@ -391,7 +394,7 @@
       basket: std({ map: courtT.map, normalMap: courtT.normalMap, color: 0x5f9c78, roughness: 0.6 }, { key: "court" }),
       blue: std({ map: courtT.map, normalMap: courtT.normalMap, color: 0x4f86b8, roughness: 0.6 }, { key: "court" }),
     };
-    const lineMat = std({ color: 0xf2f2ee, roughness: 0.6 }, { key: "paint" });
+    const lineMat = decal(std({ color: 0xf2f2ee, roughness: 0.6 }, { key: "paint" }), 2);
     L.sports.forEach((s) => {
       const mat = s.type === "track" ? trackMat : s.type === "pool" ? poolMat : s.type === "court" ? (s.id === "basket" ? courtMats.basket : courtMats.blue) : turfMat;
       const ms = [flat(shapeOf(s.poly), mat, s.type === "pool" ? 0.45 : 0.45)];

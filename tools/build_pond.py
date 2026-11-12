@@ -750,6 +750,160 @@ rep("  const all = KOI.fish.slice(0, Math.min(P.fishCount, KOI.fish.length)), ta
 # pond.html 引入通用编辑器与池塘适配层（放在主脚本之后）
 SPECIES_TAGS = '<script src="../js/species-editor.js"></script>\n<script src="pond-species.js"></script>\n'
 
+# ---------------------------------------------------------------- 省电档与防闪烁（第四阶段：核显笔记本适配）
+# 1. 省电档（PondQuality.mode === 'eco'，window.CAMPUS_POND.eco，运行时可切换）：像素比固定 1 × 0.85 渲染缩放、512 静态阴影、
+#    关闭 SSAO / 体积光 / 景深 / 泛光与 MSAA、反射 1/8 分辨率 + 折射半分辨率、草 / 叶片卡与原有锦鲤减半、雨雪 / 萤火虫 / 水下微粒减半、
+#    帧率上限 30 fps（时间累积跳帧：不够一帧的时间就跳过整帧，时钟不推进，余量带到下一帧，节奏稳定不抖）。
+# 2. 防闪烁：自动降质只降不升（去掉“帧率高 4 秒就把分辨率升回去”的分支，降 / 升来回切换正是闪屏来源）；
+#    降质要连续 3 秒慢帧、每次调整后冷却 6 秒、渐进加载未完成前不计；
+#    setQuality / makeTargets 只在像素比、尺寸、画质真正改变时才重建渲染目标和阴影贴图（以前每次调用都 dispose 重建 → 黑一帧）。
+CPE = CP
+rep("const RES = { scale: " + CPE + ".test ? (parseFloat(new URLSearchParams(location.search).get('res')) || 0.6) : 1 };   // adaptive resolution multiplier (1 .. 0.6)\n"
+    "renderer.setPixelRatio(Math.min(window.devicePixelRatio, " + CPE + ".maxDpr, 2) * RES.scale);",
+    "const RES = { scale: " + CPE + ".test ? (parseFloat(new URLSearchParams(location.search).get('res')) || 0.6) : 1 };   // adaptive resolution multiplier (1 .. 0.6)\n"
+    """// 像素比：清晰 min(dpr, maxDpr ≤2)；流畅 min(dpr, 1.25)；省电固定 1 × 渲染缩放 0.85（与系统缩放 150–200% 无关）
+function pondPixelRatio(q) {
+  const C = """ + CPE + """;
+  if (C.eco) return C.ecoScale * (C.test ? RES.scale : 1);
+  return Math.min(2, (q === 'High' ? Math.min(devicePixelRatio, C.maxDpr) : Math.min(1.25, devicePixelRatio)) * RES.scale);
+}
+function pondShadowSize(q) {
+  const C = """ + CPE + """;
+  if (C.eco) return 512;
+  return q === 'High' ? (C.lowPower ? 2048 : 4096) : (C.lowPower ? 1024 : 2048);
+}
+// 省电档细节：草 / 叶片卡实例按“偶数在前、奇数在后”重排，省电时只画前一半（运行时切档即生效，随机序列与布局不变，编辑器的原有个体不受影响）
+const ECO = { on: !!""" + CPE + """.eco, list: [] };
+function ecoThin(im) {
+  const n = im.count; if (n < 8) return im;
+  const order = []; for (let i = 0; i < n; i += 2) order.push(i); for (let i = 1; i < n; i += 2) order.push(i);
+  const A = im.instanceMatrix.array, src = A.slice(), C = im.instanceColor ? im.instanceColor.array : null, cs = C ? C.slice() : null;
+  order.forEach((j, i) => { A.set(src.subarray(j * 16, j * 16 + 16), i * 16); if (C) C.set(cs.subarray(j * 3, j * 3 + 3), i * 3); });
+  im.instanceMatrix.needsUpdate = true; if (C) im.instanceColor.needsUpdate = true;
+  im.userData.fullCount = n; ECO.list.push(im); im.count = ECO.on ? Math.ceil(n / 2) : n;
+  return im;
+}
+function setEcoDetail(on) {
+  ECO.on = !!on;
+  for (const im of ECO.list) im.count = on ? Math.ceil(im.userData.fullCount / 2) : im.userData.fullCount;
+  // 原有锦鲤隔一条隐藏（编辑器放入的锦鲤 userKoi 不隐藏；P.fishCount 不变，编辑器的原有个体编号不变）
+  if (typeof KOI !== 'undefined' && KOI.fish) KOI.fish.forEach((f, i) => { f.ecoOff = on && i < """ + CPE + """.baseFish && (i % 2 === 1) && !f.userKoi; });
+  if (typeof FIREFLY !== 'undefined' && FIREFLY.pts) FIREFLY.pts.geometry.setDrawRange(0, on ? Math.ceil(FIREFLY.n / 2) : Infinity);
+  if (typeof particles !== 'undefined' && particles) particles.geometry.setDrawRange(0, on ? 800 : Infinity);
+  if (typeof SHADOW !== 'undefined') SHADOW.dirty = true;
+}
+// 帧率上限（省电 30 fps）：时间累积跳帧
+const FPSCAP = { last: -1, acc: 0 };
+function fpsCapSkip() {
+  const cap = """ + CPE + """.fpsCap, now = performance.now();
+  if (!cap || TEST_STEP) { FPSCAP.last = now; FPSCAP.acc = 0; return false; }
+  if (FPSCAP.last < 0) { FPSCAP.last = now; return false; }
+  const step = 1000 / cap;
+  FPSCAP.acc += now - FPSCAP.last; FPSCAP.last = now;
+  if (FPSCAP.acc < step - 1.5) return true;                 // 不够一帧：整帧跳过（不推进时钟、不渲染）
+  FPSCAP.acc = Math.min(FPSCAP.acc - step, step);           // 余量带到下一帧；长时间卡顿后不连发补帧
+  return false;
+}
+renderer.setPixelRatio(pondPixelRatio(P.quality));""")
+rep("sun.shadow.mapSize.set(4096, 4096);", "{ const s0 = pondShadowSize(P.quality); sun.shadow.mapSize.set(s0, s0); }")
+# 渲染目标：只有尺寸 / 画质 / 档位变化时才重建
+rep("""function makeTargets() {
+  for (const k in RT) if (RT[k] && RT[k].dispose) RT[k].dispose();
+  const pr = renderer.getPixelRatio(), w = Math.max(2, Math.floor(innerWidth * pr)), h = Math.max(2, Math.floor(innerHeight * pr));
+  const div = P.quality === 'High' ? 2 : 4;""", """function makeTargets() {
+  const pr = renderer.getPixelRatio(), w = Math.max(2, Math.floor(innerWidth * pr)), h = Math.max(2, Math.floor(innerHeight * pr));
+  const eco = !!""" + CPE + """.eco, key = w + 'x' + h + '|' + P.quality + '|' + eco;
+  if (RT.key === key && RT.main) return;                    // 没有变化：不重建（重建会让下一帧采样到空目标而闪一下）
+  for (const k in RT) if (RT[k] && RT[k].dispose) RT[k].dispose();
+  RT.key = key;
+  const div = eco ? 8 : P.quality === 'High' ? 2 : 4;      // 省电：反射 1/8 分辨率""")
+rep("  RT.refr = new THREE.WebGLRenderTarget(w, h, Object.assign({ samples: 2, depthTexture: new THREE.DepthTexture(w, h) }, hf));",
+    "  const rw = eco ? Math.ceil(w / 2) : w, rh = eco ? Math.ceil(h / 2) : h;   // 省电：折射半分辨率、无 MSAA\n"
+    "  RT.refr = new THREE.WebGLRenderTarget(rw, rh, Object.assign({ samples: eco ? 0 : 2, depthTexture: new THREE.DepthTexture(rw, rh) }, hf));")
+rep("  RT.main = new THREE.WebGLRenderTarget(w, h, Object.assign({ samples: P.quality === 'High' ? 4 : 2, depthTexture: new THREE.DepthTexture(w, h) }, hf));",
+    "  RT.main = new THREE.WebGLRenderTarget(w, h, Object.assign({ samples: eco ? 0 : P.quality === 'High' ? 4 : 2, depthTexture: new THREE.DepthTexture(w, h) }, hf));   // 省电：关闭 MSAA")
+rep("""  renderer.setPixelRatio(Math.min(2, (q === 'High' ? Math.min(devicePixelRatio, """ + CPE + """.maxDpr) : Math.min(1.25, devicePixelRatio)) * RES.scale));   // 高：min(dpr,2)；低：min(dpr,1.25)，不再强制 ≤1   // near-native on Retina: crisp, still ~60-90 fps
+  renderer.setSize(innerWidth, innerHeight, false);
+  const smap = q === 'High' ? (""" + CPE + """.lowPower ? 2048 : 4096) : (""" + CPE + """.lowPower ? 1024 : 2048); sun.shadow.mapSize.set(smap, smap);
+  if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; }
+  for (const m of WORLD.leafMats || []) { m.alphaToCoverage = q === 'High'; m.needsUpdate = true; }
+  makeTargets();""", """  // 只改真正变化的部分：像素比没变就不 setSize，阴影尺寸没变就不丢弃阴影贴图，材质开关没变就不重编译
+  const pr = pondPixelRatio(q);
+  if (Math.abs(renderer.getPixelRatio() - pr) > 1e-3) { renderer.setPixelRatio(pr); renderer.setSize(innerWidth, innerHeight, false); }
+  const smap = pondShadowSize(q);
+  if (sun.shadow.mapSize.x !== smap) { sun.shadow.mapSize.set(smap, smap); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } }
+  SHADOW.dirty = true;
+  const a2c = q === 'High' && !""" + CPE + """.eco;
+  for (const m of WORLD.leafMats || []) if (m.alphaToCoverage !== a2c) { m.alphaToCoverage = a2c; m.needsUpdate = true; }
+  makeTargets();""")
+# 自动降质：只降不升、持续 3 秒慢帧、调整后冷却 6 秒、渐进加载完成后才开始计；最后一级交给 PondQuality（→ 省电）
+rep("""  if (P.autoQuality && perf.sinceStart > 8) {
+    // first trade resolution smoothly (down to 70 %), and only then drop to Low quality
+    perf.slow = perf.ms > 22 ? perf.slow + rawDt : 0;
+    perf.fast = perf.ms < 13 ? (perf.fast || 0) + rawDt : 0;
+    if (perf.slow > 1.5) {
+      perf.slow = 0;
+      if (RES.scale > 0.76 && P.quality === 'High') { RES.scale = Math.max(0.75, RES.scale - 0.1); setQuality(P.quality, true); }
+      else if (P.quality === 'High') { setQuality('Low'); pondDegraded('帧率偏低，已自动切换到“流畅”画质'); }
+      else if (P.ssao || P.godRays || P.dof || P.bloomStrength > 0) { P.ssao = P.godRays = P.dof = false; P.bloomStrength = 0; pondDegraded('帧率偏低，已关闭景深 / 体积光等特效'); }
+    } else if (perf.fast > 4 && RES.scale < 1) { perf.fast = 0; RES.scale = Math.min(1, RES.scale + 0.1); setQuality(P.quality, true); }
+  }""", """  // 只降不升：分辨率 1 → 0.8（一次）→ 流畅 → 省电；不会因为帧率回升而自动升回去（升降来回切换会让画面一闪一闪）
+  perf.cool = Math.max(0, (perf.cool || 0) - rawDt);
+  if (P.autoQuality && !""" + CPE + """.eco && perf.sinceStart > 8 && (typeof PHASE2 === 'undefined' || PHASE2.done) && perf.cool <= 0) {
+    perf.slow = perf.ms > 24 ? perf.slow + rawDt : Math.max(0, perf.slow - rawDt * 0.5);
+    if (perf.slow > 3) {
+      perf.slow = 0; perf.cool = 6;
+      if (RES.scale > 0.81 && P.quality === 'High') { RES.scale = 0.8; setQuality(P.quality, true); }
+      else if (P.quality === 'High') { setQuality('Low'); pondDegraded('帧率偏低，已自动切换到“流畅”画质'); }
+      else pondDegraded('帧率偏低，已自动切换到“省电”画质');
+    }
+  }""")
+rep("const perf = { ms: 16.7, fps: 60, slow: 0, acc: 0, frames: 0, sinceStart: 0 };",
+    "const perf = { ms: 16.7, fps: 60, slow: 0, acc: 0, frames: 0, sinceStart: 0, cool: 0 };")
+# 帧率上限：rAF 里先判断是否跳过本帧
+rep("function frame() {\n  if (window.__pondStop) { window.__pondStopped = true; return; }   // 自动化测试：停帧后截图\n  requestAnimationFrame(frame);\n",
+    "function frame() {\n  if (window.__pondStop) { window.__pondStopped = true; return; }   // 自动化测试：停帧后截图\n  requestAnimationFrame(frame);\n  if (fpsCapSkip()) return;                                  // 省电档 30 fps 上限\n")
+# 阴影：省电档只在需要时（加载 / 天气 / 档位变化）更新，外加每 2 秒随太阳刷新一次
+rep("  if (SHADOW.dirty || SHADOW.frame % (P.quality === 'High' ? 2 : 3) === 0) {",
+    "  if (SHADOW.dirty || (" + CPE + ".eco ? SHADOW.frame % 60 === 0 : SHADOW.frame % (P.quality === 'High' ? 2 : 3) === 0)) {")
+# 窗口尺寸变化：同一尺寸不重建（makeTargets 内部比较）
+rep("""addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight, false);
+  makeTargets();
+});""", """addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+  const c = renderer.domElement, pr = renderer.getPixelRatio();
+  if (c.width !== Math.floor(innerWidth * pr) || c.height !== Math.floor(innerHeight * pr)) renderer.setSize(innerWidth, innerHeight, false);
+  makeTargets();
+});""")
+# HUD：显示当前档位（清晰 / 流畅 / 省电）与渲染帧率
+rep("${perf.ms.toFixed(1).padStart(5)} ms\\n画质 ${P.quality === 'High' ? '高' : '低'} · ",
+    "${perf.ms.toFixed(1).padStart(5)} ms\\n画质 ${typeof PondQuality !== 'undefined' ? PondQuality.name() : (P.quality === 'High' ? '高' : '低')}${" + CPE + ".fpsCap ? ' · 上限 ' + " + CPE + ".fpsCap + ' fps' : ''} · ")
+# 省电细节：草 / 叶片卡减半
+rep("    const im = new THREE.InstancedMesh(geo, m, mats.length);\n    mats.forEach((mm, i) => { im.setMatrixAt(i, mm); im.setColorAt(i, cols[i]); });\n    im.castShadow = im.receiveShadow = true; im.customDepthMaterial = dm; im.computeBoundingSphere();\n",
+    "    const im = new THREE.InstancedMesh(geo, m, mats.length);\n    mats.forEach((mm, i) => { im.setMatrixAt(i, mm); im.setColorAt(i, cols[i]); });\n    im.castShadow = im.receiveShadow = true; im.customDepthMaterial = dm; im.computeBoundingSphere(); ecoThin(im);\n")
+rep("    im.receiveShadow = true; im.computeBoundingSphere(); setLayer(im, LAYER.ABOVE); scene.add(im);\n  }\n  await phase2Yield('种植垂柳、香樟与灌木');\n  // sword leaf",
+    "    im.receiveShadow = true; im.computeBoundingSphere(); ecoThin(im); setLayer(im, LAYER.ABOVE); scene.add(im);\n  }\n  await phase2Yield('种植垂柳、香樟与灌木');\n  // sword leaf")
+rep("    fim.computeBoundingSphere(); setLayer(fim, LAYER.ABOVE); scene.add(fim);", "    fim.computeBoundingSphere(); ecoThin(fim); setLayer(fim, LAYER.ABOVE); scene.add(fim);")
+rep("    im.customDepthMaterial = depth;\n    im.computeBoundingSphere();\n    setLayer(im, LAYER.ABOVE); scene.add(im);\n  }\n  WORLD.willowTrees",
+    "    im.customDepthMaterial = depth;\n    im.computeBoundingSphere(); ecoThin(im);\n    setLayer(im, LAYER.ABOVE); scene.add(im);\n  }\n  WORLD.willowTrees")
+# 雨雪粒子减半
+rep("    const n = Math.floor(PRECIP.nR * c.rain), a = PRECIP.rain.geometry.attributes.position.array,", "    const n = Math.floor(PRECIP.nR * c.rain * (ECO.on ? 0.5 : 1)), a = PRECIP.rain.geometry.attributes.position.array,")
+rep("    const n = Math.floor(PRECIP.nS * c.snow), a = PRECIP.snow.geometry.attributes.position.array;", "    const n = Math.floor(PRECIP.nS * c.snow * (ECO.on ? 0.5 : 1)), a = PRECIP.snow.geometry.attributes.position.array;")
+# 锦鲤：省电档隐藏的原有锦鲤与“空位”同样处理（不模拟、不绘制、不投影）
+rep("    if (f.gone) continue;                     // 已被编辑器移除（空位）", "    if (f.gone || f.ecoOff) continue;         // 已被编辑器移除（空位）/ 省电档隐藏")
+rep("      const o = F[j]; if (o.gone) continue;", "      const o = F[j]; if (o.gone || o.ecoOff) continue;")
+rep("    if (a.gone || b.gone) continue;", "    if (a.gone || b.gone || a.ecoOff || b.ecoOff) continue;")
+rep("    _sk.setScalar(f.gone ? 1e-5 :", "    _sk.setScalar(f.gone || f.ecoOff ? 1e-5 :")
+rep("    if (!f || i >= n || f.gone) { SA[i].set(0, 0, 0, 0); continue; }", "    if (!f || i >= n || f.gone || f.ecoOff) { SA[i].set(0, 0, 0, 0); continue; }")
+rep(".filter((f) => !f.gone), tame", ".filter((f) => !f.gone && !f.ecoOff), tame")
+rep("    if (typeof buildKoi === 'function') buildKoi();\n", "    if (typeof buildKoi === 'function') buildKoi();\n    setEcoDetail(ECO.on);\n")
+rep("    PHASE2.done = true; window.__pondFull = true; pmark('phase2-done');", "    setEcoDetail(ECO.on);\n    PHASE2.done = true; window.__pondFull = true; pmark('phase2-done');")
+# 渐进加载：每小节挂进场景后阴影要重画一次（已有 SHADOW.dirty）；植被分节出现时不再同时触发自动降质（PHASE2.done 之前不计慢帧）
+rep("  bloomStrength: " + CPE + ".lowPower ? 0.22 : 0.3,", "  bloomStrength: " + CPE + ".eco ? 0 : " + CPE + ".lowPower ? 0.22 : 0.3,")
+rep("window.PondEdit = PondEdit;", "window.PondEdit = PondEdit;\nwindow.PondEco = { setEcoDetail, get on() { return ECO.on; }, makeTargets, setQuality: (q) => setQuality(q, true), get rtKey() { return RT.key; } };")
+
 # ---------------------------------------------------------------- 抽出共享画风脚本 pond-style-core.js（全景与池塘逐字共用）
 CORE_PARTS = []
 def cut(pat, name, keep=''):

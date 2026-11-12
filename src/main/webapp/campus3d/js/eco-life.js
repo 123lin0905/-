@@ -104,6 +104,7 @@
     const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
     const pixelRatio = () => (renderer ? renderer.getPixelRatio() : 1);
     const quality = () => (look ? look.quality : "clear");
+    const isEco = () => quality() === "eco";   // 省电档：近处真树、灌木、飞鸟、蝴蝶、粒子都再减半
 
     // ================= 树木 =================
     const zones = opts.zones || [];
@@ -222,7 +223,7 @@
     const lodStats = { near: 0, far: 0 };
     function updateLOD(camPos) {
       const clear = quality() === "clear";
-      const nearDist = clear ? 230 : 150, maxNear = clear ? 70 : 32;
+      const nearDist = clear ? 230 : isEco() ? 110 : 150, maxNear = clear ? 70 : isEco() ? 16 : 32;
       const all = [];
       for (const t of trees) { t.d = Math.hypot(t.x - camPos.x, t.z - camPos.z, camPos.y * 0.6); all.push(t); }
       all.sort((a, b) => a.d - b.d);
@@ -300,7 +301,7 @@
     })();
     function updateShrubs(camPos) {
       const clear = quality() === "clear";
-      const maxD = clear ? 300 : 180, cap = clear ? 220 : 110;
+      const maxD = clear ? 300 : isEco() ? 140 : 180, cap = clear ? 220 : isEco() ? 55 : 110;
       const idx = [];
       shrubSpots.forEach((p, i) => { const [x, z] = W(p); const d = Math.hypot(x - camPos.x, z - camPos.z, camPos.y * 0.7); if (d < maxD) idx.push([d, i, x, z]); });
       idx.sort((a, b) => a[0] - b[0]);
@@ -514,7 +515,7 @@
     function updateBirds(dt, t) {
       goal[0].set(Math.sin(t * 0.05) * 280, 105 + Math.sin(t * 0.21) * 20, Math.sin(t * 0.1) * 220);
       goal[1].set(Math.cos(t * 0.043 + 2) * 300, 135 + Math.cos(t * 0.17) * 18, Math.sin(t * 0.083 + 1) * 260);
-      const shown = Math.round(NB * birdVis);
+      const shown = Math.round(NB * birdVis * (isEco() ? 0.5 : 1));   // 省电档飞鸟减半
       for (let i = 0; i < NB; i++) {
         const b = birds[i];
         if (i < shown) {
@@ -624,7 +625,7 @@
         const bodyM = new THREE.Mesh(new THREE.CapsuleGeometry(0.025, 0.3, 4, 6).rotateX(Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x1e1a16, roughness: 0.7 }));
         grp.add(l, r, bodyM);
         grp.scale.setScalar(1.5);
-        grp.userData = { l, r, phase: rnd() * 6, home: new THREE.Vector3(hx + (rnd() - 0.5) * 30, 0, hz + (rnd() - 0.5) * 30), seed: rnd() * 100, flee: 0, pos: new THREE.Vector3() };
+        grp.userData = { ecoOff: i % 2 === 1, l, r, phase: rnd() * 6, home: new THREE.Vector3(hx + (rnd() - 0.5) * 30, 0, hz + (rnd() - 0.5) * 30), seed: rnd() * 100, flee: 0, pos: new THREE.Vector3() };
         grp.position.set(hx + (rnd() - 0.5) * 30, 2, hz + (rnd() - 0.5) * 30);
         scene.add(grp);
         butterflies.push(grp); look.noReflect.push(grp);
@@ -635,8 +636,8 @@
     function updateButterflies(dt, t) {
       butterflies.forEach((b) => {
         const d = b.userData;
-        b.visible = creaturesActive;
-        if (!creaturesActive) return;
+        b.visible = creaturesActive && !(isEco() && d.ecoOff);   // 省电档蝴蝶隔一只隐藏
+        if (!b.visible) return;
         d.phase += dt * 22;
         const flap = Math.sin(d.phase) * 1.0;
         d.l.rotation.z = flap; d.r.rotation.z = -flap;
@@ -752,9 +753,11 @@
       const wx = (env.wind || 8) * 0.6;
       rain.u.uWind.value.set(wx, wx * 0.3);
       rain.points.visible = env.rain > 0.01; rain.u.uOpacity.value = 0.2 + env.rain * 0.35; rain.u.uLight.value = dayLight * 0.9 + 0.1;
-      rain.points.geometry.setDrawRange(0, Math.floor(rain.n * clamp01(env.rain + 0.15) * (quality() === "clear" ? 1 : 0.55)));
+      rain.points.geometry.setDrawRange(0, Math.floor(rain.n * clamp01(env.rain + 0.15) * (quality() === "clear" ? 1 : isEco() ? 0.3 : 0.55)));
       snow.points.visible = env.snow > 0.01; snow.u.uOpacity.value = 0.9 * env.snow; snow.u.uLight.value = dayLight;
-      snow.points.geometry.setDrawRange(0, Math.floor(snow.n * (quality() === "clear" ? 1 : 0.55)));
+      snow.points.geometry.setDrawRange(0, Math.floor(snow.n * (quality() === "clear" ? 1 : isEco() ? 0.3 : 0.55)));
+      const pk = isEco() ? 0.5 : 1;   // 花瓣 / 落叶 / 萤火虫：省电档减半
+      petals.points.geometry.setDrawRange(0, Math.floor(petals.n * pk)); leaves.points.geometry.setDrawRange(0, Math.floor(leaves.n * pk)); fireflies.points.geometry.setDrawRange(0, Math.floor(fireflies.n * pk));
       const fallOK = env.rain < 0.3 && env.snow < 0.1;
       // 花瓣/落叶只在拉近视角时显示，远景下会变成噪点
       const near = clamp01((620 - camera.position.distanceTo(target)) / 260);
