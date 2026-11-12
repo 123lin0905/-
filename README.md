@@ -2,7 +2,7 @@
 
 Java Servlet + JSP + MyBatis 实现的校园绿化管理系统（西南财经大学天府学院 · 绵阳校区）。
 
-## 生态主页（第一阶段：虚拟生态动态大屏；第二阶段：板块细节场景；画风统一：全景改为池塘同款写实风；板块进入提速）
+## 生态主页（第一阶段：虚拟生态动态大屏；第二阶段：板块细节场景；画风统一：全景改为池塘同款写实风；板块进入提速；动植物增删）
 
 网站打开后的第一屏是 **3D 虚拟生态主页**：加载动画进度条 → 全屏 3D 校园大屏。原系统首页 `index.jsp` 通过右上角 **“进入管理系统 →”** 进入，登录入口为 **“管理员登录”**；系统首页导航栏新增了 **“🌱 生态主页”** 按钮可返回大屏。
 
@@ -143,9 +143,72 @@ python3 tools/build_pond.py            # 或 python3 tools/build_pond.py <koi-po
 
 街道视角三角形增加是因为近处树木换成了池塘同款的真实分枝几何（最多 70 / 32 棵），远处仍为公告板；draw calls 全面下降。池塘数据为同一场景、同一参数下的单帧统计（含反射、折射、阴影等多个 pass）；清晰档数字低于流畅档的原因未逐 pass 拆解。真机 1080p 集成显卡帧率未在本环境实测（无 GPU）。
 
+### 动植物增删与栽种 / 移植动画（第三阶段 B，池塘试点 · 通用编辑器）
+
+在池塘细节场景（翠湖水景、图书馆·荷花池）右侧“池塘生态”面板点 **“✏️ 管理动植物”** 进入编辑模式（植被还在后台补种时按钮置灰，显示“生态加载中…”）。镜头切到俯瞰，顶部徽标显示“编辑模式 · 保存到服务器”或“演示模式 · 未保存到服务器”。
+
+| 操作 | 说明 |
+| --- | --- |
+| 新增 | 点“＋ 新增”→ 目录里选物种 → 鼠标在场景里移动出现放置预览（绿色可放 / 红色不可放，并提示原因，如“荷花是挺水植物，要种在水里”“乔木只能种在岸上（离水至少 0.9 米）”“离「垂柳」太近”“这里已有原有的树木或花境”——岸上植物会避开场景原有的树丛、灌木与花境，避免种进树冠里被遮住）→ 点击放下。 |
+| 选中 / 移植 | 点中个体（场景原有的垂柳、荷叶、睡莲、锦鲤也可以选中）出现黄色选中环；“↔ 移植”模式下按住拖到新位置松开。 |
+| 删除 | 选中后按 Delete 或“🗑 删除”，弹出确认框。 |
+| 撤销 | “↶ 撤销”或 Ctrl+Z，可撤销新增 / 删除 / 移植。Esc 退出放置。 |
+| 清单数量 | 面板清单实时显示数量：垂柳 / 荷花 / 睡莲 / 锦鲤显示总数“×N”（原有个体也登记在编辑器里）；其余物种显示新增数量“＋N”。 |
+| 恢复 | 重新进入板块时读取已保存的记录：新增的个体直接出现、移除的原有个体不再显示、移植过的原有个体在新位置。 |
+
+**物种目录（池塘）**：植物 —— 荷花、睡莲、菖蒲、再力花、芦苇、垂柳、香樟、桂花；动物 —— 锦鲤、青蛙、乌龟、蜻蜓。荷花 / 睡莲 / 垂柳 / 香樟 / 桂花复用池塘原有的生成算法（递归分枝树 + 叶片卡、荷叶 / 睡莲叶几何、荷花 `flower()`）和同一套材质，新种的与原有的画风一致；菖蒲、再力花、芦苇为新写株型；青蛙、乌龟、蜻蜓克隆场景里的模型；锦鲤为实例化渲染（名单扩到 24 条，编辑器放入的锦鲤用空位）。
+
+**动画**：
+- 地面栽种（乔木 / 芦苇）：开坑、土粒粒子飞溅 → 幼苗破土 → 长成（回弹缓动）→ 回填土粒、坑缩小消失。
+- 移除植物：连根拔起，露出带根系的土球 → 提起、倾斜并缩小 → 坑回填；水生植物沉入水下并带涟漪。
+- 移植：带根土球拔起 → 沿弧线移到新位置 → 落坑回填；睡莲顺着水面漂过去，一路带出涟漪。
+- 水生植物（荷花、菖蒲、再力花）从水下冒出，带少量水珠和两圈涟漪（涟漪环为细环、低不透明度，与写实水面协调）；睡莲浮上水面。
+- 动物入场 / 离场：锦鲤入水溅起水花（水珠粒子 + 水面波纹）、气泡后淡入，离场时下潜淡出（移植为“捞起 → 放入”）；青蛙抛物线跳入 / 跳走（落水有水花、落在睡莲叶上叶片下沉）；乌龟慢慢爬入 / 爬走（身体左右摆）；蜻蜓沿曲线飞入后悬停振翅，再飞走。
+- 同一个体的新操作会先把旧动画快进到终点，动画可以随时打断。
+
+**保存**：已登录且角色为管理员 / 养护员时实时保存到服务器（表 `zone_species`）；未登录、无权限、数据库不可用（接口 503）或网络错误时自动切到 **演示模式**，修改保存在浏览器 `localStorage`（键 `pond-species-demo:<板块id>`），面板明确提示“⚠ 演示模式，未保存到服务器”。
+
+#### 接口与权限
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| GET | `/api/zones/{zoneId}/species` | 公开。返回板块信息、`editable`、`can_edit`（当前会话能否编辑）、`user` 与全部记录（含已移除的原有个体，前端据此隐藏）。 |
+| GET | `/api/zones/{zoneId}/species/{id}` | 公开。单条记录。 |
+| POST | `/api/zones/{zoneId}/species` | 新增：`species_type`（plant / animal）、`species_key`、`species_name`、`x`、`z`、`rotation`、`scale`（0.2–3）、`quantity`、`status`；带 `seed_ref`（如 `willow#2`，场景原有个体）时按“板块 + seed_ref”幂等：已有记录则更新（200），否则新建（201）。 |
+| PUT | `/api/zones/{zoneId}/species/{id}` | 移植 / 修改：`x`、`z`、`rotation`、`scale`、`quantity`、`status`。 |
+| DELETE | `/api/zones/{zoneId}/species/{id}` | 软删除：`status = removed`，保留记录与操作人便于追溯。 |
+
+- 写操作要求会话中有 `adminUser`，且角色属于 `SYSTEM_ADMIN`、`SUPER_ADMIN`、`ADMIN`、`PLANT_ADMIN`、`MAINTENANCE_ADMIN`、`MAINTAINER`（`ZoneSpeciesService.EDITOR_ROLES`）。`AuthFilter` 对 `/api/zones/` 的非 GET 请求：未登录返回 JSON **401** `login_required`，角色不符返回 **403** `forbidden`（不跳转登录页，因为调用方是三维场景里的 fetch）；Servlet 内再校验一次，并拒绝 `editable: false` 的板块（403 `zone_readonly`）。
+- 数据库不可用时返回 **503** `{"error":"db_unavailable"}`，前端进入演示模式。参数错误 400，板块或记录不存在 404。
+- 表结构：`database/002_zone_species.sql`（与 `JdbcZoneSpeciesStore.DDL` 一致；接口首次访问时也会 `CREATE TABLE IF NOT EXISTS`）。字段：`id`、`zone_id`、`area_code`（对应 `plant_area.area_code`）、`species_type`、`species_key`、`species_name`、`seed_ref`、`quantity`、`pos_x`、`pos_z`、`rotation_y`、`scale`、`status`、`created_by/at`、`updated_by/at`；唯一键 `(zone_id, seed_ref)`。
+- 单元测试（内存存储，不需要数据库）：`./mvnw -Dtest=ZoneSpeciesServiceTest test`（`MyBatisTest` 需要真实数据库，所以用 `-Dtest` 只跑新测试；`pom.xml` 已把 surefire 升到 3.2.5 才能识别 JUnit 5）。
+
+```
+src/main/java/Servlet/ZoneSpeciesServlet.java     /api/zones/* 入口（读取 zones.json 的 area_code / editable）
+src/main/java/Servlet/ZoneSpeciesService.java     业务逻辑与权限（与容器无关，便于单元测试）
+src/main/java/DB/ZoneSpeciesStore.java            存取接口；JdbcZoneSpeciesStore（MySQL）/ MemoryZoneSpeciesStore（测试）
+src/main/java/DB/MiniJson.java                    无依赖的小型 JSON 解析 / 序列化
+src/main/java/org/example/demo1/ZoneSpecies.java  记录实体
+src/main/webapp/campus3d/js/species-editor.js     通用编辑器（与场景解耦）
+src/main/webapp/campus3d/pond/pond-species.js     池塘适配层：物种目录、放置规则、动物动画、原有个体
+tools/pond_edit_hooks.js                          池塘场景钩子 window.PondEdit（由 build_pond.py 插入 pond-main.js）
+database/002_zone_species.sql                     迁移脚本
+```
+
+#### 新板块接入步骤
+
+1. `campus3d/data/zones.json`：给板块设 `"editable": true`，`"catalog"` 写允许增删的物种 key 列表（`null` 或 `editable: false` 为只读；全景页目前只读）。服务端同样读取 `editable`，只读板块的写请求返回 403。
+2. 在该板块的细节场景页引入 `../js/species-editor.js` 和一个适配层脚本（参照 `pond/pond-species.js`），场景建完后调用 `SpeciesEditor.create({...})`，提供：
+   - `catalog`：`[{ key, name, type: 'plant'|'animal', icon, desc, rule, radius, anim: 'tree'|'shrub'|'aquatic'|'floating', make(ind) → Object3D }]`；动物或由场景接管的个体可改为提供 `spawn / despawn / moveTo / enter / exit / transplant / idle` 钩子；
+   - `canPlace(entry, x, z) → { ok, reason }` 放置规则；`pick(raycaster) → {x, y, z}` 地面 / 水面拾取；`surfaceY(x, z, entry)` 地表高度；
+   - `seeds`：场景原有、允许选中的个体 `[{ ref: 'willow#0', key, obj }]`（`ref` 要稳定，后端按它记录原有个体的移除 / 移植）；
+   - `zoneId`、`apiBase`（默认 `../../api/zones/`）、`storageKey`（演示模式本地存储键），以及可选 `hooks`（`ripple`、`splash`、`onToggle`）与 `onCounts`（清单数量回调）。
+3. 调 `editor.buildUI(容器)` 放“✏️ 管理动植物”按钮，`editor.load()` 读取并恢复已保存状态，每帧调用 `editor.update(dt)`。
+4. 数据库已执行 `database/002_zone_species.sql`（或让接口首次访问时自动建表）；需要关联绿化档案时在 `plant_area` 中建与 `area_code` 同名的区域。
+
 ### 板块配置 `campus3d/data/zones.json`
 
-每个板块包含：`id`、`name`、`icon`、`color`、`center`（中心坐标）、`polygon`（范围多边形）、`camera_distance`（点击后相机距离，米）、`area_code`（预留对接数据库 `plant_area.area_code`，当前为建议编码，第二阶段在 `plant_area` 中建同名记录即可关联）、`detail_scene`（板块细节 3D 场景，相对 `campus3d/` 的路径；`null` 表示建设中）、`intro`、`highlights`。坐标与 `campus_layout.json` 一致：官方平面图（2048×1998）像素坐标，x 向东、y 向南，1 像素约 0.4 米。
+每个板块包含：`id`、`name`、`icon`、`color`、`center`（中心坐标）、`polygon`（范围多边形）、`camera_distance`（点击后相机距离，米）、`area_code`（预留对接数据库 `plant_area.area_code`，当前为建议编码，第二阶段在 `plant_area` 中建同名记录即可关联）、`detail_scene`（板块细节 3D 场景，相对 `campus3d/` 的路径；`null` 表示建设中）、`editable` / `catalog`（是否开放动植物增删及可增删的物种，见上文）、`intro`、`highlights`。坐标与 `campus_layout.json` 一致：官方平面图（2048×1998）像素坐标，x 向东、y 向南，1 像素约 0.4 米。
 
 ### 天气数据来源
 
@@ -179,4 +242,4 @@ python3 tools/build_pond.py            # 或 python3 tools/build_pond.py <koi-po
 - 小猫、蝴蝶、鸟按卡通比例放大，远景可见；建筑高度为示意。
 - 树木种类（香樟/桂花/银杏/水杉/垂柳/樱花）按位置随机分配，为示意数据，后续可改为读取 `plant` 表中的真实绿植。
 - three r160 的 UMD 版在控制台打印一条“build/three.min.js 已弃用”的警告（不影响运行）；两页都没有改用 ES 模块，以保持无构建工具的经典脚本结构。
-- 池塘细节场景渲染开销较大（反射、折射、焦散、后期），首次加载需编译着色器；集成显卡/手机会自动降为低画质。场景中的物种为示意设计，第三阶段再接入数据库中的真实动植物与增删动画。
+- 池塘细节场景渲染开销较大（反射、折射、焦散、后期），首次加载需编译着色器；集成显卡/手机会自动降为低画质。场景中的物种为示意设计；动植物增删目前只在池塘两个板块试点，记录保存在 `zone_species`，尚未与 `plant` 绿植档案逐株关联。

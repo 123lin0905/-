@@ -22,6 +22,24 @@ public class AuthFilter implements Filter {
         HttpServletRequest httpRequest = (HttpServletRequest) request;
         HttpServletResponse httpResponse = (HttpServletResponse) response;
         String path = httpRequest.getRequestURI().substring(httpRequest.getContextPath().length());
+        // 生态板块动植物增删接口：GET 公开；增 / 改 / 删需登录且为管理员或养护员（ZoneSpeciesService.EDITOR_ROLES）。
+        // 接口调用方是三维场景里的 fetch，所以未登录 / 无权限时返回 JSON 401 / 403，而不是跳转登录页。
+        if (path.startsWith("/api/zones/")) {
+            String method = httpRequest.getMethod();
+            if (!"GET".equals(method) && !"HEAD".equals(method) && !"OPTIONS".equals(method)) {
+                AdminUser zoneUser = getCurrentUser(httpRequest);
+                if (zoneUser == null || !ZoneSpeciesService.canEdit(zoneUser.getRoleCode())) {
+                    httpResponse.setStatus(zoneUser == null ? HttpServletResponse.SC_UNAUTHORIZED : HttpServletResponse.SC_FORBIDDEN);
+                    httpResponse.setContentType("application/json;charset=UTF-8");
+                    httpResponse.getWriter().write(zoneUser == null
+                            ? "{\"error\":\"login_required\",\"message\":\"请先登录（管理员或养护员）再增删动植物\"}"
+                            : "{\"error\":\"forbidden\",\"message\":\"当前角色无权增删动植物，仅管理员 / 养护员可以操作\"}");
+                    return;
+                }
+            }
+            chain.doFilter(request, response);
+            return;
+        }
         String requiredRole = requiredRole(path);
 
         if (requiredRole == null) {

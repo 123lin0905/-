@@ -654,6 +654,102 @@ rep('</style>\n<link rel="stylesheet" href="pond-campus.css">',
     '  #p2chip.is-done { opacity: 0; }\n'
     '</style>\n<link rel="stylesheet" href="pond-campus.css">')
 
+# ---------------------------------------------------------------- 动植物增删（第三阶段 B，池塘试点）
+# 场景钩子 tools/pond_edit_hooks.js（window.PondEdit：垂柳 / 香樟 / 桂花 / 荷花 / 睡莲独立生成函数、锦鲤空位管理、原有个体登记）插在渐进加载代码之前；
+# pond.html 另外引入通用编辑器 ../js/species-editor.js 与池塘适配层 pond-species.js（场景全部补完、派发 pond:full 后才创建编辑器）。
+HOOKS_JS = open(os.path.join(ROOT, 'tools', 'pond_edit_hooks.js'), encoding='utf-8').read()
+rep("/* ------------------------------------------------------------------ 校园版：渐进式加载", HOOKS_JS.rstrip() + "\n\n/* ------------------------------------------------------------------ 校园版：渐进式加载")
+# 垂柳：每棵树的树皮与叶片卡单独保存（WORLD.willowParts），之后用 PondEdit.treeFromParts 建成独立的树（WORLD.willowTrees），可以单独移植 / 移除
+rep("    const gy = ground(x, z), nb = BARK.length;\n    const lean = new V3(-sdfGradX(x, z), 0, -sdfGradZ(x, z)).multiplyScalar(0.28);          // lean toward the water",
+    "    const gy = ground(x, z), nb = BARK.length, nc = LEAVES.sakura.length;\n    const lean = new V3(-sdfGradX(x, z), 0, -sdfGradZ(x, z)).multiplyScalar(0.28);          // lean toward the water")
+rep("    SAK_BARK.push(...BARK.splice(nb));\n", "    const ownBark = BARK.splice(nb);\n    if (!weeping) SAK_BARK.push(...ownBark);\n")
+rep("    OCC.push([x, z, 0.8]); (WORLD.willows = WORLD.willows || []).push([x, z, h]);\n",
+    "    OCC.push([x, z, 0.8]); (WORLD.willows = WORLD.willows || []).push([x, z, h]);\n"
+    "    if (weeping) (WORLD.willowParts = WORLD.willowParts || []).push({ x, z, gy, h, bark: ownBark, cards: { sakura: LEAVES.sakura.splice(nc) }, seasons: { sakura: 'SRA' } });\n")
+# 静态占位表导出：原有的树（香樟、樱花、造型松…）、灌木、竹林、花境都登记在 OCC 里；编辑器新种的岸上植物要避开它们，
+# 否则会种进原有树丛里，被树冠完全遮住（垂柳单独可移植，按 WORLD.willows 排除）
+rep("  await buildBotanical(OCC, free, V3);\n", "  await buildBotanical(OCC, free, V3);\n  WORLD.occ = OCC;\n")
+# 树皮材质导出（编辑器新种的树复用同一材质）；垂柳树皮材质无论是否还有合并网格都要建
+rep("""  if (SAK_BARK.length) {
+    const sm = physical({ map: TEX.sakuraBark.map, normalMap: TEX.sakuraBark.normalMap, normalScale: new THREE.Vector2(1.2, 1.2), roughness: 0.8, envMapIntensity: 0.6 },
+      { key: 'barksak', wind: 'world', windWeight: 'clamp((wPos4.y - 1.5) * 0.05, 0.0, 0.35)' });
+    const sbm = meshOf(SAK_BARK, sm, LAYER.ABOVE);
+    sbm.customDepthMaterial = patchedDepth({ key: 'barkd', wind: true, windWeight: 'clamp((wPos4.y - 1.5) * 0.05, 0.0, 0.35)' });
+  }
+""", """  WORLD.barkKit = { mat: barkMat, depth: barkMesh.customDepthMaterial };
+  {
+    const sm = physical({ map: TEX.sakuraBark.map, normalMap: TEX.sakuraBark.normalMap, normalScale: new THREE.Vector2(1.2, 1.2), roughness: 0.8, envMapIntensity: 0.6 },
+      { key: 'barksak', wind: 'world', windWeight: 'clamp((wPos4.y - 1.5) * 0.05, 0.0, 0.35)' });
+    const sd = patchedDepth({ key: 'barkd', wind: true, windWeight: 'clamp((wPos4.y - 1.5) * 0.05, 0.0, 0.35)' });
+    WORLD.willowBark = { mat: sm, depth: sd };
+    if (SAK_BARK.length) { const sbm = meshOf(SAK_BARK, sm, LAYER.ABOVE); sbm.customDepthMaterial = sd; }
+  }
+""")
+# 叶片卡材质：列表为空也建材质（编辑器新种的树要用），导出 WORLD.leafKit；循环结束后把垂柳建成独立的树
+rep("""  WORLD.leafMats = [];
+  for (const [name, tex, transl, sheen] of leafSets) {
+    const list = LEAVES[name]; if (!list.length) continue;
+""", """  WORLD.leafMats = [];
+  WORLD.leafKit = { cardGeo, sets: {} };
+  for (const [name, tex, transl, sheen] of leafSets) {
+    const list = LEAVES[name];
+""")
+rep("""    WORLD.leafMats.push(mat);
+    const im = new THREE.InstancedMesh(cardGeo, mat, list.length);
+""", """    WORLD.leafMats.push(mat);
+    const seasons = { maple: 'SRA', green: 'SRA', sakura: 'SRA', bloom: 'SR', hydrangea: 'SRA', bigleaf: 'SRA', kikyo: 'SR' }[name] || 'SRAW';
+    const depth = patchedDepth({ key: 'leafd', wind: true, windWeight: ww }, tex, 0.45);
+    WORLD.leafKit.sets[name] = { mat, depth, seasons };
+    WORLD.leafMesh[name] = { material: mat, customDepthMaterial: depth };    // 季节切换（垂柳秋色）改的是共享材质，独立的树一起生效
+    if (!list.length) continue;
+    const im = new THREE.InstancedMesh(cardGeo, mat, list.length);
+""")
+rep("""    seasonal(im, { maple: 'SRA', green: 'SRA', sakura: 'SRA', bloom: 'SR', hydrangea: 'SRA', bigleaf: 'SRA', kikyo: 'SR' }[name] || 'SRAW');
+    im.castShadow = !low; im.receiveShadow = true; if (low) WORLD.noReflect.push(im);
+    im.customDepthMaterial = patchedDepth({ key: 'leafd', wind: true, windWeight: ww }, tex, 0.45);
+    im.computeBoundingSphere();
+    setLayer(im, LAYER.ABOVE); scene.add(im);
+  }
+""", """    seasonal(im, seasons);
+    im.castShadow = !low; im.receiveShadow = true; if (low) WORLD.noReflect.push(im);
+    im.customDepthMaterial = depth;
+    im.computeBoundingSphere();
+    setLayer(im, LAYER.ABOVE); scene.add(im);
+  }
+  WORLD.willowTrees = (WORLD.willowParts || []).map((part) => {
+    part.barkKit = WORLD.willowBark;
+    const g = PondEdit.treeFromParts(part); g.userData.seedTree = 'willow'; scene.add(g); return g;
+  });
+""")
+rep("    WORLD.leafMesh[name] = im;\n", "")
+# 池塘材质与荷花 flower() 导出给编辑器
+rep("  WORLD.lilies = [];\n  await phase2Yield('种下睡莲与荷花');",
+    "  WORLD.lilies = [];\n  WORLD.pondKit = { padMat, lotusMat, lilyMat, stamenMat, stemMat };\n  await phase2Yield('种下睡莲与荷花');")
+rep("  WORLD.lotusFlower = fl;\n", "  WORLD.lotusFlower = fl;\n  WORLD.lotusKit = { flower, petalMat };\n")
+# 锦鲤：名单扩到 24 条（编辑器放入的锦鲤用空位），f.vis 淡入淡出、f.gone 已移除
+rep("const KOI_MAX = 20; ", "const KOI_MAX = 24; ")
+rep("['doitsu', 'M'], ['goshiki', 'S'], ['benigoi', 'S'], ['ochiba', 'M'], ['kohaku', 'S', { gin: 1 }],\n];",
+    "['doitsu', 'M'], ['goshiki', 'S'], ['benigoi', 'S'], ['ochiba', 'M'], ['kohaku', 'S', { gin: 1 }],\n"
+    "  ['showa', 'M'], ['yamabuki', 'S'], ['tancho', 'S'], ['asagi', 'S'],     // 21–24：编辑器“放锦鲤”用的空位\n];")
+rep("""  for (let i = 0; i < n; i++) {
+    const f = F[i];
+    const fx = Math.cos(f.heading), fz = -Math.sin(f.heading);
+    // feeding excitement""", """  for (let i = 0; i < n; i++) {
+    const f = F[i];
+    if (f.gone) continue;                     // 已被编辑器移除（空位）
+    const fx = Math.cos(f.heading), fz = -Math.sin(f.heading);
+    // feeding excitement""")
+rep("      const o = F[j], dx = o.p.x - f.p.x, dz = o.p.z - f.p.z, d2 = dx * dx + dz * dz;",
+    "      const o = F[j]; if (o.gone) continue;\n      const dx = o.p.x - f.p.x, dz = o.p.z - f.p.z, d2 = dx * dx + dz * dz;")
+rep("    const a = F[i], b = F[j];\n    if (Math.abs(a.p.x - b.p.x)", "    const a = F[i], b = F[j];\n    if (a.gone || b.gone) continue;\n    if (Math.abs(a.p.x - b.p.x)")
+rep("    _sk.setScalar(f.size); _pk.copy(f.p);", "    _sk.setScalar(f.gone ? 1e-5 : f.size * Math.max(1e-5, f.vis ?? 1)); _pk.copy(f.p);")
+rep("    if (!f || i >= n) { SA[i].set(0, 0, 0, 0); continue; }", "    if (!f || i >= n || f.gone) { SA[i].set(0, 0, 0, 0); continue; }")
+rep("    SA[i].set(f.p.x, f.p.y, f.p.z, f.size);", "    SA[i].set(f.p.x, f.p.y, f.p.z, f.size * (f.vis ?? 1));")
+rep("  const all = KOI.fish.slice(0, Math.min(P.fishCount, KOI.fish.length)), tame",
+    "  const all = KOI.fish.slice(0, Math.min(P.fishCount, KOI.fish.length)).filter((f) => !f.gone), tame")
+# pond.html 引入通用编辑器与池塘适配层（放在主脚本之后）
+SPECIES_TAGS = '<script src="../js/species-editor.js"></script>\n<script src="pond-species.js"></script>\n'
+
 # ---------------------------------------------------------------- 抽出共享画风脚本 pond-style-core.js（全景与池塘逐字共用）
 CORE_PARTS = []
 def cut(pat, name, keep=''):
@@ -736,7 +832,7 @@ main_js = ("/*\n * 校园池塘板块细节场景 · 主脚本（自动生成，
 MAIN = os.path.join(os.path.dirname(DST), 'pond-main.js')
 open(MAIN, 'w', encoding='utf-8').write(main_js)
 ver = hashlib.sha256(main_js.encode('utf-8')).hexdigest()[:10]
-s = s[:m.start()] + '<script src="pond-main.js?v=' + ver + '"></script>\n</body>' + s[m.end():]
+s = s[:m.start()] + '<script src="pond-main.js?v=' + ver + '"></script>\n' + SPECIES_TAGS + '</body>' + s[m.end():]
 print('OK', len(main_js), 'bytes ->', MAIN, 'v=' + ver)
 open(DST, 'w', encoding='utf-8').write(s)
 print('OK', len(s), 'bytes ->', DST)
