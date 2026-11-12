@@ -611,6 +611,49 @@ rep("    if (S >= total) endStroke();", "    if (S >= total) { if (window.__stro
 rep("const rawDt = clock.getDelta(), cdt = Math.min(rawDt, 0.05),", "const rawDt = clock.getDelta(), cdt = TEST_STEP || Math.min(rawDt, 0.05),")
 rep("const RES = { scale: " + CP + ".test ?", "const TEST_STEP = " + CP + ".test ? Math.min(0.2, parseFloat(new URLSearchParams(location.search).get('tstep')) || 0) : 0;\nconst RES = { scale: " + CP + ".test ?")
 
+# ---------------------------------------------------------------- 进入速度：渐进式加载（第三阶段 A）
+# 第一阶段（首帧前）：池岸 SDF、程序化纹理（IndexedDB 缓存）、地形、驳岸石、石桥小亭、水面、瀑布、庭院灯、雨雪、远山、锦鲤、手、后期
+#   → renderer.compileAsync 预编译着色器 → 首帧 → 加载遮罩立即淡出，可交互（喂鱼/抚摸/镜头/点击水面）。
+# 第二阶段（首帧后分帧补上）：植物纹理、植被（垂柳/香樟/灌木/花境/荷花睡莲…）、乌龟、水下根系、萤火虫、落叶落花、蜻蜓、气泡。
+#   每一小节之间让出主线程；新对象先放进暂存组、compileAsync 编译好着色器再挂进场景，避免卡帧；底部小条显示真实进度。
+# 时间戳：window.__pondT = [[performance.now(), 名称], …]（测速脚本读取；正式环境无副作用）。
+def _make_async_with_yields(fn, label):
+    """把 fn 改成 async，并在函数体顶层每个小节注释（两格缩进的 // 行）前插入 await phase2Yield()。返回插入个数。"""
+    global s
+    m = re.search(r"\nfunction " + fn + r"\(([^)]*)\) \{\n(.*?)\n\}\n", s, re.S)
+    assert m, fn
+    n = [0]
+    def ins(mm):
+        n[0] += 1
+        return "  await phase2Yield(" + repr(label) + ");\n" + mm.group(0)
+    body2 = re.sub(r"(?m)^  // ", ins, m.group(2))
+    s = s[:m.start()] + "\nasync function " + fn + "(" + m.group(1) + ") {\n" + body2 + "\n}\n" + s[m.end():]
+    return n[0]
+NY = 0
+NY += _make_async_with_yields('buildVegetation', '种植垂柳、香樟与灌木')
+NY += _make_async_with_yields('buildBotanical', '布置花境与竹林')
+NY += _make_async_with_yields('buildPondLife', '种下睡莲与荷花')
+rep("  buildBotanical(OCC, free, V3);\n", "  await buildBotanical(OCC, free, V3);\n")
+rep("  buildIrisFlowers(irisClumps);\n\n  buildPondLife();\n}", "  buildIrisFlowers(irisClumps);\n\n  await buildPondLife();\n}")
+PHASE2_TOTAL = NY + 9   # 各小节 + 植物纹理/植被/乌龟/水下根系/萤火虫/落叶/落花/蜻蜓/气泡
+
+# 暂存组下 scene.children 不再反映新加入的对象：低矮花境的“不进倒影”名单改为按第二阶段新增对象列表截取
+rep("  nr0 = scene.children.length;", "  nr0 = PHASE2.stage ? -1 - PHASE2.added.length : scene.children.length;")
+rep("  for (const o of scene.children.slice(nr0)) WORLD.noReflect.push(o);", "  for (const o of (nr0 < 0 ? PHASE2.added.slice(-1 - nr0) : scene.children.slice(nr0))) WORLD.noReflect.push(o);")
+INIT_JS = open(os.path.join(ROOT, 'tools', 'pond_init.js'), encoding='utf-8').read()
+resub(r"async function init\(\) \{\n  try \{\n.*?\n\}\ninit\(\);\n", lambda m: INIT_JS.replace('__PHASE2_TOTAL__', str(PHASE2_TOTAL)), 1)
+# 加载进度：记录每一步的时间戳
+rep("async function progress(frac, msg) {\n", "async function progress(frac, msg) {\n  (window.__pondT = window.__pondT || []).push([performance.now(), 'step:' + msg]);\n")
+# 第二阶段进度条样式
+rep('</style>\n<link rel="stylesheet" href="pond-campus.css">',
+    '  #p2chip { position: fixed; left: 50%; bottom: 78px; transform: translateX(-50%); z-index: 6; display: flex; align-items: center; gap: 8px;\n'
+    '    padding: 6px 12px; font-size: 12px; color: var(--muted, #cfd8d3); border-radius: 999px; transition: opacity .8s ease; pointer-events: none; }\n'
+    '  #p2chip b { color: #fff; font-weight: 600; min-width: 2.6em; text-align: right; }\n'
+    '  #p2chip i { display: block; width: 90px; height: 3px; background: rgba(255,255,255,.15); border-radius: 2px; overflow: hidden; }\n'
+    '  #p2chip em { display: block; height: 100%; width: 0; background: var(--accent, #8fd18f); transition: width .25s ease; }\n'
+    '  #p2chip.is-done { opacity: 0; }\n'
+    '</style>\n<link rel="stylesheet" href="pond-campus.css">')
+
 # ---------------------------------------------------------------- 抽出共享画风脚本 pond-style-core.js（全景与池塘逐字共用）
 CORE_PARTS = []
 def cut(pat, name, keep=''):
@@ -660,8 +703,40 @@ let pondStyleProgress = async () => {};   // buildTextures() 的进度回调，�
 '''
 core += '\n'.join(CORE_PARTS).replace('await progress(', 'await pondStyleProgress(')
 assert 'await progress(' not in core
+# 程序化纹理缓存（IndexedDB）：全景与池塘共用同一份；首次生成后保存，之后直接读取（键 = 本文件内容哈希，生成器改了自动失效）
+n_gs = core.count('= genSurface(')
+core = re.sub(r"TEX\.(\w+) = genSurface\(", lambda mm: "TEX." + mm.group(1) + " = genSurfaceCached('" + mm.group(1) + "', ", core)
+assert core.count('genSurfaceCached(') >= 9, core.count('genSurfaceCached(')
+blk = re.search(r"  // --- Water detail normal: tileable FBM ripples\n  \{\n(.*?)\n  \}\n", core, re.S)
+assert blk
+core = core[:blk.start()] + ("  // --- Water detail normal: tileable FBM ripples（命中缓存时跳过生成）\n  if (!pondTexRestore('waterNormal')) {\n" + blk.group(1) +
+       "\n    pondTexRecord('waterNormal', TEX.waterNormal);\n  }\n") + core[blk.end():]
+blk = re.search(r"  // --- Caustics: Voronoi cell-edge network, softened \(two copies are multiplied in-shader\)\n  \{\n(.*?)\n  \}\n", core, re.S)
+assert blk
+core = core[:blk.start()] + ("  // --- Caustics: Voronoi cell-edge network（命中缓存时跳过生成）\n  if (!pondTexRestore('caustics')) {\n" + blk.group(1) +
+       "\n    pondTexRecord('caustics', TEX.caustics, { mean: TEX.causticMean });\n  }\n") + core[blk.end():]
+rep_n = core.count('async function buildTextures() {\n')
+assert rep_n == 1
+core = core.replace('async function buildTextures() {\n', 'async function buildTextures() {\n  await pondTexCache.open();\n  try {\n', 1)
+m_bt = re.search(r"async function buildTextures\(\) \{\n.*?\n\}\n", core, re.S)
+bt = m_bt.group(0)
+assert bt.endswith("\n}\n")
+bt = bt[:-3] + "\n  } finally { pondTexCache.save(); }\n}\n"
+core = core[:m_bt.start()] + bt + core[m_bt.end():]
+core += '\n' + open(os.path.join(ROOT, 'tools', 'pond_texcache.js'), encoding='utf-8').read().replace('__TEXCACHE_VERSION__', hashlib.sha256(core.encode('utf-8')).hexdigest()[:12])
 open(CORE, 'w', encoding='utf-8').write(core)
 print('OK', len(core), 'bytes ->', CORE)
 
+# ---------------------------------------------------------------- 主脚本拆成可缓存的 pond-main.js（文件名带内容哈希版本号 → 长缓存 immutable）
+m = re.search(r"<script>\n'use strict';\n(.*)\n</script>\n</body>", s, re.S)
+assert m, '找不到池塘主脚本'
+main_js = ("/*\n * 校园池塘板块细节场景 · 主脚本（自动生成，请勿手改 —— 由 tools/build_pond.py 从 koi-pond-garden 源码改造生成，\n"
+           " * 渐进式加载部分见 tools/pond_init.js）。来源：https://github.com/souranyp-stack/koi-pond-garden （MIT，许可见同目录 LICENSE-koi-pond-garden.txt）\n */\n"
+           "'use strict';\n(window.__pondT = window.__pondT || []).push([performance.now(), 'main-script-start']);\n" + m.group(1) + "\n")
+MAIN = os.path.join(os.path.dirname(DST), 'pond-main.js')
+open(MAIN, 'w', encoding='utf-8').write(main_js)
+ver = hashlib.sha256(main_js.encode('utf-8')).hexdigest()[:10]
+s = s[:m.start()] + '<script src="pond-main.js?v=' + ver + '"></script>\n</body>' + s[m.end():]
+print('OK', len(main_js), 'bytes ->', MAIN, 'v=' + ver)
 open(DST, 'w', encoding='utf-8').write(s)
 print('OK', len(s), 'bytes ->', DST)
