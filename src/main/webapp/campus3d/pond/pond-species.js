@@ -173,7 +173,7 @@
         if (fade) o.scale.multiplyScalar(1 - api.helpers.ease(Math.max(0, (t - 0.7) / 0.3)));
       }, end: () => {
         o.position.set(x1, y1, z1); o.rotation.z = 0; o.scale.setScalar(fade ? 0.0001 : 1.15 * S);
-        if (y1 <= WATER_Y + 0.02 && !padAt(x1, z1)) { addDrop(x1, z1, 0.12, -0.012); spawnSplash(x1, z1, 0.35, WATER_Y, true); api.helpers.ringRipple(x1, WATER_Y, z1, 0.05, 0.45, 1.2); }
+        if (y1 <= WATER_Y + 0.02 && !padAt(x1, z1)) { addDrop(x1, z1, 0.12, -0.012); spawnSplash(x1, z1, 0.35, WATER_Y, true); api.helpers.burstWater(x1, WATER_Y, z1, 20, 0.6); api.helpers.ringRipple(x1, WATER_Y, z1, 0.05, 0.45, 1.2); }
         else if (padAt(x1, z1)) { const L = padAt(x1, z1); L.dipT = 0; addDrop(x1, z1, 0.1, -0.006); }
         done && done();
       } });
@@ -227,7 +227,7 @@
         const x = ind.x, z = ind.z;
         f.vis = 0; f.p.set(x, WATER_Y - 0.05, z);
         spawnSplash(x, z, 0.8, WATER_Y); splashAt(x, WATER_Y, z, 0.6); addDrop(x, z, 0.2, -0.02); bubbleBurst(x, WATER_Y - 0.03, z, 18, 0.05, 0.0006, 0.004, 0.3);
-        api.helpers.ringRipple(x, WATER_Y, z, 0.08, 0.9, 1.8);
+        api.helpers.ringRipple(x, WATER_Y, z, 0.08, 0.9, 1.8); api.helpers.burstWater(x, WATER_Y, z, 46, 1.0);
         return api.helpers.play({ dur: 1.8, update: (t) => { f.vis = Math.min(1, t * 2.2); if (t < 0.5) f.p.y = Math.min(f.p.y, WATER_Y - 0.05 - t * 0.4); }, end: () => { f.vis = 1; done(); } });
       },
       exit(ind, done, api) {
@@ -242,7 +242,7 @@
         let moved = false;
         return api.helpers.play({ dur: 2.2, update: (t) => {
           if (t < 0.4) f.vis = 1 - t / 0.4;
-          else { if (!moved) { moved = true; f.p.set(x1, WATER_Y - 0.06, z1); spawnSplash(x1, z1, 0.6, WATER_Y); addDrop(x1, z1, 0.18, -0.016); api.helpers.ringRipple(x1, WATER_Y, z1, 0.08, 0.7, 1.4); } f.vis = Math.min(1, (t - 0.4) / 0.4); }
+          else { if (!moved) { moved = true; f.p.set(x1, WATER_Y - 0.06, z1); spawnSplash(x1, z1, 0.6, WATER_Y); api.helpers.burstWater(x1, WATER_Y, z1, 30, 0.85); addDrop(x1, z1, 0.18, -0.016); api.helpers.ringRipple(x1, WATER_Y, z1, 0.08, 0.7, 1.4); } f.vis = Math.min(1, (t - 0.4) / 0.4); }
         }, end: () => { if (!moved) f.p.set(x1, WATER_Y - 0.06, z1); f.vis = 1; done(); } });
       },
     };

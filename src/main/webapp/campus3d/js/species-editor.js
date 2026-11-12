@@ -111,6 +111,29 @@
       }
       soil.count = k; soil.instanceMatrix.needsUpdate = true;
     }
+    // 水花粒子（动物入水 / 水生植物冒出时溅起的水珠：小、半透明、带一点高光，落回水面即消失）
+    const DROP_N = 200;
+    const dropMat = new THREE.MeshStandardMaterial({ color: 0xdfeef5, roughness: 0.08, metalness: 0, transparent: true, opacity: 0.7, depthWrite: false });
+    const drops = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(0.011, 1), dropMat, DROP_N); drops.count = 0; drops.frustumCulled = false; drops.castShadow = false;
+    if (o.layer != null) drops.layers.set(o.layer);
+    helpers.add(drops);
+    const dparts = [];
+    function burstWater(x, y, z, n, power) {
+      for (let i = 0; i < n; i++) {
+        if (dparts.length >= DROP_N) dparts.shift();
+        const a = Math.random() * Math.PI * 2, sp = rnd(0.15, 0.55) * power, r = rnd(0, 0.06);
+        dparts.push({ p: new V3(x + Math.cos(a) * r, y + 0.01, z + Math.sin(a) * r), v: new V3(Math.cos(a) * sp, rnd(0.9, 1.8) * power, Math.sin(a) * sp), y0: y, s: rnd(0.6, 1.6) });
+      }
+    }
+    function updateDrops(dt) {
+      let k = 0;
+      for (let i = dparts.length - 1; i >= 0; i--) {
+        const q = dparts[i]; q.v.y -= 7.5 * dt; q.p.addScaledVector(q.v, dt);
+        if (q.p.y < q.y0 && q.v.y < 0) { dparts.splice(i, 1); if (H.ripple && Math.random() < 0.08) H.ripple(q.p.x, q.p.z, 0.02, 0.1); }
+      }
+      for (const q of dparts) { _s.set(q.s, q.s * 1.4, q.s); _q.identity(); _m.compose(q.p, _q, _s); drops.setMatrixAt(k++, _m); }
+      drops.count = k; drops.instanceMatrix.needsUpdate = true;
+    }
     // 坑（深色圆盘，开坑放大、回填缩小）
     const holeMat = new THREE.MeshStandardMaterial({ color: 0x2b2018, roughness: 1, transparent: true, opacity: 0.92, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
     function makeHole(x, y, z, r) {
@@ -155,7 +178,7 @@
         try { a.update && a.update(a.t, dt); } catch (e) { console.warn(e); anims.delete(a); continue; }
         if (a.t >= 1) { anims.delete(a); try { a.end && a.end(); } catch (e) { console.warn(e); } }
       }
-      updateSoil(dt);
+      updateSoil(dt); updateDrops(dt);
       for (const ind of inds) if (ind.status === "active" && !ind.anim && ind.entry.idle) ind.entry.idle(ind, dt);
       if (ED.sel && ED.sel.obj) {
         const r = selRadius(ED.sel);
@@ -206,6 +229,7 @@
         obj.position.y = y0; obj.scale.setScalar(S * 0.3);
         ringRipple(x, gy, z, 0.1, 0.9 * S, 1.8);
         if (H.splash) H.splash(x, z, 0.35);
+        burstWater(x, gy, z, 14, 0.6);
         let r2 = false;
         return play({ dur: 2.0, update: (t) => {
           const k = ease(clamp(t / 0.75, 0, 1));
@@ -622,7 +646,7 @@
       ED, inds, catalog, update, load, toggle, undo, setMode, choose, select, counts, buildUI,
       add: opAdd, remove: opRemove, move: opMove, askRemove,
       check: (key, x, z) => checkPlace(byKey[key], x, z),
-      helpers: { burstSoil, ringRipple, makeHole, makeRootBall, play, ease, easeOutBack, clamp },
+      helpers: { burstSoil, burstWater, ringRipple, makeHole, makeRootBall, play, ease, easeOutBack, clamp },
       byKey,
     };
     return api;
