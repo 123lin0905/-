@@ -7277,7 +7277,8 @@ async function stageFlush() {
   const g = PHASE2.stage; if (!g || !g.children.length) return;
   PHASE2.stage = new THREE.Group();
   await compileAsyncSafe(g);
-  THREE.Scene.prototype.add.apply(scene, g.children.slice());
+  // 逐个挂进场景：Object3D.add 收到多个参数时会回调 this.add（此时仍是暂存版 scene.add），那样对象会被塞回暂存组而永远进不了场景
+  for (const o of g.children.slice()) THREE.Object3D.prototype.add.call(scene, o);
   SHADOW.dirty = true; envDirty = true;
 }
 async function stageEnd() { await stageFlush(); delete scene.add; PHASE2.stage = null; }
