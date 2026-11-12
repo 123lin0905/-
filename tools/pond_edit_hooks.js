@@ -81,11 +81,11 @@ const PondEdit = (() => {
         wiggle: [0.1, 0.25, 0.3], gravity: [0, -0.01, -0.02] });
       for (const t of tips) for (let i = 0; i < 7; i++) {
         const p = t.p.clone().add(randDir().multiplyScalar(rr(0.08, 0.42)));
-        addCard(LEAVES.camellia, p, randDir().add(new V3(0, 0.6, 0)), rr(0.32, 0.46), col(0.75, 0.95, 0.9, 1.05, 0.75, 0.9));
+        addCard(LEAVES.shrub, p, randDir().add(new V3(0, 0.6, 0)), rr(0.3, 0.42), col(0.62, 0.8, 0.78, 0.95, 0.55, 0.72));   // 细密深绿小叶（山茶叶片卡带红花，不适合桂花）
         if (i % 2 === 0) addCard(LEAVES.bloom, p.clone().add(randDir().multiplyScalar(0.06)), randDir().add(new V3(0, 0.5, 0)), rr(0.14, 0.22), new THREE.Color(0xf6c544).multiplyScalar(rr(0.95, 1.15)));
       }
     });
-    return treeFromParts(Object.assign(part, { x, z, gy, h, seasons: { camellia: 'SRAW', bloom: 'A' } }));
+    return treeFromParts(Object.assign(part, { x, z, gy, h, seasons: { shrub: 'SRAW', bloom: 'A' } }));
   }
 
   // ---------------- 水生植物：荷花 / 睡莲 ----------------
