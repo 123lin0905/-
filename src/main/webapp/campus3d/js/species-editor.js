@@ -618,6 +618,7 @@
     const api = {
       ED, inds, catalog, update, load, toggle, undo, setMode, choose, select, counts, buildUI,
       add: opAdd, remove: opRemove, move: opMove, askRemove,
+      check: (key, x, z) => checkPlace(byKey[key], x, z),
       helpers: { burstSoil, ringRipple, makeHole, makeRootBall, play, ease, easeOutBack, clamp },
       byKey,
     };
