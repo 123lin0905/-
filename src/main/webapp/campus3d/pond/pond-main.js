@@ -1278,6 +1278,7 @@ async function buildVegetation() {
   if (hedgeGreen.length) meshOf(hedgeGreen, rockMaterial(TEX.hedge, { key: 'hedge', hedge: true, scale: 2.6, nrm: 1.4, rough: 0.72, bloom: 0 }), LAYER.ABOVE);
 
   await buildBotanical(OCC, free, V3);
+  WORLD.occ = OCC;
 
   await phase2Yield('种植垂柳、香樟与灌木');
   // --- Bark (all trees in one mesh)

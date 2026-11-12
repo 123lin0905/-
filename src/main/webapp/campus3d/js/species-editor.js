@@ -133,11 +133,14 @@
       return g;
     }
     // 涟漪环（叠加在场景自己的水面涟漪之上，保证低画质也看得见）
+    const rippleGeo = new THREE.RingGeometry(0.95, 1, 64).rotateX(-Math.PI / 2), RIPPLE_A = 0.16;
     function ringRipple(x, y, z, r0, r1, dur) {
-      const m = new THREE.Mesh(ringGeo, mkBasic(0xe6f6ff, 0.55)); m.position.set(x, y + 0.004, z); m.scale.setScalar(r0); m.renderOrder = 3;
+      // 细环 + 低不透明度、参与色调映射：只是水面上一圈淡淡的反光，和写实水面协调（主要涟漪仍由场景自己的水面波纹负责）
+      const mat = new THREE.MeshBasicMaterial({ color: 0xcfe0e6, transparent: true, opacity: 0, depthWrite: false, fog: true, side: THREE.DoubleSide });
+      const m = new THREE.Mesh(rippleGeo, mat); m.position.set(x, y + 0.004, z); m.scale.setScalar(r0); m.renderOrder = 3;
       if (o.layer != null) m.layers.set(o.layer);
       helpers.add(m);
-      play({ dur, update: (t) => { m.scale.setScalar(r0 + (r1 - r0) * ease(t)); m.material.opacity = 0.55 * (1 - t); }, end: () => { helpers.remove(m); m.material.dispose(); } });
+      play({ dur, update: (t) => { m.scale.setScalar(r0 + (r1 - r0) * ease(t)); m.material.opacity = RIPPLE_A * Math.min(1, t * 6) * (1 - t) * (1 - t); }, end: () => { helpers.remove(m); m.material.dispose(); } });
       if (H.ripple) H.ripple(x, z, r0, r1);
     }
 

@@ -339,12 +339,19 @@
     for (const c of catalog) if (zoneCatalog.indexOf(c) < 0 && ["willow", "lotus", "waterlily", "koi"].indexOf(c.key) >= 0) zoneCatalog.push(Object.assign({}, c, { hidden: true }));
 
     // ---------------- 放置规则 ----------------
+    // 场景原有的静态占位（树、灌木、竹林、花境…，WORLD.occ）；可移植的垂柳登记为个体，由编辑器自己按个体间距检查
+    const staticOcc = (WORLD.occ || []).filter(([ox, oz]) => !(WORLD.willows || []).some(([wx, wz]) => Math.abs(wx - ox) < 1e-6 && Math.abs(wz - oz) < 1e-6));
+    function staticHit(x, z, r) { return staticOcc.find(([ox, oz, or]) => Math.hypot(x - ox, z - oz) < or + r) || null; }
     function canPlace(e, x, z) {
       if (!inGarden(x, z)) return { ok: false, reason: "超出池塘庭院范围" };
       const d = sdf(x, z), r = e.radius || 0.3;
       if (nearPavilion(x, z, r * 0.5)) return { ok: false, reason: "太靠近小亭" };
       if (nearBridge(x, z, r * 0.5)) return { ok: false, reason: "挡住石桥" };
       if (typeof nearWaterfall === "function" && nearWaterfall(x, z, 0.6 + r * 0.5)) return { ok: false, reason: "太靠近跌水" };
+      if (e.type === "plant" && !e.water) {
+        const hit = staticHit(x, z, r * 0.6);
+        if (hit) return { ok: false, reason: "这里已有原有的树木或花境，换个空地吧" };
+      }
       switch (e.key) {
         case "lotus": return d < -0.3 && d > -2.8 ? { ok: true } : { ok: false, reason: d >= -0.3 ? "荷花是挺水植物，要种在水里" : "水太深" };
         case "waterlily": return d < -0.35 ? { ok: true } : { ok: false, reason: "睡莲只能浮在水面上" };

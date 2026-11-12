@@ -666,6 +666,9 @@ rep("    SAK_BARK.push(...BARK.splice(nb));\n", "    const ownBark = BARK.splice
 rep("    OCC.push([x, z, 0.8]); (WORLD.willows = WORLD.willows || []).push([x, z, h]);\n",
     "    OCC.push([x, z, 0.8]); (WORLD.willows = WORLD.willows || []).push([x, z, h]);\n"
     "    if (weeping) (WORLD.willowParts = WORLD.willowParts || []).push({ x, z, gy, h, bark: ownBark, cards: { sakura: LEAVES.sakura.splice(nc) }, seasons: { sakura: 'SRA' } });\n")
+# 静态占位表导出：原有的树（香樟、樱花、造型松…）、灌木、竹林、花境都登记在 OCC 里；编辑器新种的岸上植物要避开它们，
+# 否则会种进原有树丛里，被树冠完全遮住（垂柳单独可移植，按 WORLD.willows 排除）
+rep("  await buildBotanical(OCC, free, V3);\n", "  await buildBotanical(OCC, free, V3);\n  WORLD.occ = OCC;\n")
 # 树皮材质导出（编辑器新种的树复用同一材质）；垂柳树皮材质无论是否还有合并网格都要建
 rep("""  if (SAK_BARK.length) {
     const sm = physical({ map: TEX.sakuraBark.map, normalMap: TEX.sakuraBark.normalMap, normalScale: new THREE.Vector2(1.2, 1.2), roughness: 0.8, envMapIntensity: 0.6 },
