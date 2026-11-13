@@ -1,5 +1,5 @@
 {
-  "_note": "生态板块配置。坐标与 campus_layout.json 相同：官方平面图(2048x1998)像素坐标，x 向东、y 向南，1 像素约 0.4 米。center 为板块中心，polygon 为范围多边形，camera_distance 为点击后相机距离(米)。area_code 预留对接数据库 plant_area.area_code（当前为建议编码，第二阶段在 plant_area 中建同名记录即可关联）；detail_scene 为板块细节 3D 场景（相对 campus3d/ 的路径，打开时追加 ?zone=<id>&back=<主页路径>）：第二阶段“翠湖水景”“图书馆·荷花池”共用池塘场景 pond/pond.html，按 zone 参数区分布局；为 null 的板块点击“进入板块细节”仍提示建设中。editable 表示该板块细节场景是否开放“管理动植物”（第三阶段，池塘两个板块为 true；全景与其余板块只读），catalog 为该板块可增删的物种 key 列表（物种目录与放置规则由场景适配层注册，如 pond/pond-species.js；null 表示不开放）。",
+  "_note": "生态板块配置。坐标与 campus_layout.json 相同：官方平面图(2048x1998)像素坐标，x 向东、y 向南，1 像素约 0.4 米。center 为板块中心，polygon 为范围多边形，camera_distance 为点击后相机距离(米)。area_code 预留对接数据库 plant_area.area_code（当前为建议编码，第二阶段在 plant_area 中建同名记录即可关联）；detail_scene 为板块细节 3D 场景（相对 campus3d/ 的路径，打开时追加 ?zone=<id>&back=<主页路径>）：第二阶段“翠湖水景”“图书馆·荷花池”共用池塘场景 pond/pond.html，按 zone 参数区分布局；“中心草坪”为平面图插画风微缩模型 lawn/lawn.html；为 null 的板块点击“进入板块细节”仍提示建设中。editable 表示该板块细节场景是否开放“管理动植物”（第三阶段，池塘两个板块与中心草坪为 true；全景与其余板块只读），catalog 为该板块可增删的物种 key 列表（物种目录与放置规则由场景适配层注册，如 pond/pond-species.js、lawn/lawn-species.js；null 表示不开放）。",
   "version": 1,
   "zones": [
     {
@@ -26,9 +26,9 @@
       "polygon": [[665, 952], [1000, 866], [1042, 866], [1140, 1062], [1000, 1112], [905, 1150], [962, 1400], [925, 1455], [858, 1290], [758, 1162], [660, 1092]],
       "camera_distance": 150,
       "area_code": "MY-ECO-LAWN",
-      "detail_scene": null,
-      "editable": false,
-      "catalog": null,
+      "detail_scene": "lawn/lawn.html",
+      "editable": true,
+      "catalog": ["ginkgo", "osmanthus", "cherry", "camphor", "flowerbed", "shrub_ball", "cat", "butterfly", "magpie", "sparrow", "egret"],
       "intro": "中央步道与环校路之间的大片开阔草坪，四季常绿，散植银杏、桂花和樱花。晴天常能看到校园里的小猫在草地上追蝴蝶。",
       "highlights": ["草坪", "银杏", "桂花", "樱花", "校园小猫"]
     },
