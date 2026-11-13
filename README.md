@@ -206,6 +206,29 @@ database/002_zone_species.sql                     迁移脚本
 3. 调 `editor.buildUI(容器)` 放“✏️ 管理动植物”按钮，`editor.load()` 读取并恢复已保存状态，每帧调用 `editor.update(dt)`。
 4. 数据库已执行 `database/002_zone_species.sql`（或让接口首次访问时自动建表）；需要关联绿化档案时在 `plant_area` 中建与 `area_code` 同名的区域。
 
+### 中心草坪板块（平面图风 3D 场景 + 动植物增删）
+
+在生态主页点 **中心草坪** → **“进入板块细节 3D 场景 →”** 打开 `campus3d/lawn/lawn.html?zone=central_lawn`；左上角 **“← 返回校园全景”** 回到 `ecohome.jsp?zone=central_lawn&autostart=1`，相机停在中心草坪板块。
+
+| 项目 | 说明 |
+| --- | --- |
+| 画风来源 | 取自学校官网绵阳校区平面图 `campus3d/img/plan_official.jpg`：浅绿草地、米色道路带白描边、黄 / 肉色挤出的简洁建筑块（深色侧面）、柔和平光，像一个轻微等距俯视的微缩模型。颜色直接在平面图上取色（草地 `#9ccc8e`、道路 `#ddd0b4`、白色铺地、灰色广场、水面）。 |
+| 底图 | `tools/build_lawn_ground.py`（依赖 numpy、scipy、Pillow）从平面图裁出中心草坪周边（像素范围 x 480–1385、y 615–1455，与 `lawn-scene.js` 的 `REGION` 一致），按颜色把像素归为 草地 / 道路 / 白色铺地 / 广场 / 水面，建筑、阴影和文字用最近的地面类别填掉，去 JPEG 噪点、放大 2 倍并抗锯齿，输出 `campus3d/lawn/lawn-ground.png`。道路轮廓与平面图一致；建筑由场景按 `campus_layout.json` 轮廓挤出。重新生成：`python3 tools/build_lawn_ground.py`。坐标：1 场景单位 = 平面图 10 像素 ≈ 4 米。 |
+| 物种目录 | 植物 —— 银杏（秋季金黄、椭圆树冠）、桂花（秋季开花）、樱花（春季粉）、香樟、草花花丛 / 花境、灌木球；动物 —— 校园小猫（四种毛色）、蝴蝶（五种翅色）、喜鹊、麻雀、白鹭。全部为低多边形扁平风，由几种实例化图元（方块 / 圆球 / 圆锥 / 圆柱 / 翅膀 / 影子圆片）拼成；秋季有落叶贴地。右侧“中心草坪生态”清单点击即飞到对应物种。 |
+| 动画 | 植物沿用通用编辑器的开坑土粒 → 幼苗 → 成株、带土球弧线移植、连根拔起（编辑器新增可选参数 `fx`，本板块用 `fx.flat` 扁平风土粒 / 土坑 / 土球，池塘仍用默认写实值）；小猫走进 / 走开、平时坐着摇尾巴、闲逛，看到附近蝴蝶会压低身子靠近再扑击，蝴蝶受惊飞高；蝴蝶盘旋飞入 / 飞走、扇翅；喜鹊、麻雀、白鹭飞来落地 / 起飞离开，平时觅食跳动。 |
+| 放置规则 | 以底图颜色判断地面类别：植物和动物只能放在草坪上，不能在道路、白色铺地、广场、水面和建筑上；植物离道路 / 铺地要留出半个冠幅，不能压住原有的装饰树和灌木，植物之间由编辑器保持间距；蝴蝶可在道路上空。不合格时提示原因（如“不能种在道路，只能种在草坪 / 花境”“这里已有原有的树木 / 灌木，换个空地吧”）。 |
+| 原有个体与保存 | 原有个体按平面图在草坪上散植（`seed_ref` 如 `ginkgo#0`），可选中、移植、移除；接口与权限、软删除、`seed_ref` 幂等与池塘完全相同（见上文“接口与权限”），记录存 `zone_species`。未登录 / 无权限 / 无数据库时为演示模式，保存在 `localStorage` 键 `lawn-species-demo:central_lawn`。 |
+| 画质 / 性能 | 读取与全景、池塘共用的 `localStorage`「`campus.gfx`」：`clear` 清晰（像素比 ≤ 1.5）、`smooth` 流畅（像素比 1）、`eco` 省电（像素比 1、关抗锯齿、帧率上限 30、不画影子、装饰树减半）；也可用 URL `gfx=clear|smooth|eco`。每种图元一个 `InstancedMesh`，个体只是不渲染的代理 Object3D，每帧把矩阵写进实例；建筑合并为 1 个网格。俯视总览约 **10 次 draw calls**（底图 2 + 建筑 1 + 图元 6 + 编辑器辅助），无后期、无实时阴影贴图。左下角可显示帧率 / 批次 / 三角形统计。 |
+
+```
+src/main/webapp/campus3d/lawn/lawn.html          中心草坪细节场景页
+src/main/webapp/campus3d/lawn/lawn-scene.js      场景：底图、建筑挤出、实例化图元、相机视角、画质档、返回按钮（导出 window.LAWN）
+src/main/webapp/campus3d/lawn/lawn-species.js    动植物增删适配层：物种目录、放置规则、动物行为、原有个体
+src/main/webapp/campus3d/lawn/lawn.css           界面样式
+src/main/webapp/campus3d/lawn/lawn-ground.png    扁平纯色底图（由 tools/build_lawn_ground.py 生成）
+tools/build_lawn_ground.py                       底图生成脚本
+```
+
 ### 板块配置 `campus3d/data/zones.json`
 
 每个板块包含：`id`、`name`、`icon`、`color`、`center`（中心坐标）、`polygon`（范围多边形）、`camera_distance`（点击后相机距离，米）、`area_code`（预留对接数据库 `plant_area.area_code`，当前为建议编码，第二阶段在 `plant_area` 中建同名记录即可关联）、`detail_scene`（板块细节 3D 场景，相对 `campus3d/` 的路径；`null` 表示建设中）、`editable` / `catalog`（是否开放动植物增删及可增删的物种，见上文）、`intro`、`highlights`。坐标与 `campus_layout.json` 一致：官方平面图（2048×1998）像素坐标，x 向东、y 向南，1 像素约 0.4 米。
