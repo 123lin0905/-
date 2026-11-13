@@ -1,11 +1,16 @@
 <%@ page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
-<%@ page import="DB.DBTools, org.example.demo1.*, java.util.*" %>
+<%@ page import="DB.DBTools, org.example.demo1.*, java.util.*, security.Roles" %>
 <%
     AdminUser currentUser = (AdminUser) session.getAttribute("adminUser");
     String currentRole = currentUser == null ? "" : currentUser.getRoleCode();
     String currentDisplayName = currentUser != null ? currentUser.getDisplayName() : "校区养护专员";
     boolean isPlantAdmin = "PLANT_ADMIN".equals(currentRole);
     boolean isSystemAdmin = "SYSTEM_ADMIN".equals(currentRole) || "SUPER_ADMIN".equals(currentRole) || "ADMIN".equals(currentRole);
+    // 人脸登录新增的三类身份：管理员（数据大屏）、养护人员（养护工作台）、访客（只读）
+    boolean isVisitor = Roles.isVisitor(request);
+    boolean canDashboard = Roles.canViewDashboard(currentRole);
+    boolean canCare = Roles.canCare(currentRole);
+    boolean canEnrollFace = Roles.canEnrollFace(currentRole);
 
     // 采用高并发单例初始化的 DBTools，告别每次刷新页面重复执行 DDL
     DBTools dbTools = new DBTools();
@@ -630,11 +635,22 @@
             <a href="AdminDashboardServlet" class="nav-btn btn-secondary" style="border-color:#38bdf8;color:#0284c7;font-weight:700;">🛡️ 系统后台</a>
             <a href="MaintainerServlet" class="nav-btn btn-secondary">👷 养护团队</a>
         <% } %>
+        <% if (canDashboard) { %>
+            <a href="data_screen.jsp" id="nav-dashboard" class="nav-btn btn-secondary" style="border-color:#0d9488;color:#0f766e;font-weight:700;">📊 数据大屏</a>
+        <% } %>
+        <% if (canCare) { %>
+            <a href="care_workbench.jsp" id="nav-workbench" class="nav-btn btn-secondary" style="border-color:#16a34a;color:#15803d;font-weight:700;">🧑‍🌾 养护工作台</a>
+        <% } %>
+        <% if (canEnrollFace) { %>
+            <a href="face_enroll.jsp" id="nav-face-enroll" class="nav-btn btn-secondary">🙂 人脸录入</a>
+        <% } %>
         <% if (currentUser == null) { %>
+            <% if (isVisitor) { %><span class="nav-btn btn-user" style="font-weight:600;">👤 访客（只读）</span><% } %>
+            <a href="face_login.jsp?switch=1" id="nav-face-login" class="nav-btn btn-user">🙂 人脸登录</a>
             <a href="login.jsp" class="nav-btn btn-user">🔐 管理员登录</a>
         <% } else { %>
             <span class="nav-btn btn-user" style="border-color:<%= isPlantAdmin ? "#10b981" : "#0284c7" %>; font-weight:600;">
-                <%= isPlantAdmin ? "🌿 植物管理员: " : (isSystemAdmin ? "⚙️ 系统管理员: " : "👤 ") %><%= currentUser.getDisplayName() %>
+                <%= isPlantAdmin ? "🌿 植物管理员: " : (isSystemAdmin ? "⚙️ 系统管理员: " : (canCare ? "🧑‍🌾 养护员: " : "👤 ")) %><%= currentUser.getDisplayName() %>
             </span>
             <a href="LogoutServlet" class="nav-btn btn-secondary" style="color:#dc2626;">退出</a>
         <% } %>

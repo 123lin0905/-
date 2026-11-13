@@ -21,7 +21,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.zip.GZIPOutputStream;
 
 /**
- * 三维生态静态资源（/campus3d/*）的缓存头与 gzip 压缩。
+ * 三维生态静态资源（/campus3d/*）与人脸识别资源（/face/*）的缓存头与 gzip 压缩。
  * <p>
  * 不改 Tomcat server.xml / conf/web.xml：本 Filter 直接读取 webapp 内的文件，
  * 对文本类资源（js/css/html/json/svg）按 Accept-Encoding 返回 gzip（压缩结果按“路径 + 修改时间”缓存在内存，只压一次），
@@ -34,7 +34,7 @@ import java.util.zip.GZIPOutputStream;
  * </ul>
  * 非 GET/HEAD、找不到文件或二进制资源时交给 Tomcat 默认 Servlet 处理（仍带上缓存头）。
  */
-@WebFilter(filterName = "StaticAssetFilter", urlPatterns = "/campus3d/*")
+@WebFilter(filterName = "StaticAssetFilter", urlPatterns = {"/campus3d/*", "/face/*"})
 public class StaticAssetFilter implements Filter {
     private static final long YEAR = 365L * 24 * 3600, MONTH = 30L * 24 * 3600, WEEK = 7L * 24 * 3600;
     private static final int MAX_CACHED_BYTES = 4 * 1024 * 1024;   // 单个文件超过 4MB 不在内存里缓存压缩结果
@@ -91,6 +91,8 @@ public class StaticAssetFilter implements Filter {
     static String cacheControl(String lowerPath, String query) {
         if (query != null && query.matches("(^|.*&)v=[0-9a-zA-Z]+(&.*|$)")) return "public, max-age=" + YEAR + ", immutable";
         if (lowerPath.startsWith("/campus3d/lib/")) return "public, max-age=" + MONTH;
+        // 人脸识别库与模型（@vladmandic/human 3.3.6，约 12MB，文件名不变时内容不变）：30 天
+        if (lowerPath.startsWith("/face/vendor/")) return "public, max-age=" + MONTH;
         if (lowerPath.endsWith(".glb") || lowerPath.endsWith(".jpg") || lowerPath.endsWith(".png") || lowerPath.endsWith(".webp")) return "public, max-age=" + WEEK;
         return "no-cache";
     }

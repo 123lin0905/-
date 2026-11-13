@@ -15,7 +15,8 @@ public class LogoutServlet extends HttpServlet {
         if (request.getSession(false) != null) {
             request.getSession(false).invalidate();
         }
-        response.sendRedirect(request.getContextPath() + "/login.jsp");
+        // 回到人脸识别窗口，但不自动开摄像头（否则刚退出又会被立即识别登录）
+        response.sendRedirect(request.getContextPath() + "/face_login.jsp?logout=1");
     }
 
     @Override

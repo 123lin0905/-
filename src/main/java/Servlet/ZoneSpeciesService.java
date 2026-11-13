@@ -148,7 +148,8 @@ public class ZoneSpeciesService {
             s.setUpdatedBy(userName);
             return ok(200, "item", store.update(s).toMap());
         } catch (ZoneSpeciesStore.StoreUnavailableException e) {
-            return err(503, "db_unavailable", "数据库不可用，未保存到服务器（" + e.getMessage() + "）");
+            // 不把 JDBC 原始错误文本返回前端（可能含主机名、账号等），只给通用提示
+            return err(503, "db_unavailable", "数据库不可用，未保存到服务器");
         } catch (IllegalArgumentException e) {
             return err(400, "bad_request", e.getMessage());
         }
