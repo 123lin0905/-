@@ -34,7 +34,7 @@ body { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans SC", system-ui,
 .eco-clock b { font: 700 22px/1.1 "SF Mono", "Consolas", monospace; letter-spacing: 1px; }
 .eco-clock span { font-size: 12px; opacity: .85; }
 .eco-actions { margin-left: auto; margin-right: 236px; display: flex; gap: 8px; align-items: center; }
-.eco-user { color: #fff; background: rgba(8, 40, 26, 0.5); padding: 8px 12px; border-radius: 999px; font-size: 13px; }
+.eco-user { color: #fff; background: rgba(8, 40, 26, 0.5); padding: 8px 12px; border-radius: 999px; font-size: 13px; white-space: nowrap; }
 
 /* 天气卡片（右上角） */
 .eco-weather { position: absolute; z-index: 6; right: 16px; top: 14px; width: 206px; padding: 12px 14px; cursor: pointer; }
