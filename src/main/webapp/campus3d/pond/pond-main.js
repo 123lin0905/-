@@ -32,7 +32,7 @@ const P = {
   weather: 'Sunny',
   movie: true, letterbox: false, tourSeasons: false,
   dof: !window.CAMPUS_POND.lowPower, fStop: 8, dofStrength: 1, sharpen: 0.35,   // f/8: the whole garden in focus, like a daylight landscape photo
-  bloomStrength: window.CAMPUS_POND.lowPower ? 0.22 : 0.3,
+  bloomStrength: window.CAMPUS_POND.eco ? 0 : window.CAMPUS_POND.lowPower ? 0.22 : 0.3,
   bloomThreshold: 0.9,
   ssao: !window.CAMPUS_POND.lowPower,
   godRays: !window.CAMPUS_POND.lowPower,
@@ -71,7 +71,50 @@ const canvas = $('c');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance', stencil: false });
 const TEST_STEP = window.CAMPUS_POND.test ? Math.min(0.2, parseFloat(new URLSearchParams(location.search).get('tstep')) || 0) : 0;
 const RES = { scale: window.CAMPUS_POND.test ? (parseFloat(new URLSearchParams(location.search).get('res')) || 0.6) : 1 };   // adaptive resolution multiplier (1 .. 0.6)
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, window.CAMPUS_POND.maxDpr, 2) * RES.scale);
+// 像素比：清晰 min(dpr, maxDpr ≤2)；流畅 min(dpr, 1.25)；省电固定 1 × 渲染缩放 0.85（与系统缩放 150–200% 无关）
+function pondPixelRatio(q) {
+  const C = window.CAMPUS_POND;
+  if (C.eco) return C.ecoScale * (C.test ? RES.scale : 1);
+  return Math.min(2, (q === 'High' ? Math.min(devicePixelRatio, C.maxDpr) : Math.min(1.25, devicePixelRatio)) * RES.scale);
+}
+function pondShadowSize(q) {
+  const C = window.CAMPUS_POND;
+  if (C.eco) return 512;
+  return q === 'High' ? (C.lowPower ? 2048 : 4096) : (C.lowPower ? 1024 : 2048);
+}
+// 省电档细节：草 / 叶片卡实例按“偶数在前、奇数在后”重排，省电时只画前一半（运行时切档即生效，随机序列与布局不变，编辑器的原有个体不受影响）
+const ECO = { on: !!window.CAMPUS_POND.eco, list: [] };
+function ecoThin(im) {
+  const n = im.count; if (n < 8) return im;
+  const order = []; for (let i = 0; i < n; i += 2) order.push(i); for (let i = 1; i < n; i += 2) order.push(i);
+  const A = im.instanceMatrix.array, src = A.slice(), C = im.instanceColor ? im.instanceColor.array : null, cs = C ? C.slice() : null;
+  order.forEach((j, i) => { A.set(src.subarray(j * 16, j * 16 + 16), i * 16); if (C) C.set(cs.subarray(j * 3, j * 3 + 3), i * 3); });
+  im.instanceMatrix.needsUpdate = true; if (C) im.instanceColor.needsUpdate = true;
+  im.userData.fullCount = n; ECO.list.push(im); im.count = ECO.on ? Math.ceil(n / 2) : n;
+  return im;
+}
+function setEcoDetail(on) {
+  ECO.on = !!on;
+  for (const im of ECO.list) im.count = on ? Math.ceil(im.userData.fullCount / 2) : im.userData.fullCount;
+  // 原有锦鲤隔一条隐藏（编辑器放入的锦鲤 userKoi 不隐藏；P.fishCount 不变，编辑器的原有个体编号不变）
+  if (typeof KOI !== 'undefined' && KOI.fish) KOI.fish.forEach((f, i) => { f.ecoOff = on && i < window.CAMPUS_POND.baseFish && (i % 2 === 1) && !f.userKoi; });
+  if (typeof FIREFLY !== 'undefined' && FIREFLY.pts) FIREFLY.pts.geometry.setDrawRange(0, on ? Math.ceil(FIREFLY.n / 2) : Infinity);
+  if (typeof particles !== 'undefined' && particles) particles.geometry.setDrawRange(0, on ? 800 : Infinity);
+  if (typeof SHADOW !== 'undefined') SHADOW.dirty = true;
+}
+// 帧率上限（省电 30 fps）：时间累积跳帧
+const FPSCAP = { last: -1, acc: 0 };
+function fpsCapSkip() {
+  const cap = window.CAMPUS_POND.fpsCap, now = performance.now();
+  if (!cap || TEST_STEP) { FPSCAP.last = now; FPSCAP.acc = 0; return false; }
+  if (FPSCAP.last < 0) { FPSCAP.last = now; return false; }
+  const step = 1000 / cap;
+  FPSCAP.acc += now - FPSCAP.last; FPSCAP.last = now;
+  if (FPSCAP.acc < step - 1.5) return true;                 // 不够一帧：整帧跳过（不推进时钟、不渲染）
+  FPSCAP.acc = Math.min(FPSCAP.acc - step, step);           // 余量带到下一帧；长时间卡顿后不连发补帧
+  return false;
+}
+renderer.setPixelRatio(pondPixelRatio(P.quality));
 renderer.setSize(innerWidth, innerHeight, false);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.NoToneMapping;              // ACES is applied in our own composite pass
@@ -136,7 +179,7 @@ setLayer(sky, LAYER.SKY); scene.add(sky);
 // Sun & fill
 const sun = new THREE.DirectionalLight(0xffffff, 3.2);
 sun.castShadow = true;
-sun.shadow.mapSize.set(4096, 4096);
+{ const s0 = pondShadowSize(P.quality); sun.shadow.mapSize.set(s0, s0); }
 sun.shadow.bias = -0.00025;
 sun.shadow.normalBias = 0.025;
 {
@@ -1323,7 +1366,7 @@ async function buildVegetation() {
     seasonal(im, seasons);
     im.castShadow = !low; im.receiveShadow = true; if (low) WORLD.noReflect.push(im);
     im.customDepthMaterial = depth;
-    im.computeBoundingSphere();
+    im.computeBoundingSphere(); ecoThin(im);
     setLayer(im, LAYER.ABOVE); scene.add(im);
   }
   WORLD.willowTrees = (WORLD.willowParts || []).map((part) => {
@@ -1369,7 +1412,7 @@ async function buildVegetation() {
     const fim = new THREE.InstancedMesh(fernGeo, fernMat, fm.length);
     fm.forEach((mm, i) => { fim.setMatrixAt(i, mm); fim.setColorAt(i, fc[i]); });
     fim.castShadow = fim.receiveShadow = true; fim.customDepthMaterial = patchedDepth({ key: 'fernd', wind: true, windWeight: 'uv.y * uv.y * 0.6' }, fernTex, 0.45);
-    fim.computeBoundingSphere(); setLayer(fim, LAYER.ABOVE); scene.add(fim);
+    fim.computeBoundingSphere(); ecoThin(fim); setLayer(fim, LAYER.ABOVE); scene.add(fim);
     // hostas: broad heart-shaped leaves with creamy margins and curved parallel veins
     const hcv = makeCanvas(256, 256), hg2 = hcv.getContext('2d');
     hg2.fillStyle = '#e6e2b8'; hg2.beginPath(); hg2.moveTo(128, 250); hg2.bezierCurveTo(250, 200, 240, 40, 128, 6); hg2.bezierCurveTo(16, 40, 6, 200, 128, 250); hg2.fill();
@@ -1448,7 +1491,7 @@ async function buildVegetation() {
     const [m, dm] = bladeMatFor(tex, key, H);
     const im = new THREE.InstancedMesh(geo, m, mats.length);
     mats.forEach((mm, i) => { im.setMatrixAt(i, mm); im.setColorAt(i, cols[i]); });
-    im.castShadow = im.receiveShadow = true; im.customDepthMaterial = dm; im.computeBoundingSphere();
+    im.castShadow = im.receiveShadow = true; im.customDepthMaterial = dm; im.computeBoundingSphere(); ecoThin(im);
     setLayer(im, layer); scene.add(im);
   };
   mkBlades(blade(0.62, 0.018, 0.32), TEX.blade, 'grass', 0.62, grassM, grassC, LAYER.ABOVE);
@@ -1473,7 +1516,7 @@ async function buildVegetation() {
     }
     const im = new THREE.InstancedMesh(tuft, tm, mats.length);
     mats.forEach((mm, i) => { im.setMatrixAt(i, mm); im.setColorAt(i, cols[i]); });
-    im.receiveShadow = true; im.computeBoundingSphere(); setLayer(im, LAYER.ABOVE); scene.add(im);
+    im.receiveShadow = true; im.computeBoundingSphere(); ecoThin(im); setLayer(im, LAYER.ABOVE); scene.add(im);
   }
   await phase2Yield('种植垂柳、香樟与灌木');
   // sword leaf: parallel-sided with a keeled midrib, tapering only in the last quarter to a sharp tip; tips arch over
@@ -4333,17 +4376,21 @@ const reflCam = new THREE.PerspectiveCamera(), refrCam = new THREE.PerspectiveCa
 const shadowCam = new THREE.PerspectiveCamera(1, 1, 0.01, 0.02); shadowCam.position.set(0, -2000, 0); shadowCam.layers.enableAll(); shadowCam.updateMatrixWorld();
 const reflMatrix = new THREE.Matrix4();
 function makeTargets() {
-  for (const k in RT) if (RT[k] && RT[k].dispose) RT[k].dispose();
   const pr = renderer.getPixelRatio(), w = Math.max(2, Math.floor(innerWidth * pr)), h = Math.max(2, Math.floor(innerHeight * pr));
-  const div = P.quality === 'High' ? 2 : 4;
+  const eco = !!window.CAMPUS_POND.eco, key = w + 'x' + h + '|' + P.quality + '|' + eco;
+  if (RT.key === key && RT.main) return;                    // 没有变化：不重建（重建会让下一帧采样到空目标而闪一下）
+  for (const k in RT) if (RT[k] && RT[k].dispose) RT[k].dispose();
+  RT.key = key;
+  const div = eco ? 8 : P.quality === 'High' ? 2 : 4;      // 省电：反射 1/8 分辨率
   const hf = { type: THREE.HalfFloatType, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter };
   RT.w = w; RT.h = h;
   RT.refl = new THREE.WebGLRenderTarget(Math.ceil(w / div), Math.ceil(h / div), Object.assign({}, hf, { generateMipmaps: true, minFilter: THREE.LinearMipmapLinearFilter }));
   // the view into the water is most of the picture: full resolution (and multisampled on High) so koi, stems and
   // stones stay crisp instead of being upscaled into soft, stair-stepped edges
-  RT.refr = new THREE.WebGLRenderTarget(w, h, Object.assign({ samples: 2, depthTexture: new THREE.DepthTexture(w, h) }, hf));
+  const rw = eco ? Math.ceil(w / 2) : w, rh = eco ? Math.ceil(h / 2) : h;   // 省电：折射半分辨率、无 MSAA
+  RT.refr = new THREE.WebGLRenderTarget(rw, rh, Object.assign({ samples: eco ? 0 : 2, depthTexture: new THREE.DepthTexture(rw, rh) }, hf));
   // Low keeps anti-aliasing too (2x): an aliased frame reads as low quality far more than a few ms cost
-  RT.main = new THREE.WebGLRenderTarget(w, h, Object.assign({ samples: P.quality === 'High' ? 4 : 2, depthTexture: new THREE.DepthTexture(w, h) }, hf));
+  RT.main = new THREE.WebGLRenderTarget(w, h, Object.assign({ samples: eco ? 0 : P.quality === 'High' ? 4 : 2, depthTexture: new THREE.DepthTexture(w, h) }, hf));   // 省电：关闭 MSAA
   RT.tiny = new THREE.WebGLRenderTarget(1, 1);
   if (typeof onTargetsResized === 'function') onTargetsResized(w, h);
 }
@@ -4969,7 +5016,7 @@ function updateFish(dt, t) {
   const F = KOI.fish, feeding = typeof FEED !== 'undefined' && FEED.active;
   for (let i = 0; i < n; i++) {
     const f = F[i];
-    if (f.gone) continue;                     // 已被编辑器移除（空位）
+    if (f.gone || f.ecoOff) continue;         // 已被编辑器移除（空位）/ 省电档隐藏
     const fx = Math.cos(f.heading), fz = -Math.sin(f.heading);
     // feeding excitement ramps up after a distance-based reaction delay and decays slowly afterwards
     if (feeding) { f.react -= dt; if (f.react <= 0) f.feed = Math.min(1, f.feed + dt * 1.6); }
@@ -4978,7 +5025,7 @@ function updateFish(dt, t) {
     let sx = 0, sz = 0, ax = 0, az = 0, cx = 0, cz = 0, nn = 0;
     for (let j = 0; j < n; j++) {
       if (j === i) continue;
-      const o = F[j]; if (o.gone) continue;
+      const o = F[j]; if (o.gone || o.ecoOff) continue;
       const dx = o.p.x - f.p.x, dz = o.p.z - f.p.z, d2 = dx * dx + dz * dz;
       if (d2 > 2.6) continue;
       const d = Math.sqrt(d2) + 1e-4, dy = Math.abs(o.p.y - f.p.y), sepR = (f.size + o.size) * 0.62 * (1 - 0.45 * fe);
@@ -5109,7 +5156,7 @@ function updateFish(dt, t) {
   const spine = [0.3, 0, -0.3];
   for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) {
     const a = F[i], b = F[j];
-    if (a.gone || b.gone) continue;
+    if (a.gone || b.gone || a.ecoOff || b.ecoOff) continue;
     if (Math.abs(a.p.x - b.p.x) + Math.abs(a.p.z - b.p.z) > (a.size + b.size) * 1.2) continue;
     const ax = Math.cos(a.heading), az = -Math.sin(a.heading), bx = Math.cos(b.heading), bz = -Math.sin(b.heading), r = (a.size + b.size) * 0.1;
     for (const u of spine) for (const w of spine) {
@@ -5121,14 +5168,14 @@ function updateFish(dt, t) {
   for (let i = 0; i < n; i++) {
     const f = F[i];
     _ek.set(f.roll, f.heading, f.pitch, 'YZX'); _qk.setFromEuler(_ek);
-    _sk.setScalar(f.gone ? 1e-5 : f.size * Math.max(1e-5, f.vis ?? 1)); _pk.copy(f.p);
+    _sk.setScalar(f.gone || f.ecoOff ? 1e-5 : f.size * Math.max(1e-5, f.vis ?? 1)); _pk.copy(f.p);
     _m4.compose(_pk, _qk, _sk);
     KOI.body.setMatrixAt(i, _m4); KOI.fins.setMatrixAt(i, _m4); KOI.eyes.setMatrixAt(i, _m4);
   }
   const SA = SH.uKoiA.value, SB = SH.uKoiB.value;
   for (let i = 0; i < KOI_MAX; i++) {
     const f = F[i];
-    if (!f || i >= n || f.gone) { SA[i].set(0, 0, 0, 0); continue; }
+    if (!f || i >= n || f.gone || f.ecoOff) { SA[i].set(0, 0, 0, 0); continue; }
     const latTail = f.amp * (0.05 + 0.95 * 0.81) * Math.sin(0.9 * 5.7 - f.phase) + f.bend * 0.36;
     SA[i].set(f.p.x, f.p.y, f.p.z, f.size * (f.vis ?? 1));
     SB[i].set(Math.cos(f.heading) * f.girth, -Math.sin(f.heading) * f.girth, latTail, 0);
@@ -6630,7 +6677,7 @@ function startStroke() {
   // crouch on the bank and look down on the fish（镜头在岸上，不再悬在水面上方）
   STROKE.shot = { pos: new THREE.Vector3(B.cx, Math.max(ground(B.cx, B.cz), 0.15) + 0.74, B.cz), look: STROKE.spot.clone().addScaledVector(fwd, 0.04).setY(WATER_Y - 0.05) };
   window.__strokeInfo = { spot: [B.x, B.z], spotSdf: sdf(B.x, B.z), cam: [B.cx, B.cz], camSdf: sdf(B.cx, B.cz), handT: -1, doneT: -1 };
-  const all = KOI.fish.slice(0, Math.min(P.fishCount, KOI.fish.length)).filter((f) => !f.gone), tame = all.filter((f) => f.size > 0.36 && f.size < 0.66);
+  const all = KOI.fish.slice(0, Math.min(P.fishCount, KOI.fish.length)).filter((f) => !f.gone && !f.ecoOff), tame = all.filter((f) => f.size > 0.36 && f.size < 0.66);
   const fs = tame.length ? tame : all;                                 // a juvenile is too shy (and too small) to come to the hand
   STROKE.fish = fs.reduce((b, f) => (f.p.distanceTo(STROKE.spot) < b.p.distanceTo(STROKE.spot) ? f : b), fs[0]);
   STROKE.fish.stroke = 1;
@@ -6934,7 +6981,7 @@ function updatePrecip(t, dt) {
   const rOn = c.rain > 0.01 && !STATE.under;
   PRECIP.rain.visible = rOn;
   if (rOn) {
-    const n = Math.floor(PRECIP.nR * c.rain), a = PRECIP.rain.geometry.attributes.position.array, vy = 6.5, sx = wx * 1.8, sz = wz * 1.8;
+    const n = Math.floor(PRECIP.nR * c.rain * (ECO.on ? 0.5 : 1)), a = PRECIP.rain.geometry.attributes.position.array, vy = 6.5, sx = wx * 1.8, sz = wz * 1.8;
     for (let i = 0; i < n; i++) {
       const p = PRECIP.R[i]; if (dt > 0) { p.y -= vy * dt; p.x += sx * dt; p.z += sz * dt; } wrap(p, 8, 7);
       const k = i * 6; a[k] = p.x; a[k + 1] = p.y; a[k + 2] = p.z; a[k + 3] = p.x - sx * 0.035; a[k + 4] = p.y + vy * 0.035; a[k + 5] = p.z - sz * 0.035;
@@ -6948,7 +6995,7 @@ function updatePrecip(t, dt) {
   const sOn = c.snow > 0.01 && !STATE.under;
   PRECIP.snow.visible = sOn;
   if (sOn) {
-    const n = Math.floor(PRECIP.nS * c.snow), a = PRECIP.snow.geometry.attributes.position.array;
+    const n = Math.floor(PRECIP.nS * c.snow * (ECO.on ? 0.5 : 1)), a = PRECIP.snow.geometry.attributes.position.array;
     for (let i = 0; i < n; i++) {
       const q = PRECIP.S[i], p = q.p;
       if (dt > 0) { p.y -= q.v * dt; p.x += (wx * 0.6 + Math.sin(t * 0.9 + q.ph) * 0.25) * dt; p.z += (wz * 0.6 + Math.cos(t * 0.7 + q.ph * 1.3) * 0.25) * dt; }
@@ -7107,11 +7154,14 @@ function updateSplashes(dt) {
 const GUI_CTRL = {};
 function setQuality(q, silent) {
   P.quality = q;
-  renderer.setPixelRatio(Math.min(2, (q === 'High' ? Math.min(devicePixelRatio, window.CAMPUS_POND.maxDpr) : Math.min(1.25, devicePixelRatio)) * RES.scale));   // 高：min(dpr,2)；低：min(dpr,1.25)，不再强制 ≤1   // near-native on Retina: crisp, still ~60-90 fps
-  renderer.setSize(innerWidth, innerHeight, false);
-  const smap = q === 'High' ? (window.CAMPUS_POND.lowPower ? 2048 : 4096) : (window.CAMPUS_POND.lowPower ? 1024 : 2048); sun.shadow.mapSize.set(smap, smap);
-  if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; }
-  for (const m of WORLD.leafMats || []) { m.alphaToCoverage = q === 'High'; m.needsUpdate = true; }
+  // 只改真正变化的部分：像素比没变就不 setSize，阴影尺寸没变就不丢弃阴影贴图，材质开关没变就不重编译
+  const pr = pondPixelRatio(q);
+  if (Math.abs(renderer.getPixelRatio() - pr) > 1e-3) { renderer.setPixelRatio(pr); renderer.setSize(innerWidth, innerHeight, false); }
+  const smap = pondShadowSize(q);
+  if (sun.shadow.mapSize.x !== smap) { sun.shadow.mapSize.set(smap, smap); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } }
+  SHADOW.dirty = true;
+  const a2c = q === 'High' && !window.CAMPUS_POND.eco;
+  for (const m of WORLD.leafMats || []) if (m.alphaToCoverage !== a2c) { m.alphaToCoverage = a2c; m.needsUpdate = true; }
   makeTargets();
   if (GUI_CTRL.quality) GUI_CTRL.quality.updateDisplay();
 }
@@ -7168,30 +7218,30 @@ function buildGUI() {
 }
 
 // Frame timing: FPS counter + automatic drop to Low when frame time > 25 ms for 2 s
-const perf = { ms: 16.7, fps: 60, slow: 0, acc: 0, frames: 0, sinceStart: 0 };
+const perf = { ms: 16.7, fps: 60, slow: 0, acc: 0, frames: 0, sinceStart: 0, cool: 0 };
 function pondDegraded(msg) { if (window.PondCampus && PondCampus.degraded) PondCampus.degraded(msg); else toast(msg); }
 function updatePerf(rawDt) {
   perf.sinceStart += rawDt; perf.acc += rawDt; perf.frames++;
   if (rawDt > 0.25) return;                 // tab was hidden or a shader compiled: not a steady-state frame
   perf.ms = lerp(perf.ms, rawDt * 1000, 0.08);
   if (perf.acc >= 0.5) { perf.fps = perf.frames / perf.acc; perf.acc = 0; perf.frames = 0; }
-  if (P.autoQuality && perf.sinceStart > 8) {
-    // first trade resolution smoothly (down to 70 %), and only then drop to Low quality
-    perf.slow = perf.ms > 22 ? perf.slow + rawDt : 0;
-    perf.fast = perf.ms < 13 ? (perf.fast || 0) + rawDt : 0;
-    if (perf.slow > 1.5) {
-      perf.slow = 0;
-      if (RES.scale > 0.76 && P.quality === 'High') { RES.scale = Math.max(0.75, RES.scale - 0.1); setQuality(P.quality, true); }
+  // 只降不升：分辨率 1 → 0.8（一次）→ 流畅 → 省电；不会因为帧率回升而自动升回去（升降来回切换会让画面一闪一闪）
+  perf.cool = Math.max(0, (perf.cool || 0) - rawDt);
+  if (P.autoQuality && !window.CAMPUS_POND.eco && perf.sinceStart > 8 && (typeof PHASE2 === 'undefined' || PHASE2.done) && perf.cool <= 0) {
+    perf.slow = perf.ms > 24 ? perf.slow + rawDt : Math.max(0, perf.slow - rawDt * 0.5);
+    if (perf.slow > 3) {
+      perf.slow = 0; perf.cool = 6;
+      if (RES.scale > 0.81 && P.quality === 'High') { RES.scale = 0.8; setQuality(P.quality, true); }
       else if (P.quality === 'High') { setQuality('Low'); pondDegraded('帧率偏低，已自动切换到“流畅”画质'); }
-      else if (P.ssao || P.godRays || P.dof || P.bloomStrength > 0) { P.ssao = P.godRays = P.dof = false; P.bloomStrength = 0; pondDegraded('帧率偏低，已关闭景深 / 体积光等特效'); }
-    } else if (perf.fast > 4 && RES.scale < 1) { perf.fast = 0; RES.scale = Math.min(1, RES.scale + 0.1); setQuality(P.quality, true); }
+      else pondDegraded('帧率偏低，已自动切换到“省电”画质');
+    }
   }
 }
 const STATE = { under: false, wasUnder: false, exitT: 99, depth: 0 };
 let hudTimer = 0;
 function updateHUD(dt) {
   hudTimer -= dt; if (hudTimer > 0) return; hudTimer = 0.25;
-  $('hud').textContent = `${perf.fps.toFixed(0).padStart(3)} fps  ${perf.ms.toFixed(1).padStart(5)} ms\n画质 ${P.quality === 'High' ? '高' : '低'} · ${STATE.under ? '水下 ' + STATE.depth.toFixed(2) + ' 米' : '水面以上'} · ${{ Cinematic: '电影镜头', Manual: '自由镜头', 'Follow koi': '跟随锦鲤', 'Follow turtle': '跟随乌龟' }[P.cameraMode] || P.cameraMode}`;
+  $('hud').textContent = `${perf.fps.toFixed(0).padStart(3)} fps  ${perf.ms.toFixed(1).padStart(5)} ms\n画质 ${typeof PondQuality !== 'undefined' ? PondQuality.name() : (P.quality === 'High' ? '高' : '低')}${window.CAMPUS_POND.fpsCap ? ' · 上限 ' + window.CAMPUS_POND.fpsCap + ' fps' : ''} · ${STATE.under ? '水下 ' + STATE.depth.toFixed(2) + ' 米' : '水面以上'} · ${{ Cinematic: '电影镜头', Manual: '自由镜头', 'Follow koi': '跟随锦鲤', 'Follow turtle': '跟随乌龟' }[P.cameraMode] || P.cameraMode}`;
 }
 function updateWind(t) {
   SH.uGust.value = clamp(0.5 + 0.9 * fbm3(t * 0.12, 3.3, 1.1, 3, 77), 0, 1);
@@ -7225,6 +7275,7 @@ let running = false;
 function frame() {
   if (window.__pondStop) { window.__pondStopped = true; return; }   // 自动化测试：停帧后截图
   requestAnimationFrame(frame);
+  if (fpsCapSkip()) return;                                  // 省电档 30 fps 上限
   const rawDt = clock.getDelta(), cdt = TEST_STEP || Math.min(rawDt, 0.05), dt = P.freezeScene ? 0 : cdt;   // camera keeps its own clock
   const t = (SH.uTime.value += dt);
   updatePerf(rawDt);
@@ -7256,7 +7307,7 @@ function frame() {
 
   // 1) shadows: rendered once per frame through a camera that sees every layer
   SHADOW.frame++;
-  if (SHADOW.dirty || SHADOW.frame % (P.quality === 'High' ? 2 : 3) === 0) {
+  if (SHADOW.dirty || (window.CAMPUS_POND.eco ? SHADOW.frame % 60 === 0 : SHADOW.frame % (P.quality === 'High' ? 2 : 3) === 0)) {
     SHADOW.dirty = false;
     renderer.shadowMap.needsUpdate = true;
     renderer.setRenderTarget(RT.tiny); renderer.render(scene, shadowCam);
@@ -7276,7 +7327,8 @@ function frame() {
 
 addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
-  renderer.setSize(innerWidth, innerHeight, false);
+  const c = renderer.domElement, pr = renderer.getPixelRatio();
+  if (c.width !== Math.floor(innerWidth * pr) || c.height !== Math.floor(innerHeight * pr)) renderer.setSize(innerWidth, innerHeight, false);
   makeTargets();
 });
 
@@ -7423,7 +7475,7 @@ const PondEdit = (() => {
   function koiActivate(i, x, z) {
     const f = KOI.fish[i];
     if (i >= (P.fishCount | 0)) P.fishCount = i + 1;
-    f.gone = false; f.vis = 0; f.p.set(x, WATER_Y - 0.08, z); f.heading = rand() * 6.28; f.speed = 0.25; f.bursting = true;
+    f.gone = false; f.userKoi = true; f.ecoOff = false; f.vis = 0; f.p.set(x, WATER_Y - 0.08, z);   // 编辑器放入的锦鲤：省电档也不隐藏 f.heading = rand() * 6.28; f.speed = 0.25; f.bursting = true;
     return f;
   }
   function seeds() {
@@ -7438,6 +7490,7 @@ const PondEdit = (() => {
   return { makeWillow, makeCamphor, makeOsmanthus, makeLotus, makeLilyPad, treeFromParts, koiFreeSlot, koiActivate, seeds };
 })();
 window.PondEdit = PondEdit;
+window.PondEco = { setEcoDetail, get on() { return ECO.on; }, makeTargets, setQuality: (q) => setQuality(q, true), get rtKey() { return RT.key; } };
 
 /* ------------------------------------------------------------------ 校园版：渐进式加载（由 tools/build_pond.py 插入 pond-main.js） */
 const PONDT = (window.__pondT = window.__pondT || []);
@@ -7494,6 +7547,7 @@ async function buildPhase2() {
     // 季节 / 天气 / 光照对新加入的植被生效
     if (window.PondCampus) PondCampus.applyEnv(true); else { applySeason(WX.applied || P.weather); applyWeather(); }
     updateSun(); envDirty = true; SHADOW.dirty = true;
+    setEcoDetail(ECO.on);
     PHASE2.done = true; window.__pondFull = true; pmark('phase2-done');
     if (PHASE2.chip) { PHASE2.n = PHASE2.total; PHASE2.label = '完成'; phase2Chip(); PHASE2.chip.classList.add('is-done'); setTimeout(() => PHASE2.chip && PHASE2.chip.remove(), 900); }
     document.dispatchEvent(new CustomEvent('pond:full'));
@@ -7529,6 +7583,7 @@ async function init() {
     buildPrecip();
     buildMountains();
     if (typeof buildKoi === 'function') buildKoi();
+    setEcoDetail(ECO.on);
     buildHand();
     updateSun(); updateWaves(); updateClarity();
     makeTargets();

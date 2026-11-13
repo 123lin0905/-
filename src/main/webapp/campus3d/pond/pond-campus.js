@@ -27,18 +27,21 @@
   const zoneId = VARIANTS[Q.get("zone")] ? Q.get("zone") : "cuihu_water";
   const V = VARIANTS[zoneId];
 
-  // ---------------- 画质档（与校园全景共用：js/pond-style.js → PondQuality，“清晰 / 流畅”） ----------------
-  // 清晰 = High（像素比 min(dpr,2)、SSAO/体积光/景深）；流畅 = Low（像素比 min(dpr,1.25)、关闭这些特效）。
-  // 未手动选择时：手机默认流畅，电脑默认清晰，之后按实测帧率自动降档（不再因 ≤4 核就默认低画质）。
+  // ---------------- 画质档（与校园全景共用：js/pond-style.js → PondQuality，“清晰 / 流畅 / 省电”） ----------------
+  // 清晰 = High（像素比 min(dpr,2)、SSAO/体积光/景深）；流畅 = Low（像素比 min(dpr,1.25)、关闭这些特效）；
+  // 省电 = Low + 像素比固定 1 × 0.85、512 静态阴影、关闭泛光与 MSAA、草 / 叶片卡与锦鲤减半、30 fps 上限。
+  // 未手动选择时：核显 / 高 DPR 笔记本默认省电，手机默认流畅，其余默认清晰；之后按实测帧率只降不升。
   const test = Q.get("test") === "1";
-  const smooth = PondQuality.mode === "smooth";
-  const lowPower = test || smooth;
-  if (test && !smooth) PondQuality.set("smooth", false);   // 自动化测试固定低画质：切换按钮同步显示“流畅”（不写入本地设置）
+  if (test && PondQuality.mode !== "smooth" && !PondQuality.forcedByUrl) PondQuality.set("smooth", false);   // 自动化测试固定“流畅”（不写入本地设置；要测别的档用 ?gfx=）
+  const mode0 = PondQuality.mode, eco = mode0 === "eco", smooth = mode0 === "smooth";
+  const lowPower = test || smooth || eco;
   window.CAMPUS_POND = Object.assign({}, V, {
-    zone: zoneId, test, lowPower,
-    quality: (Q.get("quality") || "").toLowerCase() === "high" || !lowPower ? "High" : "Low",
-    maxDpr: smooth ? 1.25 : 2,             // 高：min(devicePixelRatio, 2)
-    simN: PondQuality.mobile || smooth ? 128 : 256,   // 水面涟漪模拟网格
+    zone: zoneId, test, lowPower, eco, baseFish: V.fishCount,
+    quality: mode0 === "clear" ? "High" : "Low",
+    maxDpr: eco ? 1 : smooth ? 1.25 : 2,   // 高：min(devicePixelRatio, 2)
+    ecoScale: 0.85,                        // 省电：像素比 1 × 0.85 渲染缩放
+    fpsCap: eco ? 30 : 0,                  // 省电：30 fps 上限
+    simN: PondQuality.mobile || smooth || eco ? 128 : 256,   // 水面涟漪模拟网格
   });
 
   // ---------------- 工具 ----------------
@@ -199,17 +202,20 @@
   }
   function applyGfx(mode, explicit) {
     if (explicit) P.autoQuality = false;          // 手动选了就不再自动降档
+    const C = window.CAMPUS_POND, eco = mode === "eco";
+    C.eco = eco; C.fpsCap = eco ? 30 : 0;
+    C.maxDpr = eco ? 1 : mode === "smooth" ? 1.25 : 2;
     if (mode === "clear") {
       RES.scale = 1; P.ssao = P.godRays = P.dof = true; P.bloomStrength = 0.3; window.setQuality("High", true);
     } else {
-      P.ssao = P.godRays = P.dof = false; P.bloomStrength = 0.22; window.setQuality("Low", true);
+      P.ssao = P.godRays = P.dof = false; P.bloomStrength = eco ? 0 : 0.22; window.setQuality("Low", true);
     }
+    if (window.PondEco) PondEco.setEcoDetail(eco);
     for (const k of ["ssao", "god", "bloom", "quality"]) if (window.GUI_CTRL && GUI_CTRL[k]) GUI_CTRL[k].updateDisplay();
   }
-  // 自动降档时的提示：带“恢复清晰”按钮（恢复后本页不再自动降档）
+  // 自动降档：只降不升（清晰 → 流畅 → 省电），每一档的提示每页最多一次，带“恢复清晰”按钮
   function degraded(msg) {
-    PondQuality.set("smooth", false);
-    PondQuality.degradeToast(msg, () => {});
+    PondQuality.degrade(msg);
   }
   function syncDemoForm() {
     if (!$("cpd-weather")) return;
@@ -324,7 +330,7 @@
     if (closeup !== document.body.classList.contains("cp-closeup")) document.body.classList.toggle("cp-closeup", closeup);
     frames++; statT += dt; window.__pondFrames = (window.__pondFrames || 0) + 1;
     if (statT > 1 && !$("cp-demo").hidden) {
-      $("cpd-stats").textContent = "帧率 " + (frames / statT).toFixed(0) + " fps · 画质 " + (P.quality === "High" ? "高" : "低") + " · 像素比 " + renderer.getPixelRatio().toFixed(2) + " · 水面网格 " + window.CAMPUS_POND.simN + "² · 锦鲤 " + P.fishCount + " 条";
+      $("cpd-stats").textContent = "帧率 " + (frames / statT).toFixed(0) + " fps · 画质 " + PondQuality.name() + (window.CAMPUS_POND.fpsCap ? "（上限 " + window.CAMPUS_POND.fpsCap + " fps）" : "") + " · 像素比 " + renderer.getPixelRatio().toFixed(2) + " · 水面网格 " + window.CAMPUS_POND.simN + "² · 锦鲤 " + P.fishCount + " 条";
       frames = 0; statT = 0;
     } else if (statT > 1) { frames = 0; statT = 0; }
     if (frames > 2) window.__pondReady = true;

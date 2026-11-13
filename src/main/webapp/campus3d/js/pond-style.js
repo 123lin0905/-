@@ -6,8 +6,8 @@
  * 本文件提供：
  *   pondSunLight()      太阳 / 月光光照模型（色温、强度、半球光、云亮度、夜晚曝光补偿）
  *   pondWeatherPreset() WMO 天气类型 + 季节 → 池塘场景天气预设（晴/雨/秋/冬雪 + 多云/阴/雾 …）
- *   PondQuality         “清晰 / 流畅”画质档：两页共用 localStorage 的 campus.gfx；未手动选择时按实测帧率自动降档，
- *                       降档提示里带“恢复清晰”按钮
+ *   PondQuality         “清晰 / 流畅 / 省电”画质档：两页共用 localStorage 的 campus.gfx；核显 / 高 DPR 笔记本首次默认省电；
+ *                       未手动选择时按实测帧率只降不升，降档提示里带“恢复清晰”按钮
  * 全部为经典脚本全局定义（与 pond.html 主脚本、campus3d/js/*.js 同一全局作用域）。
  */
 
@@ -67,33 +67,89 @@ function pondWeatherPreset(kind, season) {
   return { p, letter, label };
 }
 
-// ---------------------------------------------------------------- 画质档：清晰 / 流畅
+// ---------------------------------------------------------------- 画质档：清晰 / 流畅 / 省电
+// 三档两页共用（localStorage campus.gfx）：
+//   clear  清晰：像素比 ≤2、阴影 + 后期（泛光 / SSAO / 景深）、平面反射
+//   smooth 流畅：像素比 ≤1.25（全景 ≤1）、低分辨率阴影、关闭 SSAO / 景深等
+//   eco    省电：像素比固定 1（池塘再 ×0.85 渲染缩放）、512 静态阴影、关闭后期与 MSAA、草 / 叶片卡与锦鲤减半、
+//               水面反射降级、帧率上限 30 fps（时间累积跳帧）、飞鸟 / 蝴蝶 / 粒子减少
+// 选择顺序：URL（?quality=high|smooth|eco 或 ?gfx=clear|smooth|eco）> 用户手动选择 > 设备识别
+//   设备识别：WEBGL_debug_renderer_info 读 GPU 名，核显（Intel / Iris / UHD / Radeon(TM) Graphics / Vega / Mali / Adreno / SwiftShader …）
+//   或高 DPR 笔记本屏（devicePixelRatio ≥1.5 且物理宽度 ≤2560）→ 省电；手机 → 流畅；其余 → 清晰。
+// 自动降档只降不升（清晰 → 流畅 → 省电），每档的提示每页最多出现一次；不会自动回升，避免画质来回切换造成闪烁。
 const PondQuality = (function () {
-  const KEY = "campus.gfx";
+  const KEY = "campus.gfx", HINT_KEY = "campus.gfx.ecoHint";
+  const MODES = ["clear", "smooth", "eco"];
+  const NAMES = { clear: "清晰", smooth: "流畅", eco: "省电" };
   const ua = navigator.userAgent || "";
   const mobile = /Android|iPhone|iPad|iPod|Mobile|HarmonyOS/i.test(ua) || (navigator.maxTouchPoints > 1 && Math.min(screen.width, screen.height) < 820);
-  function stored() { try { const v = localStorage.getItem(KEY); return v === "clear" || v === "smooth" ? v : null; } catch (e) { return null; } }
+  function stored() { try { const v = localStorage.getItem(KEY); return MODES.indexOf(v) >= 0 ? v : null; } catch (e) { return null; } }
   function save(v) { try { localStorage.setItem(KEY, v); } catch (e) { /* 无痕模式等 */ } }
-  // URL ?gfx=clear|smooth（或旧参数 quality=high|low）优先，其次手动选择，最后按设备（手机默认流畅，电脑默认清晰，之后按实测帧率自动降档）
-  function initial() {
+  // GPU 名（UNMASKED_RENDERER_WEBGL；浏览器屏蔽时退回 RENDERER），只探测一次
+  let gpuName = null;
+  function gpu() {
+    if (gpuName != null) return gpuName;
+    gpuName = "";
+    try {
+      const c = document.createElement("canvas");
+      const gl = c.getContext("webgl2") || c.getContext("webgl");
+      if (gl) {
+        const ext = gl.getExtension("WEBGL_debug_renderer_info");
+        gpuName = String((ext && gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)) || gl.getParameter(gl.RENDERER) || "");
+        const lose = gl.getExtension("WEBGL_lose_context"); if (lose) lose.loseContext();
+      }
+    } catch (e) { /* 无 WebGL：交给页面自己报错 */ }
+    return gpuName;
+  }
+  // 核显 / 软件渲染：Intel 核显（HD / UHD / Iris / Iris Xe）、AMD APU（Radeon(TM) Graphics、Radeon Vega 核显）、
+  // 手机 GPU（Mali / Adreno / PowerVR）、软件渲染（SwiftShader / llvmpipe / Microsoft Basic Render）
+  const IGPU = /Intel|Iris|UHD Graphics|HD Graphics|Radeon\(TM\)\s*Graphics|Radeon Graphics|Radeon\(TM\)\s*Vega|Radeon Vega|Vega \d+ Graphics|Mali|Adreno|PowerVR|SwiftShader|llvmpipe|softpipe|Basic Render/i;
+  function isIntegrated(name) { return IGPU.test(name) && !/Radeon\s*(RX|Pro)\b|\bRX\s*Vega/i.test(name); }
+  function hiDpiLaptop() {
+    const dpr = window.devicePixelRatio || 1;
+    return !mobile && dpr >= 1.5 && screen.width * dpr <= 2560;
+  }
+  function parseUrl() {
     const q = new URLSearchParams(location.search);
     const u = (q.get("gfx") || "").toLowerCase(), old = (q.get("quality") || "").toLowerCase();
-    if (u === "clear" || old === "high") return { mode: "clear", explicit: true };
-    if (u === "smooth" || old === "low") return { mode: "smooth", explicit: true };
+    if (u === "clear" || old === "high" || old === "clear") return "clear";
+    if (u === "smooth" || old === "smooth" || old === "low") return "smooth";
+    if (u === "eco" || old === "eco") return "eco";
+    return null;
+  }
+  function initial() {
+    const u = parseUrl();
+    if (u) return { mode: u, explicit: true, url: true, reason: "url" };
     const s = stored();
-    if (s) return { mode: s, explicit: true };
-    return { mode: mobile ? "smooth" : "clear", explicit: false };
+    if (s) return { mode: s, explicit: true, reason: "user" };
+    const g = gpu();
+    if (isIntegrated(g)) return { mode: "eco", explicit: false, reason: "igpu", autoEco: true };
+    if (hiDpiLaptop()) return { mode: "eco", explicit: false, reason: "hidpi", autoEco: true };
+    return { mode: mobile ? "smooth" : "clear", explicit: false, reason: mobile ? "mobile" : "default" };
   }
   const st = initial();
   const listeners = [];
+  const toasted = {};
   function set(mode, explicit) {
-    st.mode = mode; if (explicit) { st.explicit = true; save(mode); }
-    listeners.forEach((f) => f(mode, !!explicit));
+    if (MODES.indexOf(mode) < 0) return;
+    const changed = mode !== st.mode;
+    st.mode = mode; if (explicit) { st.explicit = true; st.reason = "user"; save(mode); }
+    if (changed) listeners.forEach((f) => f(mode, !!explicit));
     document.querySelectorAll(".pq-toggle").forEach(paint);
+  }
+  // 自动降一档（只降不升）：返回新档位或 null
+  function degrade(msg) {
+    if (st.explicit) return null;
+    const i = MODES.indexOf(st.mode);
+    if (i < 0 || i >= MODES.length - 1) return null;
+    const next = MODES[i + 1];
+    set(next, false);
+    if (msg && !toasted[next]) { toasted[next] = true; degradeToast(msg); }
+    return next;
   }
   function paint(btn) {
     btn.querySelectorAll("[data-gfx]").forEach((b) => b.classList.toggle("is-on", b.getAttribute("data-gfx") === st.mode));
-    btn.title = "画质：" + (st.mode === "clear" ? "清晰（全分辨率 + 后期）" : "流畅（低分辨率阴影、关闭后期）") + " · 两个场景共用此设置";
+    btn.title = "画质：" + { clear: "清晰（全分辨率 + 后期）", smooth: "流畅（低分辨率阴影、关闭后期）", eco: "省电（像素比 1、30 fps、关闭后期与阴影细节，适合核显笔记本）" }[st.mode] + " · 两个场景共用此设置";
   }
   function injectCss() {
     if (document.getElementById("pq-css")) return;
@@ -109,31 +165,45 @@ const PondQuality = (function () {
     ].join("\n");
     document.head.appendChild(s);
   }
-  // 画质切换按钮（两页同一个样式）
+  // 画质切换按钮（两页同一个样式，放在右上角）
   function button() {
     injectCss();
     const w = document.createElement("div");
     w.className = "pq-toggle";
-    w.innerHTML = '<span>画质</span><button type="button" data-gfx="clear">清晰</button><button type="button" data-gfx="smooth">流畅</button>';
+    w.innerHTML = '<span>画质</span>' + MODES.map((m) => '<button type="button" data-gfx="' + m + '">' + NAMES[m] + "</button>").join("");
     w.querySelectorAll("[data-gfx]").forEach((b) => (b.onclick = () => set(b.getAttribute("data-gfx"), true)));
     paint(w);
+    if (st.autoEco) setTimeout(ecoHint, 1200);
     return w;
   }
-  // 自动降档提示，带“恢复清晰”
-  function degradeToast(msg, onRestore) {
+  function toastEl(msg, restoreLabel, onRestore) {
     injectCss();
     let t = document.getElementById("pq-toast");
     if (t) t.remove();
     t = document.createElement("div"); t.id = "pq-toast"; t.className = "pq-toast";
-    t.innerHTML = '<span></span><button type="button" class="pq-restore">恢复清晰</button><button type="button" class="pq-x" aria-label="关闭">×</button>';
+    t.innerHTML = '<span></span>' + (restoreLabel ? '<button type="button" class="pq-restore"></button>' : "") + '<button type="button" class="pq-x" aria-label="关闭">×</button>';
     t.querySelector("span").textContent = msg;
-    t.querySelector(".pq-restore").onclick = () => { t.remove(); set("clear", true); if (onRestore) onRestore(); };
+    if (restoreLabel) { const r = t.querySelector(".pq-restore"); r.textContent = restoreLabel; r.onclick = () => { t.remove(); onRestore(); }; }
     t.querySelector(".pq-x").onclick = () => t.remove();
     document.body.appendChild(t);
-    clearTimeout(degradeToast._h); degradeToast._h = setTimeout(() => t.remove(), 12000);
+    clearTimeout(toastEl._h); toastEl._h = setTimeout(() => t.remove(), 12000);
+    return t;
+  }
+  // 自动降档提示，带“恢复清晰”（只在用户点击时恢复，不会自动回升）
+  function degradeToast(msg, onRestore) {
+    toastEl(msg, "恢复清晰", () => { set("clear", true); if (onRestore) onRestore(); });
+  }
+  // 核显 / 高 DPR 笔记本首次默认省电：一次性提示（记在 localStorage，以后不再弹）
+  function ecoHint() {
+    if (!st.autoEco || st.explicit || st.mode !== "eco") return;
+    try { if (localStorage.getItem(HINT_KEY) === "1") return; localStorage.setItem(HINT_KEY, "1"); } catch (e) { /* ignore */ }
+    if (ecoHint._shown) return; ecoHint._shown = true;
+    toastEl("已为你的电脑切换到省电模式，可在右上角切换", null, null);
   }
   return {
-    get mode() { return st.mode; }, get explicit() { return st.explicit; }, mobile,
-    set, onChange: (f) => listeners.push(f), button, degradeToast,
+    get mode() { return st.mode; }, get explicit() { return st.explicit; }, get reason() { return st.reason; }, get gpu() { return gpu(); },
+    get eco() { return st.mode === "eco"; }, get forcedByUrl() { return !!st.url; },
+    mobile, MODES, NAMES, name: (m) => NAMES[m || st.mode],
+    set, degrade, onChange: (f) => listeners.push(f), button, degradeToast, ecoHint, isIntegrated,
   };
 })();

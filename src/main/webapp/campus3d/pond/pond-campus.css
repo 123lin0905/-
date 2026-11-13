@@ -92,7 +92,7 @@ body.campus-pond:not(.cp-ready) .cp-zone, body.campus-pond:not(.cp-ready) .cp-ec
 }
 
 /* 画质：清晰 / 流畅（与校园全景共用 PondQuality），放在返回按钮右侧 */
-.cp-gfx { position: fixed; left: 186px; top: calc(14px + env(safe-area-inset-top, 0px)); z-index: 9; }
+.cp-gfx { position: fixed; right: 340px; top: calc(14px + env(safe-area-inset-top, 0px)); z-index: 9; }   /* 右上角，紧挨“池塘生态”面板左侧 */
 body.campus-pond:not(.cp-ready) .cp-gfx { opacity: 0; }
 @media (max-width: 720px) { .cp-gfx { left: auto; right: 14px; } }
 

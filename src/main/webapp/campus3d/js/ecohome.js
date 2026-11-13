@@ -196,7 +196,8 @@
     try {
       const c = document.createElement("canvas");
       if (!c.getContext("webgl2")) throw new Error("浏览器不支持 WebGL 2");
-      renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance", stencil: false });
+      // 省电档：默认帧缓冲不开 MSAA（WebGL 上下文创建后不能再改；之后切到清晰档时走后期目标自己的 4× MSAA）
+      renderer = new THREE.WebGLRenderer({ antialias: PondQuality.mode !== "eco", powerPreference: PondQuality.mode === "eco" ? "low-power" : "high-performance", stencil: false });
     } catch (e) { fail(new Error("此设备无法显示三维场景（" + e.message + "）")); return; }
     const stage = $("eco-stage");
     stage.appendChild(renderer.domElement);
@@ -598,19 +599,32 @@
     new ResizeObserver(resize).observe(stage);
     resize();
 
-    // ---------------- 画质：清晰 / 流畅（与池塘共用 PondQuality；未手动选择时按实测帧率自动降档） ----------------
-    const gfx = PondQuality.button(); gfx.id = "eco-gfx";
-    document.querySelector(".eco-toolbar").appendChild(gfx);
-    PondQuality.onChange((mode) => { look.setQuality(mode); life.setQuality(mode); });
+    // ---------------- 画质：清晰 / 流畅 / 省电（与池塘共用 PondQuality；核显笔记本首次默认省电；未手动选择时按实测帧率只降不升） ----------------
+    const gfx = PondQuality.button(); gfx.id = "eco-gfx"; gfx.classList.add("eco-gfx");
+    const acts = $("eco-actions"); acts.insertBefore(gfx, acts.firstChild);   // 右上角（顶栏右侧按钮组最前，天气卡左侧）
+    const hud = el("div", "eco-hud"); hud.id = "eco-hud"; hud.setAttribute("aria-hidden", "true");
+    root.appendChild(hud);                       // 左下角：帧率 · 档位
+    let sinceChange = 0;
+    PondQuality.onChange((mode) => { look.setQuality(mode); life.setQuality(mode); life.refreshLOD(camera.position); sinceChange = 0; lowFor = 0; capAcc = 0; });
 
     // ---------------- 主循环 ----------------
     const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
     let last = performance.now(), t0 = last, frames = 0, fpsT = last, fps = 60, lowFor = 0, sinceStart = 0;
+    // 省电档帧率上限 30 fps：时间累积跳帧（不够一帧的时间就整帧跳过，余量带到下一帧，60/120/144 Hz 屏上都稳定在 30 左右）
+    let capAcc = 0, capLast = -1;
+    window.__ecoFrames = 0;
     let envTimer = 0;
     const renderStats = { calls: 0, triangles: 0 };
     window.__eco = { state, camera, controls, scene, renderer, life, campus, look, selectZone, selectItem, renderStats, get fps() { return fps; } };
     function tick(now) {
       if (halted) return;
+      if (PondQuality.mode === "eco") {
+        if (capLast < 0) capLast = now;
+        capAcc += now - capLast; capLast = now;
+        if (capAcc < 1000 / 30 - 1.5) { requestAnimationFrame(tick); return; }
+        capAcc = Math.min(capAcc - 1000 / 30, 1000 / 30);
+      } else capLast = now;
+      window.__ecoFrames++;
       const dt = Math.min(0.1, (now - last) / 1000);
       last = now;
       const t = (now - t0) / 1000;
@@ -642,12 +656,16 @@
       if (now - fpsT > 1000) {
         sinceStart += (now - fpsT) / 1000;
         fps = (frames * 1000) / (now - fpsT); frames = 0; fpsT = now;
-        // 未手动选择画质时：连续 4 秒低于 40 fps 自动切到“流畅”，提示里可一键恢复清晰
-        if (!PondQuality.explicit && PondQuality.mode === "clear" && sinceStart > 6 && document.visibilityState === "visible") {
-          if (fps < 40) { if (++lowFor >= 4) { lowFor = 0; PondQuality.set("smooth", false); PondQuality.degradeToast("帧率偏低，已自动切换到“流畅”画质"); } }
+        sinceChange += 1;
+        // 未手动选择画质时只降不升：清晰档连续 4 秒 < 40 fps → 流畅；流畅档连续 6 秒 < 24 fps → 省电。
+        // 每次换档后冷却 8 秒再判断；不会因为帧率回升自动升档（来回切换会闪屏），提示每档每页最多一次，可一键“恢复清晰”
+        if (!PondQuality.explicit && sinceStart > 6 && sinceChange > 8 && document.visibilityState === "visible") {
+          const m = PondQuality.mode, need = m === "clear" ? 4 : 6, low = m === "clear" ? fps < 40 : m === "smooth" ? fps < 24 : false;
+          if (low) { if (++lowFor >= need) { lowFor = 0; PondQuality.degrade(m === "clear" ? "帧率偏低，已自动切换到“流畅”画质" : "帧率偏低，已自动切换到“省电”画质"); } }
           else lowFor = 0;
         }
-        if (!demo.hidden) $("d-stats").textContent = "帧率 " + fps.toFixed(0) + " fps · 画质 " + (look.quality === "clear" ? "清晰" : "流畅") + " · 像素比 " + renderer.getPixelRatio().toFixed(2) +
+        hud.textContent = fps.toFixed(0) + " fps · " + PondQuality.name() + (PondQuality.mode === "eco" ? "（上限 30）" : "");
+        if (!demo.hidden) $("d-stats").textContent = "帧率 " + fps.toFixed(0) + " fps · 画质 " + PondQuality.name(look.quality) + " · 像素比 " + renderer.getPixelRatio().toFixed(2) +
           " · draw calls " + renderStats.calls + " · 三角形 " + (renderStats.triangles / 1000).toFixed(0) + "k · 树 " + life.stats.trees + "（近 " + life.stats.lod.near + "）· 路灯 " + life.stats.lamps + " · 鸟 " + life.stats.birds;
       }
       requestAnimationFrame(tick);
