@@ -3,8 +3,11 @@
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://xmlns.jcp.org/xml/ns/javaee http://xmlns.jcp.org/xml/ns/javaee/web-app_4_0.xsd"
          version="4.0">
-    <!-- 网站打开后的第一屏：3D 虚拟生态主页；原系统首页 index.jsp 通过页面右上角“进入管理系统”进入 -->
+    <!-- 网站打开后先出现人脸识别窗口 face_login.jsp：识别成功进入对应账号（管理员 → 管理页，养护员 → 养护工作台），
+         或“先不录入人脸 / 以访客进入” → 3D 虚拟生态主页 ecohome.jsp（只读）；账号密码登录 login.jsp 保留为备用入口。
+         已登录 / 已选访客身份的会话再访问根路径时，face_login.jsp 直接跳到各自主页。 -->
     <welcome-file-list>
+        <welcome-file>face_login.jsp</welcome-file>
         <welcome-file>ecohome.jsp</welcome-file>
         <welcome-file>index.jsp</welcome-file>
     </welcome-file-list>

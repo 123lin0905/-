@@ -11,7 +11,7 @@
 (function () {
   "use strict";
   const CFG = Object.assign(
-    { base: "./", weatherApi: null, systemUrl: null, loginUrl: null, userName: null, autoEnterMs: 4000 },
+    { base: "./", weatherApi: null, systemUrl: null, loginUrl: null, userName: null, roleGroup: null, roleLabel: null, navLinks: [], autoEnterMs: 4000 },
     window.ECO_CONFIG || {}
   );
   const BASE = CFG.base.replace(/\/?$/, "/");
@@ -85,11 +85,22 @@
   if (CFG.systemUrl) {
     const a = el("a", "eco-btn eco-btn-primary", "进入管理系统 →"); a.href = CFG.systemUrl; actions.appendChild(a);
   }
+  // 按身份显示的入口（ecohome.jsp 计算 navLinks：管理员 → 数据大屏 / 人脸录入，养护人员 → 养护工作台 / 人脸录入，未登录 / 访客 → 人脸登录）
+  (CFG.navLinks || []).forEach((l) => {
+    if (l.id === "nav-logout") return;
+    const a = el("a", "eco-btn", esc(l.text)); a.href = l.href; if (l.id) a.id = l.id; actions.appendChild(a);
+  });
   if (CFG.userName) {
-    actions.appendChild(el("span", "eco-user", "👤 " + esc(CFG.userName)));
+    actions.appendChild(el("span", "eco-user", "👤 " + esc(CFG.userName) + (CFG.roleLabel ? "（" + esc(CFG.roleLabel) + "）" : "")));
+  } else if (CFG.roleGroup === "visitor") {
+    actions.appendChild(el("span", "eco-user", "👤 访客（只读）"));
   } else if (CFG.loginUrl) {
     const a = el("a", "eco-btn", "管理员登录"); a.href = CFG.loginUrl; actions.appendChild(a);
   }
+  (CFG.navLinks || []).forEach((l) => {
+    if (l.id !== "nav-logout") return;
+    const a = el("a", "eco-btn", esc(l.text)); a.href = l.href; a.id = l.id; actions.appendChild(a);
+  });
   $("eco-mini-img").src = BASE + "img/plan_official.jpg";
 
   // ---------------- 加载进度 ----------------

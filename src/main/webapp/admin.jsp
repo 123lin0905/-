@@ -1,5 +1,5 @@
 <%@ page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
-<%@ page import="java.util.List, org.example.demo1.AdminUser, org.example.demo1.SystemNotice" %>
+<%@ page import="java.util.List, java.util.Map, org.example.demo1.AdminUser, org.example.demo1.SystemNotice, org.example.demo1.Maintainer" %>
 <%
     if (request.getAttribute("userList") == null) {
         response.sendRedirect("AdminDashboardServlet");
@@ -11,6 +11,8 @@
     Integer maintainerCount = (Integer) request.getAttribute("maintainerCount");
     Integer maintenanceCount = (Integer) request.getAttribute("maintenanceCount");
     Integer duePlantCount = (Integer) request.getAttribute("duePlantCount");
+    List<Maintainer> maintainerOptions = (List<Maintainer>) request.getAttribute("maintainerList");
+    Map<Integer, String> maintainerLinks = (Map<Integer, String>) request.getAttribute("maintainerLinks");
     AdminUser currentUser = (AdminUser) session.getAttribute("adminUser");
     String currentUserName = currentUser != null ? currentUser.getDisplayName() : "超级管理员";
 %>
@@ -334,6 +336,8 @@
         <a href="AnimalServlet" class="nav-btn">🐾 生态动物</a>
         <a href="ExportServlet?action=report" class="nav-btn">📄 总体报告</a>
         <a href="MaintainerServlet" class="nav-btn">👷 养护员管理</a>
+        <a href="data_screen.jsp" id="nav-dashboard" class="nav-btn">📊 数据大屏</a>
+        <a href="face_enroll.jsp" id="nav-face-enroll" class="nav-btn">🙂 人脸录入</a>
         <a href="index.jsp" class="nav-btn">🏠 返回主页</a>
     </div>
 </header>
@@ -409,6 +413,10 @@
                             } else if ("MAINTENANCE_ADMIN".equals(u.getRoleCode())) {
                                 roleBadgeClass = "maintain";
                                 roleText = "养护管理员 (绿植养护打卡)";
+                            } else if ("MAINTAINER".equals(u.getRoleCode())) {
+                                roleBadgeClass = "plant";
+                                String linked = maintainerLinks == null ? null : maintainerLinks.get(u.getId());
+                                roleText = "养护人员 (养护工作台)" + (linked != null ? " · 档案：" + linked : " · 未关联档案");
                             }
                 %>
                 <tr>
@@ -547,8 +555,24 @@
                     <option value="PLANT_ADMIN" selected>植物管理员 (权限：作物增添、修改、减少)</option>
                     <option value="MAINTENANCE_ADMIN">养护管理员 (权限：日常绿植养护打卡)</option>
                     <option value="SYSTEM_ADMIN">系统管理员 (权限：人员管理、系统配置、后台)</option>
+                    <option value="MAINTAINER">养护人员 (权限：养护工作台浇水/施肥/喂食、动植物增删改)</option>
                 </select>
             </div>
+            <div class="form-group" id="maintainerLinkGroup" style="display:none;">
+                <label class="form-label">关联养护员档案（决定其负责区域）</label>
+                <select name="maintainerId" class="form-select">
+                    <option value="">暂不关联</option>
+                    <% if (maintainerOptions != null) for (Maintainer m : maintainerOptions) { %>
+                    <option value="<%= m.getId() %>"><%= m.getName() %>（<%= m.getStaffNo() %> · <%= m.getDepartment() == null ? "" : m.getDepartment() %>）</option>
+                    <% } %>
+                </select>
+            </div>
+            <script>
+                (function () {
+                    var sel = document.querySelector('select[name="roleCode"]'), grp = document.getElementById('maintainerLinkGroup');
+                    if (sel && grp) sel.addEventListener('change', function () { grp.style.display = sel.value === 'MAINTAINER' ? '' : 'none'; });
+                })();
+            </script>
             <div class="modal-actions">
                 <button type="button" class="nav-btn" onclick="closeAddUserModal()">取消</button>
                 <button type="submit" class="nav-btn blue">✅ 立即创建</button>

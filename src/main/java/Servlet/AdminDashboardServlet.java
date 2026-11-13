@@ -38,6 +38,9 @@ public class AdminDashboardServlet extends HttpServlet {
         request.setAttribute("maintainerCount", maintainerCount);
         request.setAttribute("maintenanceCount", maintenanceCount);
         request.setAttribute("duePlantCount", duePlantCount);
+        // 养护员账号（MAINTAINER）关联档案：新增账号时选择，列表里显示关联的养护员
+        request.setAttribute("maintainerList", dbTools.queryAllMaintainers(null, null, null));
+        request.setAttribute("maintainerLinks", new DB.JdbcAccountStore().maintainerLinks());
 
         request.getRequestDispatcher("admin.jsp").forward(request, response);
     }
@@ -55,7 +58,12 @@ public class AdminDashboardServlet extends HttpServlet {
             String plainPassword = request.getParameter("plainPassword");
             String displayName = request.getParameter("displayName");
             String roleCode = request.getParameter("roleCode");
-            dbTools.addAdminUser(username, plainPassword, displayName, roleCode);
+            boolean added = dbTools.addAdminUser(username, plainPassword, displayName, roleCode);
+            if (added && "MAINTAINER".equals(roleCode) && username != null) {
+                Integer maintainerId = null;
+                try { maintainerId = Integer.valueOf(request.getParameter("maintainerId").trim()); } catch (Exception ignored) { /* 未选择 */ }
+                new DB.JdbcAccountStore().linkMaintainer(username.trim(), maintainerId);
+            }
         } else if ("updatePassword".equalsIgnoreCase(action)) {
             String idStr = request.getParameter("id");
             String newPassword = request.getParameter("newPassword");

@@ -4,7 +4,9 @@ Java Servlet + JSP + MyBatis 实现的校园绿化管理系统（西南财经大
 
 ## 生态主页（第一阶段：虚拟生态动态大屏；第二阶段：板块细节场景；画风统一：全景改为池塘同款写实风；板块进入提速；动植物增删）
 
-网站打开后的第一屏是 **3D 虚拟生态主页**：加载动画进度条 → 全屏 3D 校园大屏。原系统首页 `index.jsp` 通过右上角 **“进入管理系统 →”** 进入，登录入口为 **“管理员登录”**；系统首页导航栏新增了 **“🌱 生态主页”** 按钮可返回大屏。
+> 网站入口现在先出现**人脸识别窗口**（`face_login.jsp`），访客选择“先不录入人脸 / 以访客进入”后进入下面的 3D 虚拟生态主页，详见文末“人脸识别登录与三类账户”。
+
+3D 虚拟生态主页：加载动画进度条 → 全屏 3D 校园大屏。原系统首页 `index.jsp` 通过右上角 **“进入管理系统 →”** 进入，登录入口为 **“管理员登录”**；系统首页导航栏新增了 **“🌱 生态主页”** 按钮可返回大屏。
 
 ### 功能
 
@@ -199,8 +201,9 @@ python3 tools/build_pond.py            # 或 python3 tools/build_pond.py <koi-po
 | PUT | `/api/zones/{zoneId}/species/{id}` | 移植 / 修改：`x`、`z`、`rotation`、`scale`、`quantity`、`status`。 |
 | DELETE | `/api/zones/{zoneId}/species/{id}` | 软删除：`status = removed`，保留记录与操作人便于追溯。 |
 
-- 写操作要求会话中有 `adminUser`，且角色属于 `SYSTEM_ADMIN`、`SUPER_ADMIN`、`ADMIN`、`PLANT_ADMIN`、`MAINTENANCE_ADMIN`、`MAINTAINER`（`ZoneSpeciesService.EDITOR_ROLES`）。`AuthFilter` 对 `/api/zones/` 的非 GET 请求：未登录返回 JSON **401** `login_required`，角色不符返回 **403** `forbidden`（不跳转登录页，因为调用方是三维场景里的 fetch）；Servlet 内再校验一次，并拒绝 `editable: false` 的板块（403 `zone_readonly`）。
-- 数据库不可用时返回 **503** `{"error":"db_unavailable"}`，前端进入演示模式。参数错误 400，板块或记录不存在 404。
+- 写操作要求会话中有 `adminUser`，且角色属于 `SYSTEM_ADMIN`、`SUPER_ADMIN`、`ADMIN`、`PLANT_ADMIN`、`MAINTENANCE_ADMIN`、`MAINTAINER`（`ZoneSpeciesService.EDITOR_ROLES`）。`AuthFilter` 对 `/api/zones/` 的非 GET 请求：未登录返回 JSON **401** `login_required`，访客（只读）与角色不符返回 **403** `forbidden`（不跳转登录页，因为调用方是三维场景里的 fetch）；Servlet 内再校验一次，并拒绝 `editable: false` 的板块（403 `zone_readonly`）。
+- 数据库不可用时返回 **503** `{"error":"db_unavailable"}`（不返回 JDBC 原始错误文本），有编辑权限的身份进入演示模式。
+- “✏️ 管理动植物”按钮只对有编辑权限的身份显示（GET 返回的 `can_edit`；数据库不可用时看 `/api/me`）；普通用户 / 访客看不到按钮。参数错误 400，板块或记录不存在 404。
 - 表结构：`database/002_zone_species.sql`（与 `JdbcZoneSpeciesStore.DDL` 一致；接口首次访问时也会 `CREATE TABLE IF NOT EXISTS`）。字段：`id`、`zone_id`、`area_code`（对应 `plant_area.area_code`）、`species_type`、`species_key`、`species_name`、`seed_ref`、`quantity`、`pos_x`、`pos_z`、`rotation_y`、`scale`、`status`、`created_by/at`、`updated_by/at`；唯一键 `(zone_id, seed_ref)`。
 - 单元测试（内存存储，不需要数据库）：`./mvnw -Dtest=ZoneSpeciesServiceTest test`（`MyBatisTest` 需要真实数据库，所以用 `-Dtest` 只跑新测试；`pom.xml` 已把 surefire 升到 3.2.5 才能识别 JUnit 5）。
 
@@ -287,3 +290,93 @@ tools/build_lawn_ground.py                       底图生成脚本
 - 树木种类（香樟/桂花/银杏/水杉/垂柳/樱花）按位置随机分配，为示意数据，后续可改为读取 `plant` 表中的真实绿植。
 - three r160 的 UMD 版在控制台打印一条“build/three.min.js 已弃用”的警告（不影响运行）；两页都没有改用 ES 模块，以保持无构建工具的经典脚本结构。
 - 池塘细节场景渲染开销较大（反射、折射、焦散、后期），首次加载需编译着色器；集成显卡 / 高 DPR 笔记本首次默认省电档，手机默认流畅档。场景中的物种为示意设计；动植物增删目前只在池塘两个板块试点，记录保存在 `zone_species`，尚未与 `plant` 绿植档案逐株关联。
+
+## 人脸识别登录与三类账户（管理员 / 养护人员 / 访客）
+
+在原有 `admin_user` 账号、`LoginServlet`、`AuthFilter` 的基础上扩展，没有另起账户体系；原账号密码登录 `login.jsp` 保留为备用入口。
+
+### 三类身份与入口
+
+| 身份 | 对应角色（`security/Roles.java`） | 能做什么 | 导航里出现的入口 |
+| --- | --- | --- | --- |
+| 管理员 | `SYSTEM_ADMIN`、`SUPER_ADMIN`、`ADMIN`、`PLANT_ADMIN`、`MAINTENANCE_ADMIN`（原有细分权限不变） | 查看 / 整理后台数据；**数据大屏** `data_screen.jsp`；给自己录入人脸，给任一养护员录入 / 删除人脸；板块动植物增删 | 📊 数据大屏、🙂 人脸录入 |
+| 养护人员（可多个） | `MAINTAINER`（`admin_user.maintainer_id` 关联 `maintainer` 档案 → `plant_area.maintainer_id` 得到负责区域） | **养护工作台** `care_workbench.jsp`：浇水 / 施肥 / 喂食；板块动植物增删改查（沿用 species-editor 权限）；给自己录入人脸 | 🧑‍🌾 养护工作台、🙂 人脸录入 |
+| 普通用户（访客） | 未登录，或在人脸窗口点“先不录入人脸 / 以访客进入”（会话属性 `visitor=true`） | 只能浏览生态主页、板块场景、系统首页；编辑按钮隐藏，写接口 403 | 🙂 人脸登录 |
+
+- 入口只在对应身份登录后出现在导航（`ecohome.jsp`、`index.jsp`、`admin.jsp`、各新页面顶栏）；直接访问 URL 也由 `AuthFilter.roleGate` 拦截：未登录 → 页面跳 `login.jsp` / 接口 **401**；访客或角色不符 → **403**。访客访问原有后台页面（`QueryServlet`、`AdminDashboardServlet` 等）同样 403。
+- **管理员默认不能进养护工作台**（按需求字面）。要允许，改 `security/Roles.java` 一行：`CARE_ROLES` 里加上 `"SYSTEM_ADMIN"` 等角色。
+- 登录后的落地页：养护员 → 养护工作台（负责区域排在最前）；`SYSTEM_ADMIN` / `SUPER_ADMIN` / `ADMIN` → 系统后台 `AdminDashboardServlet`；`PLANT_ADMIN` / `MAINTENANCE_ADMIN` → 系统首页 `index.jsp`。账号密码登录仍按原约定统一进 `index.jsp`（唯一例外：从人脸窗口“账号密码登录后录入人脸”过来的直接进录入页）。
+- 新建养护员账号：系统后台“新增管理账号”选择角色“养护人员”，并选择关联的养护员档案；负责区域在“园区网格”里给区域指定养护员。演示账号 `keeper_zhang`（关联 WH-1001 张师傅）、`keeper_li`（关联 WH-1002 李工），初始密码 `123456`。
+
+### 登录流程
+
+1. 打开系统（`web.xml` 欢迎页 `face_login.jsp`）先出现人脸识别窗口。已登录 / 已选访客身份的会话直接去各自主页；退出登录后回到窗口但不自动开摄像头（`?logout=1`），避免刚退出又被识别登录。
+2. 系统里还没有任何人脸时：提示 **“请先进行人脸录入”**，提供 **“先不录入人脸”**（以访客进入只读的生态主页）和“账号密码登录后录入人脸”。
+3. 有人脸时：打开摄像头，连续取 3 帧合格人脸（单人、够近、清晰），特征平均后连同 antispoof / liveness 分数提交 `POST /api/face/identify`；服务端比对成功即建立该账号会话（换 session id），失败可重试、以访客进入或账号密码登录。
+4. **录入的身份证明**：必须先用账号密码（或已录入的人脸）登录，只能给自己录入；管理员可以给任一养护员录入 / 删除（不能给其他管理员录入）。录入时按“正视 / 左转 / 右转 / 抬头 / 低头”采集 3–5 帧，服务端校验多帧两两相似（防混进别人）后取平均存为一条；一人可多条（默认最多 5 条）；同一张脸不能录到两个账号。
+
+### 人脸识别实现
+
+- 前端：[@vladmandic/human](https://github.com/vladmandic/human) **3.3.6**（MIT，Copyright (c) Vladimir Mandic），取自 npm 包 `@vladmandic/human@3.3.6`，**库和模型全部放在仓库静态资源里**，不依赖任何境外 CDN：
+  - `face/vendor/human/human.esm.js`、`face/vendor/human/LICENSE-human.txt`
+  - `face/vendor/human/models/`：`blazeface`（检测）、`facemesh`（关键点 / 头部角度）、`faceres`（1024 维人脸特征）、`antispoof`（防翻拍）、`liveness`（活体），约 12MB
+  - `face/vendor/tfjs-wasm/*.wasm`：[@tensorflow/tfjs-backend-wasm](https://github.com/tensorflow/tfjs) 4.22.0（Apache-2.0）；human 默认的 `wasmPath` 指向 jsdelivr，已改为本地路径。默认用 WASM 后端（不依赖显卡驱动），可用 `?backend=webgl` 切换。
+  - 公共模块 `face/face-core.js`，页面脚本 `face/face-login.js`、`face/face-enroll.js`；`/face/vendor/` 由 `StaticAssetFilter` 加 30 天缓存头和 gzip。
+- 服务端比对（`security/FaceMatcher.java`）：特征向量只上传、从不下发到前端；余弦相似度，按账号取最高分，**最高分 ≥ 阈值且领先第二名账号 ≥ margin** 才算识别成功。faceres 特征非负，不同人的余弦相似度也有 0.25–0.5（用 human 自带样例实测），同一人不同照片约 0.5–0.9，所以默认阈值 0.60。
+- 阈值可用 JVM 系统属性调整（`security/FaceConfig.java`，例：`CATALINA_OPTS="-Dface.threshold=0.65"`）：`face.threshold`（0.60）、`face.margin`（0.04）、`face.minReal`（0.30）、`face.minLive`（0.50）、`face.minFrameConsistency`（0.50）、`face.maxPerAccount`（5）、`face.maxAttempts`（同一 IP 5 分钟内识别次数，30，超出 429）。
+- **活体 / 防翻拍只是基础防护**：antispoof、liveness 两个模型在浏览器里运行，服务端只能检查上报的分数，无法证明没被篡改；用 human 样例真人照片实测 antispoof 的 real 分数只有 0.40–0.80，所以 `minReal` 不能设高；自动化测试本身就是把**照片做成视频**喂给假摄像头并且通过了识别——说明高清照片 / 屏幕翻拍仍可能通过。需要更强保证时应改用带红外 / 3D 结构光的设备或服务端活体方案。
+
+### 养护工作台（仅养护人员）
+
+- 列出全部可养护个体：生态板块个体（`zone_species`，active）、绿植档案（`plant`）、生态动物档案（`animal`），按区域分组，**当前养护员负责区域的排在最前**（`plant_area.maintainer_id`，绿植另看 `maintainer_plant` 直接分配），可切换“只看我负责的 / 只看待办”。
+- 植物：浇水、施肥；动物：喂食。状态按“上次操作时间 + 养护周期”计算（`Servlet/CareSchedule.java`）：从未做过 → 需要；到期 → 需要（显示逾期多久）；剩余 ≤ 周期 20%（至少 6 小时）→ 即将到期；周期为 0 → 不需要。
+- 周期可配置：`care_period` 表按物种 key 配置，`*plant` / `*animal` 为默认（植物 3 天浇水、30 天施肥，动物每天喂食）；水生植物（荷花、睡莲、再力花、芦苇）不需要浇水，野生动物（青蛙、蜻蜓、蝴蝶、鸟类）不投喂；绿植档案优先用自身 `water_period_days` / `fertilize_period_days`，动物档案优先用 `feeding_cycle_days`。
+- 点按钮即执行，写入 `care_log`（个体、操作类型、操作人、养护员档案、时间、备注），完成后状态刷新；绿植档案同时写原养护台账 `plant_maintenance` 并顺延下次日期，动物档案顺延 `next_feeding_date`。动植物的增删改仍在各生态板块里用“✏️ 管理动植物”完成（卡片上有进入板块的按钮）。
+
+### 数据大屏（仅管理员，骨架）
+
+`data_screen.jsp` + `console/data-screen.js`，数据来自 `GET /api/dashboard/stats`，风格与生态主页一致（深绿夜色 + 玻璃卡片）。第一版基础统计：各生态板块动植物数量（`zone_species` 登记数）、绿植 / 动物档案数、养护员人数（在岗）、近 7 天每天的浇水 / 施肥 / 喂食次数、当前待养护数量与清单、各区域负责人与待办。后续在接口和脚本上继续加图即可。
+
+### 接口
+
+| 方法 | 路径 | 权限 | 说明 |
+| --- | --- | --- | --- |
+| GET | `/api/face/status` | 公开 | `{enrolled}` 系统里是否已有人脸 |
+| POST | `/api/face/identify` | 公开（限流） | `{embedding, real, live}` → 200 建立会话 + `redirect`；401 未识别；422 活体不通过；409 还没有人脸 |
+| POST | `/api/face/guest` | 公开 | 以访客身份进入 |
+| GET | `/api/face/profiles[?account_id=]` | 本人；管理员可看养护员 | 录入记录（不含特征向量） |
+| POST | `/api/face/enroll` | 管理员 / 养护员本人；管理员可带 `account_id` 给养护员录 | `{embeddings:[3–5 帧], real, live, thumbnail?}` |
+| DELETE | `/api/face/profiles/{id}` | 本人；管理员可删养护员的 | 删除一条 |
+| GET | `/api/face/accounts` | 管理员 | 养护员账号列表与已录入条数 |
+| GET | `/api/me` | 公开 | 当前身份与能力（`can_edit_species`、`can_care`、`can_dashboard`、`can_enroll_face`） |
+| GET | `/api/care/targets` | 养护人员 | 个体与浇水 / 施肥 / 喂食状态、负责区域、待办数 |
+| POST | `/api/care/logs` | 养护人员 | `{target_type, target_id, care_type, note?}` 执行一次养护 |
+| GET | `/api/care/logs` | 养护人员 | 最近记录 |
+| GET | `/api/dashboard/stats` | 管理员 | 大屏统计 |
+
+未登录 401、访客 / 角色不符 403、参数错误 400、数据库不可用 **503**（只返回通用提示，JDBC 原始错误只写服务器日志）。
+
+### 数据库
+
+- `database/003_face_login_care.sql`：`face_profile`（account_id、role_code、model、dim、embedding MEDIUMBLOB、frames、thumbnail、created_by、created_at；一人可多条）、`care_log`、`care_period`（含默认周期），`admin_user.maintainer_id` 列，`admin_role` 补 `MAINTAINER`，为 `zones.json` 的生态板块补建 `plant_area` 区域档案。与 `DB/Jdbc.java`、`DB/JdbcAccountStore.java` 一致：接口首次访问时也会 `CREATE TABLE IF NOT EXISTS` / 补列，可重复执行。
+- `database/004_demo_face_login_seed.sql`（可选，仅演示）：两个养护员账号，张师傅负责翠湖水景、图书馆·荷花池，李工负责中心草坪。
+
+### 部署注意：摄像头需要 HTTPS 或 localhost
+
+浏览器只在**安全上下文**（`https://`，或 `http://localhost` / `127.0.0.1`）里允许 `getUserMedia`。在本机用 `http://localhost:8080/...` 调试可以直接用；通过局域网 IP 或域名访问（如 `http://192.168.x.x:8080`）时摄像头会被浏览器禁止，页面会提示原因。正式部署任选其一：
+
+- Tomcat 直接开 HTTPS：在 `conf/server.xml` 配置 8443 的 `<Connector ... SSLEnabled="true">` 并指定证书（校园内网可用学校 CA 或自签证书，自签需在各终端信任）；
+- 或在 Tomcat 前放 Nginx 反向代理做 TLS 终止（`listen 443 ssl` → `proxy_pass http://127.0.0.1:8080`）。
+
+模型约 12MB，首次打开人脸窗口时下载，之后走浏览器缓存（30 天）；全部从本站加载，国内网络无需访问境外 CDN。
+
+### 测试
+
+见 `tests/face-login/README.md`：`api_test.py`（后端接口与权限，跑 MariaDB + Tomcat）、`e2e_face.py`（Playwright + Chromium `--use-fake-device-for-media-stream --use-file-for-fake-video-capture` 喂人脸测试视频）；单元测试 `./mvnw -Dtest='FaceMatcherTest,CareScheduleTest,RolesTest,ZoneSpeciesServiceTest' test`。测试人脸图来自 human 仓库自带样例（`tests/face-login/samples/SOURCE.md`）。
+
+### 已知限制
+
+- 活体 / 防翻拍为基础防护（见上），不能替代专业活体检测；识别阈值是用少量样例估计的，正式使用前建议用本校真实人员、真实摄像头再标定一次 `face.threshold`。
+- 原有 `DBTools.authenticateAdmin` 对任何账号都同时接受 `123456` 与演示默认密码（原有逻辑，本次未改）；而人脸录入的身份证明依赖账号密码登录，**正式上线前应去掉这条兜底并修改所有演示账号密码**，否则知道用户名的人就能登录并给该账号录入自己的脸。
+- 生态板块里未改动过的“场景原有装饰个体”不在数据库中，工作台和大屏只统计 `zone_species` 里登记的个体，以及 `plant` / `animal` 档案。
+- 全新库里若先由 DBTools 建表、后执行 001 脚本，表的排序规则会不一致，原有的 `countUnassignedPlants` 查询可能报 “Illegal mix of collations”（与本功能无关；`tests/face-login/setup_test_db.py` 里有统一排序规则的做法）；本次新增的跨表查询已显式写 `COLLATE`。

@@ -12,6 +12,7 @@
  * 编辑器负责：编辑模式开关、目录选择、放置预览（合法绿 / 非法红）、选中 / 拖动移植 / 删除确认 / 撤销、
  * 栽种 / 移植 / 移除动画（土粒粒子、土球、弧线、回填、涟漪），以及保存到后端 /api/zones/{id}/species；
  * 后端不可用（503 / 网络错误）时切到 localStorage 演示模式并明确提示“演示模式，未保存到服务器”。
+ * “管理动植物”按钮只对有编辑权限的身份（管理员 / 养护员，见 /api/me）显示；普通用户 / 访客只能浏览。
  * 可选 fx：粒子 / 土坑 / 土球的画风（默认写实，池塘用默认值）：
  *   { flat: true 扁平低多边形（Lambert + flatShading），soilColor, soilSize（土粒大小倍数）, holeColor, ballColor, rootColor }
  *   中心草坪（lawn/lawn-species.js）用 flat 风格，与平面图插画风一致。
@@ -32,7 +33,7 @@
   .se-btn:hover{background:rgba(255,255,255,.16)} .se-btn.is-on{background:#2f8f5b;border-color:#58c08a} .se-btn[disabled]{opacity:.45;cursor:default}
   .se-btn.danger{background:rgba(220,70,70,.25);border-color:rgba(255,120,120,.45)}
   .se-panel{margin-top:8px;padding:8px;border-radius:10px;background:rgba(0,0,0,.18);font-size:12px;color:#dfe9e3}
-  .se-panel[hidden]{display:none}
+  .se-panel[hidden],.se-btn[hidden]{display:none}
   .se-mode{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px}
   .se-cat{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin:6px 0}
   .se-cat button{display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 2px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);color:#eef5f0;font-size:11px;cursor:pointer}
@@ -63,7 +64,7 @@
     const inds = [];            // 个体：{ uid, ref, key, entry, obj, x, z, rot, scale, status, rec, seed, anim, ctl }
     let uidSeq = 1;
     const undoStack = [];
-    const ED = { on: false, mode: "select", placing: null, sel: null, drag: null, saveMode: "server", canEdit: false, user: null, busy: 0 };
+    const ED = { on: false, mode: "select", placing: null, sel: null, drag: null, saveMode: "server", canEdit: false, allowed: false, user: null, busy: 0 };
     const anims = new Set();
     const tmpV = new V3();
 
@@ -386,6 +387,21 @@
       }
     }
     // 读取状态并应用到场景（进入板块时恢复）
+    // “管理动植物”按钮按身份显隐：普通用户 / 访客 / 无编辑权限的角色只能浏览，按钮隐藏（接口同样返回 401 / 403）。
+    // 只有在没有后端的静态演示（campus3d/index.html 直接打开）时才显示本地演示模式。
+    function setEditable(on) {
+      ED.allowed = !!on;
+      if (ui.toggle) ui.toggle.hidden = !on;
+      if (!on && ED.on) toggle(false);
+    }
+    async function canEditBySession() {
+      try {
+        const r = await fetch(new URL("../me", new URL(API, location.href)).href, { credentials: "same-origin" });
+        if (!r.ok) return false;
+        const j = await r.json();
+        return !!j.can_edit_species;
+      } catch (e) { return false; }
+    }
     async function load() {
       let rows = null;
       if (API) {
@@ -394,8 +410,13 @@
           rows = j.items || []; ED.canEdit = !!j.can_edit; ED.user = j.user;
           ED.saveMode = j.can_edit ? "server" : "demo";
           ED.serverReason = j.can_edit ? "" : (j.user ? "当前账号无编辑权限" : "未登录（管理员 / 养护员登录后可保存到服务器）");
-        } catch (err) { rows = null; ED.saveMode = "demo"; ED.serverReason = err.status === 503 ? "数据库不可用" : "无法连接服务器"; }
-      } else { ED.saveMode = "demo"; ED.serverReason = "静态页面（无后端）"; }
+          setEditable(ED.canEdit);
+        } catch (err) {
+          rows = null; ED.saveMode = "demo"; ED.serverReason = err.status === 503 ? "数据库不可用" : "无法连接服务器";
+          // 数据库不可用时仍按会话身份决定：有编辑权限的人可用本地演示模式，访客照样隐藏
+          setEditable(await canEditBySession());
+        }
+      } else { ED.saveMode = "demo"; ED.serverReason = "静态页面（无后端）"; setEditable(true); }
       if (rows === null || ED.saveMode === "demo") {
         // 服务器的数据始终优先显示；演示模式的本地修改叠加在后面
         const local = demoLoad();
@@ -586,6 +607,7 @@
       const tb = document.createElement("button"); tb.type = "button"; tb.className = "se-btn"; tb.id = "se-toggle"; tb.textContent = "✏️ 管理动植物";
       tb.title = "增删 / 移植本板块的动植物（管理员、养护员登录后保存到服务器）";
       tb.onclick = () => toggle(); (toggleHost || host).appendChild(tb); ui.toggle = tb;
+      if (o.apiBase && !ED.allowed) tb.hidden = true;   // 等 load() 确认身份后再显示
       const p = document.createElement("div"); p.className = "se-panel"; p.id = "se-panel"; p.hidden = true;
       const groups = [["plant", "🌿 植物"], ["animal", "🐟 动物"]];
       p.innerHTML =

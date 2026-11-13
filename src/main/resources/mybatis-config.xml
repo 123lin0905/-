@@ -34,6 +34,10 @@
                 <property name="url" value="${jdbc.url}"/>
                 <property name="username" value="${jdbc.username}"/>
                 <property name="password" value="${jdbc.password}"/>
+                <!-- 数据库重启后连接池里的旧连接会失效：闲置超过 3 秒的连接取出前先 ping 一次，失效则重建（否则首页会 500 一次） -->
+                <property name="poolPingEnabled" value="true"/>
+                <property name="poolPingQuery" value="SELECT 1"/>
+                <property name="poolPingConnectionsNotUsedFor" value="3000"/>
             </dataSource>
         </environment>
     </environments>

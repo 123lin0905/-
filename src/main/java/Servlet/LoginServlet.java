@@ -35,8 +35,14 @@ public class LoginServlet extends HttpServlet {
             return;
         }
 
-        request.getSession(true).setAttribute("adminUser", adminUser);
-        // 遵循用户明确要求：登录后一律直接跳转到系统主页 index.jsp
+        // 换会话 id（防会话固定），清掉访客标记，写入账号（与人脸登录共用 security.Roles.signIn）
+        security.Roles.signIn(request, adminUser, "password");
+        // 遵循用户明确要求：登录后一律直接跳转到系统主页 index.jsp；
+        // 唯一例外：从人脸识别窗口“先登录再录入人脸”过来的（returnUrl=/face_enroll.jsp），登录后直接去录入页
+        if ("/face_enroll.jsp".equals(returnUrl) && security.Roles.canEnrollFace(adminUser.getRoleCode())) {
+            response.sendRedirect(request.getContextPath() + "/face_enroll.jsp");
+            return;
+        }
         response.sendRedirect(request.getContextPath() + "/index.jsp");
     }
 

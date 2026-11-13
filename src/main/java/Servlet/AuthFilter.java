@@ -9,8 +9,10 @@ import jakarta.servlet.annotation.WebFilter;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.example.demo1.AdminUser;
+import security.Roles;
 
 import java.io.IOException;
+import java.util.Set;
 
 @WebFilter(filterName = "AuthFilter", urlPatterns = "/*")
 public class AuthFilter implements Filter {
@@ -22,6 +24,35 @@ public class AuthFilter implements Filter {
         HttpServletRequest httpRequest = (HttpServletRequest) request;
         HttpServletResponse httpResponse = (HttpServletResponse) response;
         String path = httpRequest.getRequestURI().substring(httpRequest.getContextPath().length());
+        boolean visitor = Roles.isVisitor(httpRequest);
+        // 人脸登录新增的按身份页面 / 接口：数据大屏（管理员）、养护工作台（养护人员）、人脸录入（管理员 + 养护人员）。
+        // 未登录：接口 401 / 页面跳登录；访客或角色不符：403。入口按身份在导航中显示，这里保证直接访问 URL 也被拦截。
+        Set<String> gate = roleGate(path);
+        if (gate != null) {
+            AdminUser gateUser = getCurrentUser(httpRequest);
+            boolean api = path.startsWith("/api/");
+            if (gateUser != null && gate.contains(gateUser.getRoleCode())) {
+                chain.doFilter(request, response);
+                return;
+            }
+            if (gateUser == null && !visitor) {
+                if (api) {
+                    writeJson(httpResponse, HttpServletResponse.SC_UNAUTHORIZED, "{\"error\":\"login_required\",\"message\":\"请先登录\"}");
+                } else {
+                    httpResponse.sendRedirect(httpRequest.getContextPath() + "/login.jsp?returnUrl=" + java.net.URLEncoder.encode(path, "UTF-8"));
+                }
+                return;
+            }
+            String who = gateUser == null ? "访客（只读）" : gateUser.getRoleCode();
+            if (api) {
+                writeJson(httpResponse, HttpServletResponse.SC_FORBIDDEN, "{\"error\":\"forbidden\",\"message\":\"当前身份 " + who + " 无权访问\"}");
+            } else {
+                httpResponse.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                httpResponse.setContentType("text/html;charset=UTF-8");
+                renderForbiddenPage(httpRequest, httpResponse, gateUser, gateTip(path));
+            }
+            return;
+        }
         // 生态板块动植物增删接口：GET 公开；增 / 改 / 删需登录且为管理员或养护员（ZoneSpeciesService.EDITOR_ROLES）。
         // 接口调用方是三维场景里的 fetch，所以未登录 / 无权限时返回 JSON 401 / 403，而不是跳转登录页。
         if (path.startsWith("/api/zones/")) {
@@ -29,10 +60,14 @@ public class AuthFilter implements Filter {
             if (!"GET".equals(method) && !"HEAD".equals(method) && !"OPTIONS".equals(method)) {
                 AdminUser zoneUser = getCurrentUser(httpRequest);
                 if (zoneUser == null || !ZoneSpeciesService.canEdit(zoneUser.getRoleCode())) {
-                    httpResponse.setStatus(zoneUser == null ? HttpServletResponse.SC_UNAUTHORIZED : HttpServletResponse.SC_FORBIDDEN);
+                    // 未登录 401；访客（只读）与无编辑权限的角色 403
+                    boolean anonymous = zoneUser == null && !visitor;
+                    httpResponse.setStatus(anonymous ? HttpServletResponse.SC_UNAUTHORIZED : HttpServletResponse.SC_FORBIDDEN);
                     httpResponse.setContentType("application/json;charset=UTF-8");
-                    httpResponse.getWriter().write(zoneUser == null
+                    httpResponse.getWriter().write(anonymous
                             ? "{\"error\":\"login_required\",\"message\":\"请先登录（管理员或养护员）再增删动植物\"}"
+                            : zoneUser == null
+                            ? "{\"error\":\"forbidden\",\"message\":\"访客只能浏览，不能增删动植物\"}"
                             : "{\"error\":\"forbidden\",\"message\":\"当前角色无权增删动植物，仅管理员 / 养护员可以操作\"}");
                     return;
                 }
@@ -48,6 +83,13 @@ public class AuthFilter implements Filter {
         }
 
         AdminUser user = getCurrentUser(httpRequest);
+        if (user == null && visitor) {
+            // 访客（人脸窗口选择“先不录入 / 以访客进入”）只读：后台功能页一律 403
+            httpResponse.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            httpResponse.setContentType("text/html;charset=UTF-8");
+            renderForbiddenPage(httpRequest, httpResponse, null, requiredRole);
+            return;
+        }
         if (user == null) {
             String returnUrl = path;
             if (httpRequest.getQueryString() != null && !httpRequest.getQueryString().isEmpty()) {
@@ -68,8 +110,30 @@ public class AuthFilter implements Filter {
         renderForbiddenPage(httpRequest, httpResponse, user, requiredRole);
     }
 
+    /** 按身份开放的新页面 / 接口；null 表示不归这里管。 */
+    static Set<String> roleGate(String path) {
+        if ("/care_workbench.jsp".equals(path) || "/api/care".equals(path) || path.startsWith("/api/care/")) return Roles.CARE_ROLES;
+        if ("/data_screen.jsp".equals(path) || "/api/dashboard".equals(path) || path.startsWith("/api/dashboard/")) return Roles.ADMIN_ROLES;
+        if ("/face_enroll.jsp".equals(path)) return Roles.FACE_ROLES;
+        return null;
+    }
+
+    private static String gateTip(String path) {
+        if (path.contains("care")) return "TIP:养护工作台仅<strong>养护人员 (MAINTAINER)</strong>登录后可用（浇水、施肥、喂食）。";
+        if (path.contains("dashboard") || path.contains("data_screen")) return "TIP:数据大屏仅<strong>管理员</strong>登录后可以打开。";
+        return "TIP:人脸录入仅<strong>管理员 / 养护人员</strong>用账号密码登录后才能给自己录入；访客不需要录入人脸。";
+    }
+
+    private static void writeJson(HttpServletResponse resp, int status, String json) throws IOException {
+        resp.setStatus(status);
+        resp.setContentType("application/json;charset=UTF-8");
+        resp.setHeader("Cache-Control", "no-store");
+        resp.getWriter().write(json);
+    }
+
     private String requiredRole(String path) {
         if (path == null || path.isEmpty() || "/".equals(path) || "/index.jsp".equals(path) ||
+                "/face_login.jsp".equals(path) || "/api/me".equals(path) || path.startsWith("/api/face/") ||
                 "/login.jsp".equals(path) || "/LoginServlet".equals(path) || "/LogoutServlet".equals(path) ||
                 "/AiPetServlet".equals(path) || "/plant_detail.jsp".equals(path) ||
                 "/ecohome.jsp".equals(path) || "/api/weather".equals(path)) {
@@ -151,10 +215,14 @@ public class AuthFilter implements Filter {
 
     private void renderForbiddenPage(HttpServletRequest request, HttpServletResponse response,
                                     AdminUser user, String requiredRole) throws IOException {
-        String roleCode = user != null ? user.getRoleCode() : "未登录";
+        String roleCode = user != null ? user.getRoleCode() : "访客·只读";
         String displayName = user != null ? user.getDisplayName() : "访客";
         String tip;
-        if ("PLANT_ADMIN".equals(requiredRole)) {
+        if (requiredRole != null && requiredRole.startsWith("TIP:")) {
+            tip = "<strong>【权限拒绝】</strong>" + requiredRole.substring(4) + "<br/>您当前是<strong>" + escape(displayName) + "（" + escape(roleCode) + "）</strong>。";
+        } else if (user == null) {
+            tip = "<strong>【权限拒绝】</strong>您正以<strong>访客</strong>身份浏览，只能查看生态主页等公开页面，不能进入后台或改动任何数据。如需操作，请登录管理员 / 养护员账号。";
+        } else if ("PLANT_ADMIN".equals(requiredRole)) {
             tip = "<strong>【权限拒绝】</strong>当前功能属于<strong>植物管理员 (PLANT_ADMIN)</strong>专属权限（负责绿植的增添、修改与删除）。<br/>您当前登录的是<strong>" + escape(displayName) + "（" + escape(roleCode) + "）</strong>，系统管理员负责全局系统和人员区域管理，<strong>无权对作物进行增添、修改或删除作业</strong>。";
         } else if ("SYSTEM_ADMIN".equals(requiredRole)) {
             tip = "<strong>【权限拒绝】</strong>当前功能属于<strong>系统管理员 (SYSTEM_ADMIN)</strong>专属权限（负责系统参数、维护人员与网格区域管理）。<br/>您当前登录的是<strong>" + escape(displayName) + "（" + escape(roleCode) + "）</strong>，植物管理员专职负责绿植业务，<strong>无权修改系统人员与区域配置</strong>。";
@@ -182,7 +250,7 @@ public class AuthFilter implements Filter {
         html.append("<h2>🚫 没有权限访问此功能 (403)</h2>");
         html.append("<p>").append(tip).append("</p>");
         html.append("<div class='btn-group'>");
-        html.append("<a class='btn btn-primary' href='").append(request.getContextPath()).append("/login.jsp'>切换管理员账号登录</a>");
+        html.append("<a class='btn btn-primary' href='").append(request.getContextPath()).append("/face_login.jsp?switch=1'>人脸 / 账号登录</a>");
         html.append("<a class='btn btn-secondary' href='").append(request.getContextPath()).append("/index.jsp'>返回系统首页</a>");
         html.append("</div></div></body></html>");
 
