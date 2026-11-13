@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<!--
+  中心草坪 · 板块细节 3D 场景（智慧校园绿化管理系统 · 生态主页）
+  画风：学校官网绵阳校区平面图（../img/plan_official.jpg）的插画风——扁平纯色、浅绿草地、米色道路白描边、
+  黄色 / 肉色挤出建筑块、轻微等距俯视的微缩模型；动植物为低多边形扁平风，可增删（../js/species-editor.js + lawn-species.js）。
+  依赖全部本地：../lib/three-r160.min.js（MIT）、../lib/OrbitControls.classic.js（MIT）。
+  参数：?zone=central_lawn&back=<主页路径>（主页“进入板块细节”自动带上）、season=spring|summer|autumn|winter、hour=0~24、
+        gfx=clear|smooth|eco、fps=30、test=1（自动化测试）、speciesApi=<接口前缀>。
+-->
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>中心草坪 · 板块细节 - 智慧校园虚拟生态</title>
+<meta name="description" content="天府学院绵阳校区智慧校园虚拟生态：中心草坪板块细节 3D 场景（平面图插画风微缩模型，可增删动植物）。">
+<link rel="stylesheet" href="lawn.css">
+</head>
+<body>
+<canvas id="c" tabindex="0" aria-label="中心草坪三维场景"></canvas>
+<div id="labels" aria-hidden="true"></div>
+<div id="loader"><h1>🌿 中心草坪 · 板块细节</h1><div class="bar"><i id="loadbar"></i></div><p id="loadmsg">准备中…</p></div>
+
+<button id="lz-back" class="lz-glass lz-back" type="button" title="回到生态主页，镜头停在本板块">← 返回校园全景</button>
+
+<section id="lz-zone" class="lz-glass lz-zone">
+  <p class="lz-kicker">生态板块 · 细节场景</p>
+  <h1 id="lz-name">🌿 中心草坪</h1>
+  <p class="lz-intro" id="lz-intro">正在读取板块资料…</p>
+  <p class="lz-tags" id="lz-tags"></p>
+  <p class="lz-time" id="lz-time">北京时间 --:--</p>
+</section>
+
+<aside id="lz-eco" class="lz-glass lz-eco">
+  <header><b>中心草坪生态</b><button class="lz-x" id="lz-fold" type="button" title="收起 / 展开">–</button></header>
+  <p class="lz-eco-sub">本板块动植物 · 点击飞到对应物种</p>
+  <div id="lz-se-host"></div>
+  <div class="lz-eco-body" id="lz-eco-body"><p class="lz-muted">加载中…</p></div>
+  <p class="lz-eco-note">原有个体按官网平面图草坪范围散植；数量为当前场景中的个体数，增删后实时更新。</p>
+</aside>
+
+<div id="lz-bar" class="lz-glass lz-bar" role="toolbar" aria-label="场景控制">
+  <button id="lz-view" type="button" title="回到整块微缩模型总览">🗺️ 总览</button>
+  <button id="lz-lawn" type="button" title="靠近中心草坪">🌿 草坪</button>
+  <label title="季节（默认按北京时间月份）">季节<select id="lz-season"><option value="auto">自动</option><option value="spring">春</option><option value="summer">夏</option><option value="autumn">秋</option><option value="winter">冬</option></select></label>
+  <label title="昼夜（默认按北京时间太阳高度）">时间<select id="lz-tod"><option value="auto">自动</option><option value="11">白天</option><option value="18.2">黄昏</option><option value="21.5">夜晚</option></select></label>
+  <label title="画质（与校园全景、池塘共用）">画质<select id="lz-gfx"><option value="clear">清晰</option><option value="smooth">流畅</option><option value="eco">省电</option></select></label>
+</div>
+<p id="lz-hud" class="lz-hud"></p>
+<p id="lz-help" class="lz-help">左键拖动平移 · 右键拖动旋转 · 滚轮缩放</p>
+<div id="lz-toast" class="lz-toast"></div>
+
+<script src="../lib/three-r160.min.js"></script>
+<script src="../lib/OrbitControls.classic.js"></script>
+<script src="../js/eco-weather.js"></script>
+<script src="lawn-scene.js"></script>
+<script src="../js/species-editor.js"></script>
+<script src="lawn-species.js"></script>
+</body>
+</html>

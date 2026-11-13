@@ -12,6 +12,9 @@
  * 编辑器负责：编辑模式开关、目录选择、放置预览（合法绿 / 非法红）、选中 / 拖动移植 / 删除确认 / 撤销、
  * 栽种 / 移植 / 移除动画（土粒粒子、土球、弧线、回填、涟漪），以及保存到后端 /api/zones/{id}/species；
  * 后端不可用（503 / 网络错误）时切到 localStorage 演示模式并明确提示“演示模式，未保存到服务器”。
+ * 可选 fx：粒子 / 土坑 / 土球的画风（默认写实，池塘用默认值）：
+ *   { flat: true 扁平低多边形（Lambert + flatShading），soilColor, soilSize（土粒大小倍数）, holeColor, ballColor, rootColor }
+ *   中心草坪（lawn/lawn-species.js）用 flat 风格，与平面图插画风一致。
  * 依赖：全局 THREE。经典脚本，导出 window.SpeciesEditor。
  */
 (function () {
@@ -46,6 +49,9 @@
 
   function create(opts) {
     const o = Object.assign({ hooks: {}, seeds: [], apiBase: null, zoneId: "zone", zoneName: "", storageKey: null }, opts);
+    const FX = Object.assign({ flat: false, soilColor: 0x5b4330, soilSize: 1, holeColor: 0x2b2018, ballColor: 0x5a412c, rootColor: 0xc9b48a }, o.fx || {});
+    // 扁平风：Lambert + flatShading（低多边形、无高光）；写实风：MeshStandardMaterial（池塘默认）
+    const fxMat = (p) => { if (!FX.flat) return new THREE.MeshStandardMaterial(p); const q = Object.assign({ flatShading: true }, p); delete q.roughness; return new THREE.MeshLambertMaterial(q); };
     const { scene, camera, dom } = o;
     const H = o.hooks;
     const catalog = o.catalog;
@@ -80,8 +86,8 @@
 
     // 土粒粒子（实例化小块，弹道 + 重力 + 落地停住）
     const SOIL_N = 260;
-    const soilMat = new THREE.MeshStandardMaterial({ color: 0x5b4330, roughness: 0.95 });
-    const soilGeo = new THREE.IcosahedronGeometry(0.018, 0);
+    const soilMat = fxMat({ color: FX.soilColor, roughness: 0.95 });
+    const soilGeo = new THREE.IcosahedronGeometry(0.018 * FX.soilSize, 0);
     const soil = new THREE.InstancedMesh(soilGeo, soilMat, SOIL_N); soil.count = 0; soil.frustumCulled = false; soil.castShadow = false;
     if (o.layer != null) soil.layers.set(o.layer);
     helpers.add(soil);
@@ -135,22 +141,22 @@
       drops.count = k; drops.instanceMatrix.needsUpdate = true;
     }
     // 坑（深色圆盘，开坑放大、回填缩小）
-    const holeMat = new THREE.MeshStandardMaterial({ color: 0x2b2018, roughness: 1, transparent: true, opacity: 0.92, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
+    const holeMat = fxMat({ color: FX.holeColor, roughness: 1, transparent: true, opacity: 0.92, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
     function makeHole(x, y, z, r) {
       const m = new THREE.Mesh(discGeo, holeMat.clone()); m.position.set(x, y + 0.012, z); m.scale.setScalar(0.001); m.renderOrder = 2;
       if (o.layer != null) m.layers.set(o.layer);
       helpers.add(m); m.userData.r = r; return m;
     }
     // 土球（移植 / 拔起时可见的根系土团）
-    const ballMat = new THREE.MeshStandardMaterial({ color: 0x5a412c, roughness: 0.95 });
-    const rootMat = new THREE.MeshStandardMaterial({ color: 0xc9b48a, roughness: 0.8 });
+    const ballMat = fxMat({ color: FX.ballColor, roughness: 0.95 });
+    const rootMat = fxMat({ color: FX.rootColor, roughness: 0.8 });
     function makeRootBall(r) {
       const g = new THREE.Group();
-      const ball = new THREE.Mesh(new THREE.SphereGeometry(r, 18, 12), ballMat); ball.scale.set(1, 0.72, 1); ball.position.y = -r * 0.45; ball.castShadow = true; g.add(ball);
+      const ball = new THREE.Mesh(FX.flat ? new THREE.IcosahedronGeometry(r, 1) : new THREE.SphereGeometry(r, 18, 12), ballMat); ball.scale.set(1, 0.72, 1); ball.position.y = -r * 0.45; ball.castShadow = true; g.add(ball);
       for (let i = 0; i < 9; i++) {
         const a = (i / 9) * Math.PI * 2 + Math.random() * 0.4, len = r * rnd(0.6, 1.2);
         const pts = [new V3(Math.cos(a) * r * 0.55, -r * 0.6, Math.sin(a) * r * 0.55), new V3(Math.cos(a) * r * 0.85, -r * 0.9 - len * 0.4, Math.sin(a) * r * 0.85), new V3(Math.cos(a) * r * 0.7, -r * 1.0 - len, Math.sin(a) * r * 0.7)];
-        g.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 6, r * 0.05, 5, false), rootMat));
+        g.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), FX.flat ? 3 : 6, r * (FX.flat ? 0.07 : 0.05), FX.flat ? 3 : 5, false), rootMat));
       }
       if (o.layer != null) g.traverse((x) => x.layers.set(o.layer));
       return g;
