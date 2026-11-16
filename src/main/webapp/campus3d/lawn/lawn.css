@@ -73,7 +73,8 @@ body.is-night .lb-zone { color: rgba(200, 240, 210, .7); }
 .lz-bar select { height: 28px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, .18); background: rgba(255, 255, 255, .1); color: #fff; padding: 0 4px; font: inherit; }
 .lz-bar select option { background: #1e3a2c; }
 .lz-hud { position: fixed; left: 14px; bottom: calc(62px + env(safe-area-inset-bottom, 0px)); z-index: 5; margin: 0; font: 11px/1.4 ui-monospace, Menlo, Consolas, monospace; color: rgba(40, 70, 50, .75); pointer-events: none; }
-.lz-help { position: fixed; right: 14px; bottom: calc(10px + env(safe-area-inset-bottom, 0px)); z-index: 5; margin: 0; font-size: 11px; color: rgba(40, 70, 50, .65); pointer-events: none; }
+/* 镜头操作提示：放在左下角帧率下方，宽度不超过底部工具栏左侧的空位（窄屏自动换行），不与工具栏重叠 */
+.lz-help { position: fixed; left: 14px; bottom: calc(10px + env(safe-area-inset-bottom, 0px)); z-index: 5; margin: 0; max-width: calc(50vw - 250px); font-size: 11px; line-height: 1.4; color: rgba(40, 70, 50, .7); pointer-events: none; }
 body.is-night .lz-hud, body.is-night .lz-help { color: rgba(220, 230, 240, .6); }
 .lz-toast { position: fixed; left: 50%; bottom: 70px; transform: translateX(-50%); z-index: 20; padding: 8px 16px; border-radius: 999px; background: rgba(26, 52, 40, .86); color: #fff; font-size: 12.5px;
   opacity: 0; pointer-events: none; transition: opacity .3s; white-space: nowrap; }

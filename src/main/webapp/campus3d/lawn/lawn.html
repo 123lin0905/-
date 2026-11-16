@@ -3,7 +3,7 @@
   中心草坪 · 板块细节 3D 场景（智慧校园绿化管理系统 · 生态主页）
   画风：学校官网绵阳校区平面图（../img/plan_official.jpg）的插画风——扁平纯色、浅绿草地、米色道路白描边、
   黄色 / 肉色挤出建筑块、轻微等距俯视的微缩模型；动植物为低多边形扁平风，可增删（../js/species-editor.js + lawn-species.js）。
-  依赖全部本地：../lib/three-r160.min.js（MIT）、../lib/OrbitControls.classic.js（MIT）。
+  依赖全部本地：../lib/three-r160.min.js（MIT）、../js/free-camera.js（自由镜头，三个场景共用）。
   参数：?zone=central_lawn&back=<主页路径>（主页“进入板块细节”自动带上）、season=spring|summer|autumn|winter、hour=0~24、
         gfx=clear|smooth|eco、fps=30、test=1（自动化测试）、speciesApi=<接口前缀>。
 -->
@@ -46,11 +46,11 @@
   <label title="画质（与校园全景、池塘共用）">画质<select id="lz-gfx"><option value="clear">清晰</option><option value="smooth">流畅</option><option value="eco">省电</option></select></label>
 </div>
 <p id="lz-hud" class="lz-hud"></p>
-<p id="lz-help" class="lz-help">左键拖动平移 · 右键拖动旋转 · 滚轮缩放</p>
+<p id="lz-help" class="lz-help">左键拖动旋转 · 右键 / Shift+拖动平移 · 滚轮朝光标缩放 · WASD / 方向键移动 · Q / E 升降 · 双击聚焦</p>
 <div id="lz-toast" class="lz-toast"></div>
 
 <script src="../lib/three-r160.min.js"></script>
-<script src="../lib/OrbitControls.classic.js"></script>
+<script src="../js/free-camera.js"></script>
 <script src="../js/eco-weather.js"></script>
 <script src="lawn-scene.js"></script>
 <script src="../js/species-editor.js"></script>

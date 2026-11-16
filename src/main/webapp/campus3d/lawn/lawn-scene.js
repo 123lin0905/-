@@ -12,7 +12,7 @@
  * 坐标：1 场景单位 = 平面图 10 像素 ≈ 4 米；x 向东、z 向南（与平面图 x、y 同向），原点在裁剪范围中心。
  * 画质：读取与全景 / 池塘共用的 localStorage「campus.gfx」：clear 清晰（像素比 ≤1.5）/ smooth 流畅（像素比 1）/
  *       eco·saver·省电（像素比 1、关抗锯齿、帧率上限 30、不画影子、减少装饰树）；未设置时核显 / 软件渲染按流畅处理。
- * 依赖：../lib/three-r160.min.js、../lib/OrbitControls.classic.js、../js/eco-weather.js。导出 window.LAWN。
+ * 依赖：../lib/three-r160.min.js、../js/free-camera.js（自由镜头）、../js/eco-weather.js。导出 window.LAWN。
  */
 (function () {
   "use strict";
@@ -87,17 +87,17 @@
   sun.position.set(-30, 60, -24);
   scene.add(hemi, sun);
 
-  const controls = new THREE.OrbitControls(camera, renderer.domElement);
-  controls.enableDamping = true; controls.dampingFactor = 0.12;
-  controls.screenSpacePanning = false;
-  controls.minDistance = 5; controls.maxDistance = 220;
-  controls.minPolarAngle = 0.12; controls.maxPolarAngle = 1.12;
-  controls.mouseButtons = { LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE };
-  controls.touches = { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_ROTATE };
-  controls.zoomSpeed = 1.1; controls.panSpeed = 1.0; controls.rotateSpeed = 0.6;
-  controls.addEventListener("change", () => {      // 平移不出底座
-    const t = controls.target, cx = clamp(t.x, -W / 2, W / 2), cz = clamp(t.z, -D / 2, D / 2);
-    if (cx !== t.x || cz !== t.z) { camera.position.x += cx - t.x; camera.position.z += cz - t.z; t.x = cx; t.z = cz; }
+  // 自由镜头（../js/free-camera.js，与校园全景、池塘一致）：左键旋转、右键 / Shift+左键平移、滚轮朝光标缩放、
+  // WASD / 方向键移动、Q / E 升降、双击地面聚焦；观察点不出底座，相机不低于地面、不转到地面以下
+  const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+  const controls = FreeCam.create({
+    THREE, camera, dom: renderer.domElement, target: new THREE.Vector3(),
+    bounds: { minX: -W / 2, maxX: W / 2, minZ: -D / 2, maxZ: D / 2, minY: 0, maxY: 20 },
+    camBounds: { minX: -W / 2 - 160, maxX: W / 2 + 160, minZ: -D / 2 - 160, maxZ: D / 2 + 160, maxY: 230 },
+    minDistance: 5, maxDistance: 220, minPolar: 0.12, maxPolar: 1.25,
+    floor: () => 1.2, targetFloor: () => 0, focusDistance: 30, smooth: 10,
+    pick: (rc, out) => { const p = rc.ray.intersectPlane(groundPlane, out); return p && Math.abs(p.x) <= W / 2 + 2 && Math.abs(p.z) <= D / 2 + 2 ? p : null; },
+    moveSpeed: (r) => clamp(r * 0.6, 3, 120), verticalSpeed: 0.4,
   });
 
   // 视角：总览（整块微缩模型）与草坪特写
@@ -113,6 +113,7 @@
     return [p, t];
   }
   let fly = null;
+  controls.addEventListener("start", () => { fly = null; });   // 用户一操作就停掉飞行动画
   function flyTo(pos, target, ms) {
     fly = { p0: camera.position.clone(), t0: controls.target.clone(), p1: pos.clone(), t1: target.clone(), t: 0, dur: (ms || 1100) / 1000 };
   }
@@ -689,7 +690,7 @@
       camera.position.lerpVectors(fly.p0, fly.p1, k); controls.target.lerpVectors(fly.t0, fly.t1, k);
       if (fly.t >= 1) fly = null;
     }
-    controls.update();
+    controls.update(dt);
     for (const f of hooks) { try { f(dt, clock.t); } catch (e) { console.error(e); } }
     envT -= dt; if (envT <= 0) { envT = 5; applyEnv(); }
     scene.updateMatrixWorld();

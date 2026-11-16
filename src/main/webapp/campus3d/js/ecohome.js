@@ -4,7 +4,8 @@
  *   1. 按顺序加载 three.js 等本地脚本并显示进度条；
  *   2. 构建校园、生态动态层、生态板块；
  *   3. 北京时间昼夜、季节、天气（代理 -> 直连 -> 虚拟）；
- *   4. 交互：板块悬浮高亮/点击飞行定位、建筑详情、演示切换面板（按 W）；
+ *   4. 交互：自由镜头（free-camera.js：左键旋转、右键 / Shift+拖动平移、滚轮朝光标缩放、WASD/方向键移动、Q/E 升降、双击聚焦）、
+ *      板块悬浮高亮/点击飞行定位、建筑详情、演示切换面板（按 Y）；
  *   5. 第二阶段：有 detail_scene 的板块“进入板块细节”俯冲淡出后打开细节场景（如池塘 pond/pond.html），
  *      细节场景“返回校园全景”带 ?zone=<id>&autostart=1 回到本页并停在该板块。
  */
@@ -52,7 +53,7 @@
     '  <button class="eco-btn" id="eco-reset" type="button">🏠 全景</button>',
     '  <button class="eco-btn" id="eco-top-view" type="button">🗺️ 俯视</button>',
     '  <button class="eco-btn" id="eco-tour" type="button" aria-pressed="false">🎬 巡游</button>',
-    '  <button class="eco-btn" id="eco-demo-btn" type="button" title="演示切换（W）">⚙️</button>',
+    '  <button class="eco-btn" id="eco-demo-btn" type="button" title="演示切换（Y）">⚙️</button>',
     "</div>",
     '<div class="eco-mini eco-glass" id="eco-mini" title="官方平面图，点击跳转"><img alt="绵阳校区官方平面图" id="eco-mini-img"><span class="eco-mini-mark" id="eco-mini-mark"></span></div>',
     '<section class="eco-demo eco-glass" id="eco-demo" hidden>',
@@ -137,7 +138,7 @@
   // three 与池塘细节场景统一为 r160；pond-style-core.js / pond-style.js 为两边共用的池塘画风（纹理、天空、光照、色调、植被、画质档）
   const SCRIPTS = [
     ["lib/three-r160.min.js", 30, "加载三维引擎…"],
-    ["lib/OrbitControls.classic.js", 2, "加载交互控件…"],
+    ["js/free-camera.js", 2, "加载交互控件…"],
     ["lib/GLTFLoader.classic.js", 3, "加载模型解析器…"],
     ["js/pond-style-core.js", 3, "加载池塘画风（共享）…"],
     ["js/pond-style.js", 1, "加载光照与画质设置…"],
@@ -275,16 +276,26 @@
     function zoneAtPx(px) { for (const o of zoneObjs) if (campus.inPoly(px, o.z.polygon)) return o.z.id; return null; }
 
     // ---------------- 相机 & 控件 ----------------
-    const controls = new THREE.OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-    controls.dampingFactor = 0.08;
-    controls.maxPolarAngle = THREE.MathUtils.degToRad(84);
-    controls.minDistance = 30;
-    controls.maxDistance = 1100;
-    controls.screenSpacePanning = false;
-    controls.mouseButtons = { LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN };
-    controls.touches = { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN };
-    renderer.domElement.style.touchAction = "none";
+    // 自由镜头（free-camera.js，与池塘、中心草坪共用）：观察点可以移到校园任意位置。
+    // 左键旋转、右键 / Shift+左键平移、滚轮朝光标缩放、WASD / 方向键移动、Q / E 升降、双击地面或建筑飞过去聚焦。
+    // 限位：观察点在校园范围内（官方平面图 2048×1998 像素 × 0.4 米 ≈ ±410 米，再留 30 米），相机不低于地面 4 米，
+    // 距离 12–1200 米，极角 ≤ 84°（不会转到地平线以下），相机在 ±1400 米、1300 米高的盒子里（看不到地面边缘）。
+    const pickRay = new THREE.Raycaster(); pickRay.layers.enable(campus.PICK_LAYER);
+    const pickPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -1);
+    function pickScene(rc, out) {
+      pickRay.ray.copy(rc.ray);
+      const h = pickRay.intersectObjects(campus.pickables.filter((m) => m.visible), false)[0];
+      if (h) return out.copy(h.point);
+      return rc.ray.intersectPlane(pickPlane, out);
+    }
+    const controls = FreeCam.create({
+      THREE, camera, dom: renderer.domElement, target: new THREE.Vector3(),
+      bounds: { minX: -440, maxX: 440, minZ: -430, maxZ: 430, minY: 0, maxY: 150 },
+      camBounds: { minX: -1400, maxX: 1400, minZ: -1400, maxZ: 1400, maxY: 1300 },
+      minDistance: 12, maxDistance: 1200, minPolar: 0.001, maxPolar: THREE.MathUtils.degToRad(84),
+      floor: () => 4, targetFloor: () => 0, pick: pickScene, focusDistance: 160, smooth: 9,
+      moveSpeed: (r) => Math.min(350, Math.max(15, r * 0.35)), verticalSpeed: 0.4,
+    });
     const HOME_T = new THREE.Vector3(10, 0, -10);
     const HOME_P = new THREE.Vector3(10 + 470, 320, -10 + 660); // 俯角约 21°，画面上方留出天空
     const INTRO_P = new THREE.Vector3(-900, 1300, 1500);
@@ -293,6 +304,7 @@
     controls.update();
     let fly = null, touring = false;
     controls.addEventListener("start", () => { fly = null; stopTour(); });
+    renderer.domElement.addEventListener("dblclick", () => hoverZone(null));
     function flyTo(target, pos, ms) { fly = { t0: performance.now(), ms: ms || 1200, ft: controls.target.clone(), fp: camera.position.clone(), tt: target.clone(), tp: pos.clone() }; }
     function flyAround(t, dist, ms) {
       const dir = camera.position.clone().sub(controls.target); dir.y = 0;
@@ -440,7 +452,7 @@
     function groundPx() { if (!ray.ray.intersectPlane(groundPlane, hitP)) return null; return [hitP.x / campus.S + 1024, hitP.z / campus.S + 999]; }
     const buildingPicks = campus.pickables;
     let down = null, lastMove = 0;
-    renderer.domElement.addEventListener("pointerdown", (e) => (down = [e.clientX, e.clientY]));
+    renderer.domElement.addEventListener("pointerdown", (e) => (down = e.button === 0 && !e.shiftKey && !e.ctrlKey && !e.metaKey ? [e.clientX, e.clientY] : null));
     renderer.domElement.addEventListener("pointermove", (e) => {
       const now = performance.now();
       if (now - lastMove < 60 || e.buttons) return;
@@ -539,7 +551,7 @@
     };
     window.addEventListener("keydown", (e) => {
       if (e.target && /input|select|textarea/i.test(e.target.tagName)) return;
-      if (e.key === "w" || e.key === "W") toggleDemo();
+      if (e.code === "KeyY") toggleDemo();   // W 留给自由镜头前进
       if (e.key === "Escape") { closePanel(); toggleDemo(false); }
     });
     // URL 参数便于截图/演示：?weather=61&season=winter&hour=21.5
@@ -548,10 +560,10 @@
     if (params.get("hour")) { state.timeAuto = false; state.demoHours = parseFloat(params.get("hour")); $("d-time-auto").checked = false; $("d-time").disabled = false; $("d-time").value = state.demoHours; }
     if (params.get("demo") === "1") toggleDemo(true);
 
-    function toast(msg) {
+    function toast(msg, ms) {
       const t = $("eco-toast");
       t.textContent = msg; t.hidden = false;
-      clearTimeout(toast._t); toast._t = setTimeout(() => (t.hidden = true), 3800);
+      clearTimeout(toast._t); toast._t = setTimeout(() => (t.hidden = true), ms || 3800);
     }
 
     // ---------------- 昼夜 / 天气 -> 场景（池塘画风：pondWeatherPreset + pondSunLight，见 campus-look.js） ----------------
@@ -658,7 +670,7 @@
           camera.position.copy(controls.target).add(off);
         }
       }
-      controls.update();
+      controls.update(dt);
       camera.updateMatrixWorld();
       envTimer -= dt;
       if (envTimer <= 0) { applyEnvironment(0.25 + Math.max(0, -envTimer)); envTimer = 0.25; } // 环境每 0.25 秒更新一次足够平滑
@@ -704,6 +716,7 @@
       document.body.classList.add("eco-entered");
       setTimeout(() => { const l = $("eco-loader"); if (l) l.remove(); }, 1200);
       flyTo(HOME_T, HOME_P, 2600);
+      setTimeout(() => FreeCam.hintOnce("ecohome", (h) => toast("镜头操作：" + h, 7000)), 3000);   // 一次性操作提示
     }
     enterBtn.onclick = enter;
     if (params.get("autostart") === "1") enter();

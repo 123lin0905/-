@@ -977,6 +977,38 @@ core += '\n' + open(os.path.join(ROOT, 'tools', 'pond_texcache.js'), encoding='u
 open(CORE, 'w', encoding='utf-8').write(core)
 print('OK', len(core), 'bytes ->', CORE)
 
+# ---------------------------------------------------------------- 自由镜头 + 全场景巡游（tools/pond_camera.js，共用 ../js/free-camera.js）
+# 自由镜头原来是“原地转头 + 方向键平移”的飞行镜头，鼠标只能转向、滚轮只调速度；改为观察点 + 环绕的自由镜头：
+# 左键旋转、右键 / Shift+左键平移观察点、滚轮朝光标缩放、WASD / 方向键移动、Q / E 升降、双击聚焦，限位在场景范围内且不低于地面 / 水面。
+# 电影镜头原来是若干固定机位短片（黑场切镜）；改为绕池塘一圈、经过各景点的连续平滑巡游（路径按地形 / 树木 / 小亭 / 石桥避让）。
+CAMERA_JS = open(os.path.join(ROOT, 'tools', 'pond_camera.js'), encoding='utf-8').read()
+rep("/* ------------------------------------------------------------------ 13b. CINEMATIC PATH, DIVE EFFECTS & AUDIO */",
+    CAMERA_JS.rstrip() + "\n\n/* ------------------------------------------------------------------ 13b. CINEMATIC PATH, DIVE EFFECTS & AUDIO */")
+# 键盘：自由镜头下 W/A/S/D、Q/E、空格交给镜头；演示面板改用 Y（电影镜头下 W 仍可用），自由镜头下喂鱼用“喂锦鲤”按钮
+rep("    if (e.code === 'KeyW' && window.PondCampus) { PondCampus.toggleDemo(); return; }\n",
+    "    if ((e.code === 'KeyY' || (e.code === 'KeyW' && P.cameraMode !== 'Manual')) && window.PondCampus) { PondCampus.toggleDemo(); return; }\n")
+rep("    if (e.code === 'KeyE') startFeeding();\n", "    if (e.code === 'KeyE' && P.cameraMode !== 'Manual') startFeeding();\n")
+# 鼠标：旋转 / 平移 / 缩放由 FreeCam 处理；单击水面泛涟漪只认左键
+rep("    if (P.cameraMode === 'Manual' && !P.holdCamera) { CTRL.yaw -= dx * 0.0032; CTRL.pitch = clamp(CTRL.pitch - dy * 0.0032, -1.45, 1.45); }\n", "")
+rep("  canvas.addEventListener('wheel', (e) => { if (P.cameraMode !== 'Manual') return; e.preventDefault(); CTRL.speedMul = clamp((CTRL.speedMul || 1) * (e.deltaY > 0 ? 0.85 : 1.18), 0.05, 5); toast(`飞行速度 ×${CTRL.speedMul.toFixed(2)}`); }, { passive: false });\n",
+    "  setupFreeCam();                                       // 自由镜头：旋转 / 平移 / 朝光标缩放 / 键盘移动 / 双击聚焦（free-camera.js）\n")
+rep("    if (CTRL.moved < 5) {                               // a click: drop a ripple where the ray meets the water",
+    "    if (CTRL.moved < 5 && e.button === 0) {             // a click: drop a ripple where the ray meets the water")
+rep("  if (P.cameraMode === 'Manual') updateFreeCamera(dt);\n", "  if (P.cameraMode === 'Manual') { if (FREECAM) FREECAM.update(dt); }\n")
+rep("  if (P.movie) { updateMovie(dt, t); return; }\n", "  if (P.movie) { updateTour(dt, t); return; }\n")
+rep("  } else PATH.blend = 0;\n  if (GUI_CTRL.cam) GUI_CTRL.cam.updateDisplay();",
+    "  } else { PATH.blend = 0; TOUR.resume = true; }\n  if (GUI_CTRL.cam) GUI_CTRL.cam.updateDisplay();")
+rep("toast(P.cameraMode === 'Manual' ? '自由镜头：拖动转向 · 方向键移动 · Q 下降 · 空格上升 · Shift 加速 · 滚轮调速' :",
+    "toast(P.cameraMode === 'Manual' ? '自由镜头：' + FreeCam.HINT :")
+rep("  fC.add(P, 'movie').name('电影镜头 = 巡游短片');", "  fC.add(P, 'movie').name('电影镜头 = 全场景巡游');")
+# 操作说明卡片
+rep('    <div><dt><kbd>W</kbd></dt><dd>演示面板</dd></div>\n', '    <div><dt><kbd>Y</kbd></dt><dd>演示面板</dd></div>\n')
+rep('    <div><dt><kbd>E</kbd></dt><dd>喂锦鲤</dd></div>\n', '    <div><dt><kbd>E</kbd></dt><dd>喂锦鲤*</dd></div>\n')
+rep('  <p class="foot">自由镜头 · <kbd>拖动</kbd> 转向 · <kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd> 移动 · <kbd>Q</kbd> <kbd>空格</kbd> 下降 / 上升 · <kbd>Shift</kbd> 加速</p>\n',
+    '  <p class="foot">自由镜头 · <kbd>左键拖动</kbd> 旋转 · <kbd>右键</kbd>/<kbd>Shift</kbd>+拖动 平移 · <kbd>滚轮</kbd> 朝光标缩放 · '
+    '<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>/方向键 移动 · <kbd>Q</kbd>/<kbd>E</kbd> 升降 · <kbd>Shift</kbd> 加速 · <kbd>双击</kbd> 聚焦<br>'
+    '* 自由镜头下 W / E 用于移动，演示面板按 <kbd>Y</kbd>，喂鱼点“喂锦鲤”按钮</p>\n')
+
 # ---------------------------------------------------------------- 主脚本拆成可缓存的 pond-main.js（文件名带内容哈希版本号 → 长缓存 immutable）
 m = re.search(r"<script>\n'use strict';\n(.*)\n</script>\n</body>", s, re.S)
 assert m, '找不到池塘主脚本'
@@ -986,7 +1018,7 @@ main_js = ("/*\n * 校园池塘板块细节场景 · 主脚本（自动生成，
 MAIN = os.path.join(os.path.dirname(DST), 'pond-main.js')
 open(MAIN, 'w', encoding='utf-8').write(main_js)
 ver = hashlib.sha256(main_js.encode('utf-8')).hexdigest()[:10]
-s = s[:m.start()] + '<script src="pond-main.js?v=' + ver + '"></script>\n' + SPECIES_TAGS + '</body>' + s[m.end():]
+s = s[:m.start()] + '<script src="../js/free-camera.js"></script>\n<script src="pond-main.js?v=' + ver + '"></script>\n' + SPECIES_TAGS + '</body>' + s[m.end():]
 print('OK', len(main_js), 'bytes ->', MAIN, 'v=' + ver)
 open(DST, 'w', encoding='utf-8').write(s)
 print('OK', len(s), 'bytes ->', DST)
