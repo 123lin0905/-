@@ -66,8 +66,7 @@ public class ZoneSpeciesServlet extends HttpServlet {
             if (req.getContentLength() > 64 * 1024) { resp.sendError(413); return; }
             body = new String(readAll(req.getInputStream()), StandardCharsets.UTF_8);
         }
-        Object su = req.getSession(false) == null ? null : req.getSession(false).getAttribute("adminUser");
-        AdminUser u = su instanceof AdminUser ? (AdminUser) su : null;
+        AdminUser u = security.Roles.currentUser(req);
         ZoneSpeciesService.Result r = service.handle(m, req.getPathInfo(), body, zones(),
                 u == null ? null : (u.getDisplayName() != null ? u.getDisplayName() : u.getUsername()), u == null ? null : u.getRoleCode());
         resp.setStatus(r.status);

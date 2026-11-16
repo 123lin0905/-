@@ -46,12 +46,6 @@
     <mappers>
         <mapper resource="mapper/SchemaMapper.xml"/>
         <mapper resource="mapper/PlantMapper.xml"/>
-        <mapper resource="mapper/PlantTypeMapper.xml"/>
         <mapper resource="mapper/PlantMaintenanceMapper.xml"/>
-        <mapper resource="mapper/MaintainerMapper.xml"/>
-        <mapper resource="mapper/PlantAreaMapper.xml"/>
-        <mapper resource="mapper/AdminUserMapper.xml"/>
-        <mapper resource="mapper/SystemNoticeMapper.xml"/>
-        <mapper resource="mapper/AnimalMapper.xml"/>
     </mappers>
 </configuration>

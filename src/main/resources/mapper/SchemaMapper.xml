@@ -229,10 +229,10 @@
         ('WH-1004', '赵师傅', '男', '13699887766', '植保防治组', '病虫害防治技师', '轮休', '2022-11-20', '负责天府苗圃生态防虫治病、生物药剂定期防治')
     </insert>
 
+    <!-- 只在账号不存在时插入：账号管理里改过的密码 / 角色 / 状态不会在重启后被重置 -->
     <insert id="insertDefaultAdmin">
-        INSERT INTO admin_user (username, password_hash, display_name, role_code, status)
+        INSERT IGNORE INTO admin_user (username, password_hash, display_name, role_code, status)
         VALUES (#{param1}, #{param2}, #{param3}, #{param4}, 1)
-        ON DUPLICATE KEY UPDATE display_name = VALUES(display_name), role_code = VALUES(role_code)
     </insert>
 
     <insert id="insertSampleNotices">

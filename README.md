@@ -1,12 +1,27 @@
 # 智慧校园绿化管理系统
 
-Java Servlet + JSP + MyBatis 实现的校园绿化管理系统（西南财经大学天府学院 · 绵阳校区）。
+Java Servlet + JSP + three.js 实现的校园绿化系统（西南财经大学天府学院 · 绵阳校区）。**系统只保留三维生态这一套页面**：
+身份识别窗口（人脸 / 账号密码）→ 3D 虚拟生态主页与各生态板块场景 → 按身份进入数据大屏、养护工作台、人脸录入 / 人脸信息管理、账号管理。
+
+| 页面 | 谁能打开 | 说明 |
+| --- | --- | --- |
+| `face_login.jsp`（欢迎页） | 所有人 | 身份识别窗口：人脸识别；同一窗口切换“🔑 账号密码登录”；“以访客进入” |
+| `ecohome.jsp` + `campus3d/*` | 所有人（访客只读） | 3D 校园全景、池塘 / 中心草坪等板块细节场景、动植物增删（管理员 / 养护员） |
+| `data_screen.jsp` | 管理员 | 数据大屏（管理员登录后的落地页） |
+| `care_workbench.jsp` | 养护人员 | 养护工作台：浇水 / 施肥 / 喂食（养护员登录后的落地页） |
+| `face_enroll.jsp` | 管理员、养护人员 | 人脸录入 |
+| `face_admin.jsp` | 管理员 | 人脸信息管理 |
+| `account_admin.jsp` | 系统管理员 | 账号管理：新建账号、启用 / 停用、重置密码、改角色、养护员负责区域 |
+
+> 旧版管理系统已整体删除：数字校园总览 `index.jsp`、系统后台 `admin.jsp`、园区网格与植株标绘、绿植档案、校园生态动物、维护记录、总体综合报告、
+> 养护团队、旧的账号密码登录页 `login.jsp`、`campus3d.jsp` 代理页、AI 宠物、GreenKeeper 等页面及其 Servlet。**数据库表全部保留**
+> （`plant`、`animal`、`maintainer`、`plant_area`、`plant_maintenance` 等仍被养护工作台、数据大屏、账号管理读取），`database/*.sql` 迁移脚本未删。
 
 ## 生态主页（第一阶段：虚拟生态动态大屏；第二阶段：板块细节场景；画风统一：全景改为池塘同款写实风；板块进入提速；动植物增删）
 
-> 网站入口现在先出现**人脸识别窗口**（`face_login.jsp`），访客选择“先不录入人脸 / 以访客进入”后进入下面的 3D 虚拟生态主页，详见文末“人脸识别登录与三类账户”。
+> 网站入口先出现**身份识别窗口**（`face_login.jsp`），访客选择“先不录入人脸 / 以访客进入”后进入下面的 3D 虚拟生态主页，详见文末“人脸识别登录与三类账户”。
 
-3D 虚拟生态主页：加载动画进度条 → 全屏 3D 校园大屏。原系统首页 `index.jsp` 通过右上角 **“进入管理系统 →”** 进入，登录入口为 **“管理员登录”**；系统首页导航栏新增了 **“🌱 生态主页”** 按钮可返回大屏。
+3D 虚拟生态主页：加载动画进度条 → 全屏 3D 校园大屏。右上角按身份显示入口：管理员 → 📊 数据大屏、🗂 人脸管理（系统管理员另有 👥 账号管理），养护人员 → 🧑‍🌾 养护工作台、🙂 人脸录入，未登录 / 访客 → 🙂 登录（人脸 / 账号）。
 
 ### 功能
 
@@ -23,7 +38,7 @@ Java Servlet + JSP + MyBatis 实现的校园绿化管理系统（西南财经大
 ### 文件位置
 
 ```
-src/main/webapp/ecohome.jsp                 生态主页（welcome-file），注入 contextPath 等配置
+src/main/webapp/ecohome.jsp                 生态主页（访客 / 登录后的第一屏；欢迎页是 face_login.jsp），注入 contextPath 等配置
 src/main/webapp/campus3d/index.html         同一套脚本的静态独立版（不经 Tomcat 也能用静态服务器打开调试）
 src/main/webapp/campus3d/js/ecohome.js      主程序：加载进度、HUD、板块、昼夜/天气驱动、演示面板
 src/main/webapp/campus3d/js/campus-scene.js 校园底图（建筑/道路/水体/场地/雕塑），迁移自 3D 交互地图
@@ -44,7 +59,7 @@ src/main/java/Servlet/WeatherServlet.java   /api/weather 天气代理（10 分�
 
 所有资源都是仓库内本地文件，路径为相对路径或 `<%= request.getContextPath() %>`，内网也能运行（内网无法访问 Open-Meteo 时自动使用虚拟天气）。
 
-`AuthFilter` 已把 `/ecohome.jsp`、`/api/weather` 和 `/campus3d/` 下的静态资源列为公开访问，其余页面的登录与角色校验不变。原有的 `campus3d.jsp` / `Campus3dProxyServlet`（代理第三方页面）保留未删，但主页入口不再指向它。
+`AuthFilter` 把 `/ecohome.jsp`、`/api/weather` 和 `/campus3d/` 下的静态资源列为公开访问；按身份的页面与接口见文末“三类身份与入口”。
 
 ### 板块细节场景（第二阶段）
 
@@ -205,7 +220,7 @@ python3 tools/build_pond.py            # 或 python3 tools/build_pond.py <koi-po
 - 数据库不可用时返回 **503** `{"error":"db_unavailable"}`（不返回 JDBC 原始错误文本），有编辑权限的身份进入演示模式。
 - “✏️ 管理动植物”按钮只对有编辑权限的身份显示（GET 返回的 `can_edit`；数据库不可用时看 `/api/me`）；普通用户 / 访客看不到按钮。参数错误 400，板块或记录不存在 404。
 - 表结构：`database/002_zone_species.sql`（与 `JdbcZoneSpeciesStore.DDL` 一致；接口首次访问时也会 `CREATE TABLE IF NOT EXISTS`）。字段：`id`、`zone_id`、`area_code`（对应 `plant_area.area_code`）、`species_type`、`species_key`、`species_name`、`seed_ref`、`quantity`、`pos_x`、`pos_z`、`rotation_y`、`scale`、`status`、`created_by/at`、`updated_by/at`；唯一键 `(zone_id, seed_ref)`。
-- 单元测试（内存存储，不需要数据库）：`./mvnw -Dtest=ZoneSpeciesServiceTest test`（`MyBatisTest` 需要真实数据库，所以用 `-Dtest` 只跑新测试；`pom.xml` 已把 surefire 升到 3.2.5 才能识别 JUnit 5）。
+- 单元测试（内存存储，不需要数据库）：`./mvnw -Dtest=ZoneSpeciesServiceTest test`（`pom.xml` 已把 surefire 升到 3.2.5 才能识别 JUnit 5）。
 
 ```
 src/main/java/Servlet/ZoneSpeciesServlet.java     /api/zones/* 入口（读取 zones.json 的 area_code / editable）
@@ -266,7 +281,7 @@ tools/build_lawn_ground.py                       底图生成脚本
 
 ### 天气卡片位置
 
-- 全景主页（`ecohome.jsp`）的天气卡片原来在右上角，会压住顶栏右侧的“画质”切换、“进入管理系统”、“人脸登录 / 退出”、访客标签等按钮，现已移到**右下角**（`campus3d/css/ecohome.css` 的 `.eco-weather`），顶栏右侧不再为它预留 236px。
+- 全景主页（`ecohome.jsp`）的天气卡片原来在右上角，会压住顶栏右侧的“画质”切换、“人脸登录 / 退出”、访客标签等按钮，现已移到**右下角**（`campus3d/css/ecohome.css` 的 `.eco-weather`），顶栏右侧不再为它预留 236px。
 - 右下角布局：底部中间是工具栏（🏠 全景 / 🗺️ 俯视 / 🎬 巡游 / ⚙️），左下是小地图与帧率 HUD，演示面板在小地图右侧；右侧板块详情面板从顶栏下方（88px）开始，最大高度扣掉天气卡高度，底部给天气卡让出位置。`ecohome.js` 用 `ResizeObserver` 把天气卡实际高度写进 CSS 变量 `--eco-wx-h`，内容换行或字体不同也不会重叠。
 - 小屏：窗口高度 ≤ 700px（如 1280×720、1366×768 扣掉浏览器地址栏后）天气卡收紧、隐藏风速行；宽度 ≤ 1100px 时卡片收窄；宽度 ≤ 900px（手机）天气卡移到底部工具栏上方右侧，只留温度与天气，详情 / 演示面板再往上让出位置。已在 1920×1080、1366×768、1366×657、1280×720、1280×609、1100×620、1024×700、800×600、390×844 下用 headless Chromium 检查：天气卡完全在屏幕内，不与工具栏、小地图、HUD、详情面板、演示面板、顶栏按钮重叠，点击仍打开演示面板。
 - 池塘细节场景（`campus3d/pond/`）的天气信息在左上角板块卡片里（`.cp-wx`），不在右上角，不与按钮重叠，未改动；中心草坪场景（`campus3d/lawn/`）没有天气卡片，未改动。
@@ -300,27 +315,28 @@ tools/build_lawn_ground.py                       底图生成脚本
 
 ## 人脸识别登录与三类账户（管理员 / 养护人员 / 访客）
 
-在原有 `admin_user` 账号、`LoginServlet`、`AuthFilter` 的基础上扩展，没有另起账户体系；原账号密码登录 `login.jsp` 保留为备用入口。
+沿用 `admin_user` 账号表，没有另起账户体系。账号密码登录已并入人脸识别窗口（“🔑 账号密码登录”页签，`POST /api/auth/login`），原 `login.jsp` / `LoginServlet` 已删除。
 
 ### 三类身份与入口
 
 | 身份 | 对应角色（`security/Roles.java`） | 能做什么 | 导航里出现的入口 |
 | --- | --- | --- | --- |
-| 管理员 | `SYSTEM_ADMIN`、`SUPER_ADMIN`、`ADMIN`、`PLANT_ADMIN`、`MAINTENANCE_ADMIN`（原有细分权限不变） | 查看 / 整理后台数据；**数据大屏** `data_screen.jsp`；**人脸信息管理** `face_admin.jsp`（查看 / 删除 / 为他人录入、更换人脸，范围见下文）；板块动植物增删 | 📊 数据大屏、🗂 人脸信息管理（生态主页上为“🗂 人脸管理”）、🙂 人脸录入 |
+| 管理员 | `SYSTEM_ADMIN`、`SUPER_ADMIN`、`ADMIN`、`PLANT_ADMIN`、`MAINTENANCE_ADMIN` | **数据大屏** `data_screen.jsp`；**人脸信息管理** `face_admin.jsp`（查看 / 删除 / 为他人录入、更换人脸，范围见下文）；板块动植物增删；系统级管理员（`SYSTEM_ADMIN` / `SUPER_ADMIN` / `ADMIN`）另有 **账号管理** `account_admin.jsp` | 📊 数据大屏、🗂 人脸信息管理（生态主页上为“🗂 人脸管理”）、🙂 人脸录入、👥 账号管理（仅系统级管理员） |
 | 养护人员（可多个） | `MAINTAINER`（`admin_user.maintainer_id` 关联 `maintainer` 档案 → `plant_area.maintainer_id` 得到负责区域） | **养护工作台** `care_workbench.jsp`：浇水 / 施肥 / 喂食；板块动植物增删改查（沿用 species-editor 权限）；给自己录入人脸（**不能删除**，更换需找管理员） | 🧑‍🌾 养护工作台、🙂 人脸录入 |
-| 普通用户（访客） | 未登录，或在人脸窗口点“先不录入人脸 / 以访客进入”（会话属性 `visitor=true`） | 只能浏览生态主页、板块场景、系统首页；编辑按钮隐藏，写接口 403 | 🙂 人脸登录 |
+| 普通用户（访客） | 未登录，或在人脸窗口点“先不录入人脸 / 以访客进入”（会话属性 `visitor=true`） | 只能浏览生态主页、板块场景；编辑按钮隐藏，写接口 403 | 🙂 登录（人脸 / 账号） |
 
-- 入口只在对应身份登录后出现在导航（`ecohome.jsp`、`index.jsp`、`admin.jsp`、`data_screen.jsp`、`face_enroll.jsp` 等新页面顶栏；养护工作台的顶栏只有当管理员被加进 `CARE_ROLES` 时才会出现“人脸信息管理”）；直接访问 URL 也由 `AuthFilter.roleGate` 拦截：未登录 → 页面跳 `login.jsp` / 接口 **401**；访客或角色不符 → **403**。访客访问原有后台页面（`QueryServlet`、`AdminDashboardServlet` 等）同样 403。
+- 入口只在对应身份登录后出现在导航（`ecohome.jsp`、`data_screen.jsp`、`face_enroll.jsp`、`face_admin.jsp`、`account_admin.jsp` 的顶栏；养护工作台的顶栏只有当管理员被加进 `CARE_ROLES` 时才会出现“人脸信息管理”）；直接访问 URL 也由 `AuthFilter.roleGate` 拦截：未登录 → 页面跳 `face_login.jsp?switch=1&mode=password&returnUrl=<原页面>`（直接打开账号密码登录，登录后回到原页面）/ 接口 **401**；访客或角色不符 → **403**（403 页的“返回生态主页”指向 `ecohome.jsp`）。
 - **管理员默认不能进养护工作台**（按需求字面）。要允许，改 `security/Roles.java` 一行：`CARE_ROLES` 里加上 `"SYSTEM_ADMIN"` 等角色。
-- 登录后的落地页：养护员 → 养护工作台（负责区域排在最前）；`SYSTEM_ADMIN` / `SUPER_ADMIN` / `ADMIN` → 系统后台 `AdminDashboardServlet`；`PLANT_ADMIN` / `MAINTENANCE_ADMIN` → 系统首页 `index.jsp`。账号密码登录仍按原约定统一进 `index.jsp`（唯一例外：从人脸窗口“账号密码登录后录入人脸”过来的直接进录入页）。
-- 新建养护员账号：系统后台“新增管理账号”选择角色“养护人员”，并选择关联的养护员档案；负责区域在“园区网格”里给区域指定养护员。演示账号 `keeper_zhang`（关联 WH-1001 张师傅）、`keeper_li`（关联 WH-1002 李工），初始密码 `123456`。
+- 登录后的落地页（`Roles.homeFor`，人脸与账号密码登录相同）：所有管理员角色（含 `PLANT_ADMIN` / `MAINTENANCE_ADMIN`）→ 数据大屏 `data_screen.jsp`；养护员 → 养护工作台（负责区域排在最前）；带合法 `returnUrl` 时优先回到该页（如“账号密码登录后录入人脸” → `face_enroll.jsp`）。
+- 新建养护员账号、分配负责区域：在 **账号管理** 里完成（见下文）。演示账号 `keeper_zhang`（关联 WH-1001 张师傅）、`keeper_li`（关联 WH-1002 李工）。
 
 ### 登录流程
 
 1. 打开系统（`web.xml` 欢迎页 `face_login.jsp`）先出现人脸识别窗口。已登录 / 已选访客身份的会话直接去各自主页；退出登录后回到窗口但不自动开摄像头（`?logout=1`），避免刚退出又被识别登录。
-2. 系统里还没有任何人脸时：提示 **“请先进行人脸录入”**，提供 **“先不录入人脸”**（以访客进入只读的生态主页）和“账号密码登录后录入人脸”。
+2. 系统里还没有任何人脸时：提示 **“请先进行人脸录入”**，提供 **“先不录入人脸”**（以访客进入只读的生态主页）和“账号密码登录后录入人脸”（切到账号密码页签，登录后直接进 `face_enroll.jsp`）。
 3. 有人脸时：打开摄像头，连续取 3 帧合格人脸（单人、够近、清晰），特征平均后连同 antispoof / liveness 分数提交 `POST /api/face/identify`；服务端比对成功即建立该账号会话（换 session id），失败可重试、以访客进入或账号密码登录。
-4. **录入的身份证明**：必须先用账号密码（或已录入的人脸）登录，只能给自己录入；管理员可以按管理范围（见“人脸信息管理”）为他人录入 / 删除。录入时按“正视 / 左转 / 右转 / 抬头 / 低头”采集 3–5 帧，服务端校验多帧两两相似（防混进别人）后取平均，**追加**存为一条；一人可多条（默认最多 5 条）；同一张脸不能录到两个账号（包括已停用 / 已删除账号仍保留的人脸）。
+4. **账号密码登录**：窗口顶部的“🙂 人脸识别 / 🔑 账号密码登录”页签切换（切到账号密码时关闭摄像头；`?mode=password` 直接打开该页签）。表单提交 `POST /api/auth/login`（JSON），成功后按身份跳转；`returnUrl` 只接受站内相对路径（如 `/face_enroll.jsp`），外站地址、`//`、`..`、登录页 / 接口地址一律忽略，目标页该身份无权打开时也回默认主页。登录成功走 `Roles.signIn`（换 session id 防会话固定、清掉访客标记）。限流：同一 IP 5 分钟最多 `auth.maxAttempts`（默认 20）次，同一账号 5 分钟最多 `auth.maxFailuresPerUser`（默认 8）次失败，超出 429。
+5. **录入的身份证明**：必须先用账号密码（或已录入的人脸）登录，只能给自己录入；管理员可以按管理范围（见“人脸信息管理”）为他人录入 / 删除。录入时按“正视 / 左转 / 右转 / 抬头 / 低头”采集 3–5 帧，服务端校验多帧两两相似（防混进别人）后取平均，**追加**存为一条；一人可多条（默认最多 5 条）；同一张脸不能录到两个账号（包括已停用 / 已删除账号仍保留的人脸）。
 
 ### 人脸数据长期保存
 
@@ -336,12 +352,32 @@ tools/build_lawn_ground.py                       底图生成脚本
 
 ### 人脸信息管理（仅管理员）
 
-`face_admin.jsp` + `console/face-admin.js`，入口：生态主页顶栏“🗂 人脸管理”、数据大屏、人脸录入页、系统首页 `index.jsp`、系统后台 `admin.jsp` 的导航。`AuthFilter` 拦截：未登录跳登录页（接口 401），养护人员 / 访客 403。
+`face_admin.jsp` + `console/face-admin.js`，入口：生态主页顶栏“🗂 人脸管理”、数据大屏、人脸录入页、账号管理页的导航。`AuthFilter` 拦截：未登录跳账号密码登录（接口 401），养护人员 / 访客 403。
 
 - 列表：所有“有人脸或可以录入人脸”的账号——账号、姓名（含关联养护员档案）、身份（管理员 / 养护人员 + 角色代码）、人脸条数（x / 上限）、首次 / 最近录入时间、录入人、最近一张缩略图（录入时保存了才有）；可按账号 / 姓名搜索，按身份、是否已录入筛选。
 - 操作：**查看**某账号的全部记录（缩略图、帧数、录入时间、录入人、录入时身份）；**删除单条**；**删除全部**；**录入 / 追加**（打开 `face_enroll.jsp?account_id=…`，复用原录入流程，录入时请本人在摄像头前）；**更换**（确认后先删除该账号全部人脸，再打开录入页重新录入）。删除都有二次确认，并提示删除后无法恢复。
-- 管理范围：`SYSTEM_ADMIN` / `SUPER_ADMIN` / `ADMIN` 可以管理**所有人**（含其他管理员，以及“账号已删除”遗留的人脸）；`PLANT_ADMIN` / `MAINTENANCE_ADMIN` 只能管理**养护人员和自己**（其他管理员的人脸不出现在他们的列表里，直接调接口也 403）。理由：前三者本来就是负责账号与人员管理的系统管理员（`AuthFilter` 原有规则里也只有它们能进系统后台 / 养护员管理），而植物 / 养护管理员是业务角色，不应能删其他管理员的登录凭据。
+- 管理范围：`SYSTEM_ADMIN` / `SUPER_ADMIN` / `ADMIN` 可以管理**所有人**（含其他管理员，以及“账号已删除”遗留的人脸）；`PLANT_ADMIN` / `MAINTENANCE_ADMIN` 只能管理**养护人员和自己**（其他管理员的人脸不出现在他们的列表里，直接调接口也 403）。理由：前三者是负责账号与人员管理的系统管理员（也只有它们能进账号管理），而植物 / 养护管理员是业务角色，不应能删其他管理员的登录凭据。
 - 页面与接口都**不返回特征向量**，只返回缩略图和录入信息；所有按钮只是方便，权限由服务端再次校验。
+
+### 账号管理（仅系统管理员）
+
+`account_admin.jsp` + `console/account-admin.js` + `/api/accounts/*`（`Servlet/AccountServlet.java`，数据访问在 `DB/JdbcAccountStore.java`，规则在 `security/AccountRules.java`）。
+只有 `SYSTEM_ADMIN` / `SUPER_ADMIN` / `ADMIN`（`Roles.ACCOUNT_ADMIN_ROLES`）能打开；入口在生态主页、数据大屏、人脸信息管理、人脸录入页的顶栏（“👥 账号管理”）。
+
+- **列表**：账号、姓名、角色、关联的养护员档案（姓名 / 工号 / 电话）、负责区域、人脸条数、启用状态；可搜索、按身份 / 状态筛选。不返回密码哈希。
+- **新建账号**：角色可选 系统管理员 / 绿植管理员 / 养护管理员 / 养护人员（`SUPER_ADMIN` / `ADMIN` 为历史角色，保留但不再分配）。**养护人员必须关联养护员档案**：选择一个尚未关联账号的已有档案，或“新建养护员档案”（只填姓名、电话，工号自动生成 `WH-2001` 起）；可同时勾选负责区域。
+- **启用 / 停用**：停用后不能再登录（账号密码与人脸都不行），已登录的会话立即失效。账号不提供删除（离职请停用；人脸记录在人脸信息管理里单独删除）。
+- **重置密码**：新密码至少 8 位，需同时含字母和数字；重置后该账号已登录的会话失效。
+- **改角色 / 档案**：改为养护人员时必须关联档案（沿用原档案、选择其他档案或新建）；改为管理员时解除档案关联（档案与负责区域保留）。改角色后该账号需重新登录。
+- **负责区域**（仅养护人员）：多选 `plant_area` 区域，写入 `plant_area.maintainer_id`（一个区域只有一个负责人，勾选已有负责人的区域会改由该养护员负责），养护工作台据此显示“我负责的区域”。原来在旧版“园区网格”里的区域分配改到这里。
+- **保护规则**（服务端校验，`AccountRules`，单元测试 `AccountAdminPermissionTest`）：不能停用自己、不能修改自己的角色；系统里至少保留一个启用中的系统级管理员（最后一个不能被停用或降级，在事务里加行锁检查）。所有写操作要求 `Content-Type: application/json`（挡跨站表单提交）。
+
+### 密码存储
+
+- 新密码一律存为 **PBKDF2-HMAC-SHA256 加盐哈希**（`security/PasswordHasher.java`，JDK 自带实现，12 万次迭代、16 字节随机盐，格式 `pbkdf2_sha256$迭代次数$盐$摘要`），常量时间比较。
+- 旧数据是**无盐 SHA-256**（旧 `DBTools` 与 001 / 004 脚本的 `SHA2('…', 256)`）：仍可登录，**登录成功后自动改写为 PBKDF2**；历史上若有明文行同样在登录成功后升级。`admin_user.password_hash` 首次访问时自动放宽为 `VARCHAR(255)`（同 `database/005_password_hash.sql`）。
+- 旧版 `DBTools.authenticateAdmin` 对任何账号都接受 `123456` / `System@123` 等演示默认密码的兜底**已删除**：每个账号只能用它自己保存的密码登录。
+- ⚠️ **演示账号的密码必须修改**：全新库首次启动时 `DBTools` 会创建 `admin`、`system_admin`、`plant_admin`、`maintenance_admin`（初始密码 `123456`），演示脚本 `004` 创建 `keeper_zhang`、`keeper_li`（`123456`），001 脚本里的三个账号为 `System@123` / `Plant@123` / `Maintain@123`。部署后请立即用账号管理的“重置密码”逐个改掉（或停用不用的演示账号）；否则知道用户名的人就能登录并给该账号录入自己的脸。
 
 ### 人脸识别实现
 
@@ -378,18 +414,30 @@ tools/build_lawn_ground.py                       底图生成脚本
 | GET | `/api/face/accounts` | 管理员（`AuthFilter` + Servlet 双重校验） | 人脸信息管理账号列表：账号、姓名、身份、条数、首次 / 最近录入时间、录入人、缩略图、`can_delete` / `can_enroll`；`scope` 为 `all` 或 `maintainers` |
 | GET | `/api/face/accounts/{id}/profiles` | 管理员（管理范围内） | 某账号的全部录入记录 |
 | DELETE | `/api/face/accounts/{id}/profiles` | 管理员（管理范围内） | 删除该账号的全部人脸，返回 `deleted` 条数 |
-| GET | `/api/me` | 公开 | 当前身份与能力（`can_edit_species`、`can_care`、`can_dashboard`、`can_enroll_face`、`can_manage_faces`） |
+| POST | `/api/auth/login` | 公开（限流，JSON） | `{username, password, returnUrl?}` → 200 `{ok, user, redirect}`；401 账号或密码错误 / 已停用（统一提示）；415 非 JSON；429 过于频繁 |
+| GET | `/LogoutServlet` | 公开 | 退出登录，回到人脸窗口（不自动开摄像头） |
+| GET | `/api/me` | 公开 | 当前身份与能力（`can_edit_species`、`can_care`、`can_dashboard`、`can_enroll_face`、`can_manage_faces`、`can_manage_accounts`） |
+| GET | `/api/accounts` | 系统级管理员 | 账号列表 + 可分配角色 + 养护员档案 + 区域 |
+| POST | `/api/accounts` | 系统级管理员 | 新建 `{username, display_name, password, role_code, maintainer_id? \| new_maintainer:{name, phone}, area_ids?}` |
+| POST | `/api/accounts/{id}/status` | 系统级管理员 | `{enabled: true\|false}` 启用 / 停用（不能停用自己、最后一个系统管理员） |
+| POST | `/api/accounts/{id}/password` | 系统级管理员 | `{password}` 重置密码 |
+| POST | `/api/accounts/{id}/role` | 系统级管理员 | `{role_code, maintainer_id? \| new_maintainer?}` 改角色 / 档案（不能改自己、不能降级最后一个系统管理员） |
+| POST | `/api/accounts/{id}/areas` | 系统级管理员 | `{area_ids: […]}` 养护人员负责区域 |
 | GET | `/api/care/targets` | 养护人员 | 个体与浇水 / 施肥 / 喂食状态、负责区域、待办数 |
 | POST | `/api/care/logs` | 养护人员 | `{target_type, target_id, care_type, note?}` 执行一次养护 |
 | GET | `/api/care/logs` | 养护人员 | 最近记录 |
 | GET | `/api/dashboard/stats` | 管理员 | 大屏统计 |
+| GET / POST / PUT / DELETE | `/api/zones/{zoneId}/species[/{id}]` | GET 公开；写操作管理员 / 养护员 | 生态板块动植物增删（见上文“接口与权限”） |
+| GET | `/api/weather` | 公开 | 天气代理 |
 
-未登录 401、访客 / 角色不符 403、参数错误 400、数据库不可用 **503**（只返回通用提示，JDBC 原始错误只写服务器日志）。
+未登录 401、访客 / 角色不符 403、参数错误 400、被规则拒绝（重名、最后一个系统管理员等）409、数据库不可用 **503**（只返回通用提示，JDBC 原始错误只写服务器日志）。
 
 ### 数据库
 
 - `database/003_face_login_care.sql`：`face_profile`（account_id、role_code、model、dim、embedding MEDIUMBLOB、frames、thumbnail、created_by、created_at；一人可多条）、`care_log`、`care_period`（含默认周期），`admin_user.maintainer_id` 列，`admin_role` 补 `MAINTAINER`，为 `zones.json` 的生态板块补建 `plant_area` 区域档案。与 `DB/Jdbc.java`、`DB/JdbcAccountStore.java` 一致：接口首次访问时也会 `CREATE TABLE IF NOT EXISTS` / 补列，可重复执行。
 - `database/004_demo_face_login_seed.sql`（可选，仅演示）：两个养护员账号，张师傅负责翠湖水景、图书馆·荷花池，李工负责中心草坪。
+- `database/005_password_hash.sql`：`admin_user.password_hash` 放宽为 `VARCHAR(255)` 以存放 PBKDF2 哈希（接口首次访问时也会自动执行）。
+- 全新库不需要再像旧版那样先打开某个页面来建表：任一账号 / 人脸 / 养护 / 大屏接口首次访问数据库时，`DBTools.ensureSchema()` 会建好 `plant`、`maintainer`、`plant_area`、`admin_user` 等基础表并写入样例数据。
 
 ### 部署注意：摄像头需要 HTTPS 或 localhost
 
@@ -402,11 +450,12 @@ tools/build_lawn_ground.py                       底图生成脚本
 
 ### 测试
 
-见 `tests/face-login/README.md`：`api_test.py`（后端接口与权限，跑 MariaDB + Tomcat）、`e2e_face.py`（Playwright + Chromium `--use-fake-device-for-media-stream --use-file-for-fake-video-capture` 喂人脸测试视频）；单元测试 `./mvnw -Dtest='FaceMatcherTest,CareScheduleTest,RolesTest,ZoneSpeciesServiceTest,FacePermissionTest' test`（`FacePermissionTest` 覆盖人脸删除 / 录入的权限规则与 `AuthFilter` 对 `face_admin.jsp`、`/api/face/accounts*` 的拦截）。测试人脸图来自 human 仓库自带样例（`tests/face-login/samples/SOURCE.md`）。
+见 `tests/face-login/README.md`：`api_test.py`（后端接口与权限，跑 MariaDB + Tomcat）、`e2e_face.py`（Playwright + Chromium `--use-fake-device-for-media-stream --use-file-for-fake-video-capture` 喂人脸测试视频）；单元测试 `./mvnw -Dtest='FaceMatcherTest,CareScheduleTest,RolesTest,ZoneSpeciesServiceTest,FacePermissionTest,PasswordHasherTest,AccountAdminPermissionTest' test`（`FacePermissionTest` 覆盖人脸删除 / 录入的权限规则；`PasswordHasherTest` 覆盖 PBKDF2、旧 SHA-256 兼容与升级、无通用密码；`AccountAdminPermissionTest` 覆盖账号管理规则与登录 `returnUrl` 校验）。`MyBatisTest` 只检查 MyBatis 配置，不需要数据库。测试人脸图来自 human 仓库自带样例（`tests/face-login/samples/SOURCE.md`）。
 
 ### 已知限制
 
 - 活体 / 防翻拍为基础防护（见上），不能替代专业活体检测；识别阈值是用少量样例估计的，正式使用前建议用本校真实人员、真实摄像头再标定一次 `face.threshold`。
-- 原有 `DBTools.authenticateAdmin` 对任何账号都同时接受 `123456` 与演示默认密码（原有逻辑，本次未改）；而人脸录入的身份证明依赖账号密码登录，**正式上线前应去掉这条兜底并修改所有演示账号密码**，否则知道用户名的人就能登录并给该账号录入自己的脸。
+- 演示账号仍是公开的初始密码（见“密码存储”），**正式上线前必须修改**；人脸录入的身份证明依赖账号密码登录。
+- 停用 / 改角色 / 重置密码后让已登录会话失效的记录保存在内存里（单机部署有效）；多实例部署需要共享会话或改为每次请求查库。
 - 生态板块里未改动过的“场景原有装饰个体”不在数据库中，工作台和大屏只统计 `zone_species` 里登记的个体，以及 `plant` / `animal` 档案。
-- 全新库里若先由 DBTools 建表、后执行 001 脚本，表的排序规则会不一致，原有的 `countUnassignedPlants` 查询可能报 “Illegal mix of collations”（与本功能无关；`tests/face-login/setup_test_db.py` 里有统一排序规则的做法）；本次新增的跨表查询已显式写 `COLLATE`。
+- 全新库里若先由 DBTools 建表、后执行 001 脚本，表的排序规则会不一致（`tests/face-login/setup_test_db.py` 里有统一排序规则的做法）；新增的跨表查询已显式写 `COLLATE`。

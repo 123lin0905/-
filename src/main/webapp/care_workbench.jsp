@@ -21,7 +21,6 @@
     <a class="ec-btn ec-btn-sm" href="<%= ctx %>/ecohome.jsp">🌿 生态主页</a>
     <a class="ec-btn ec-btn-sm" href="<%= ctx %>/face_enroll.jsp">🙂 人脸录入</a>
     <% if (me != null && Roles.canManageFaces(me.getRoleCode())) { %><a class="ec-btn ec-btn-sm" id="nav-face-admin" href="<%= ctx %>/face_admin.jsp">🗂 人脸信息管理</a><% } %>
-    <a class="ec-btn ec-btn-sm" href="<%= ctx %>/index.jsp">管理系统</a>
     <span class="ec-user" id="cw-user">👤 <%= name %>（养护人员）</span>
     <a class="ec-btn ec-btn-sm" href="<%= ctx %>/LogoutServlet">退出</a>
   </nav>

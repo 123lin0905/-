@@ -23,7 +23,7 @@
   <nav>
     <a class="ec-btn ec-btn-sm" href="<%= ctx %>/ecohome.jsp">🌿 生态主页</a>
     <% if (Roles.canViewDashboard(me.getRoleCode())) { %><a class="ec-btn ec-btn-sm" id="nav-dashboard" href="<%= ctx %>/data_screen.jsp">📊 数据大屏</a><% } %>
-    <a class="ec-btn ec-btn-sm" href="<%= ctx %>/index.jsp">管理系统</a>
+    <% if (Roles.canManageAccounts(me.getRoleCode())) { %><a class="ec-btn ec-btn-sm" id="nav-account-admin" href="<%= ctx %>/account_admin.jsp">👥 账号管理</a><% } %>
     <a class="ec-btn ec-btn-sm" id="nav-face-enroll" href="<%= ctx %>/face_enroll.jsp">🙂 人脸录入</a>
     <span class="ec-user">👤 <%= name %>（管理员）</span>
     <a class="ec-btn ec-btn-sm" href="<%= ctx %>/LogoutServlet">退出</a>

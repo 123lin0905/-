@@ -61,7 +61,7 @@
     }
     const list = $("cw-list");
     if (!items.length) {
-      list.innerHTML = '<div class="cw-empty ec-glass">' + (data.items.length ? "没有符合筛选条件的养护对象 🎉" : "还没有养护对象：可在生态板块里新增动植物，或在管理系统里录入绿植 / 动物档案。") + "</div>";
+      list.innerHTML = '<div class="cw-empty ec-glass">' + (data.items.length ? "没有符合筛选条件的养护对象 🎉" : "还没有养护对象：可在生态主页进入各生态板块，用“✏️ 管理动植物”新增。") + "</div>";
       return;
     }
     list.innerHTML = Array.from(groups.values()).map((g) =>

@@ -27,7 +27,7 @@ import java.util.regex.Pattern;
  * 人脸登录接口 /api/face/*（比对全部在服务端完成，特征向量从不下发到前端）：
  * <pre>
  * GET    /api/face/status                    公开：系统里是否已有人脸录入（只返回是否）
- * POST   /api/face/identify                  公开：{embedding:[…], real, live} → 识别成功则建立该账号的会话（养护员 → 工作台，管理员 → 管理页）
+ * POST   /api/face/identify                  公开：{embedding:[…], real, live} → 识别成功则建立该账号的会话（养护员 → 工作台，管理员 → 数据大屏）
  * POST   /api/face/guest                     公开：以访客身份进入（只读）
  * GET    /api/face/profiles[?account_id=]    登录：本人的录入记录；管理员可看其管理范围内的账号
  * POST   /api/face/enroll                    登录：{account_id?, embeddings:[[…]×3–5], real, live, thumbnail?} 多帧取平均后追加保存

@@ -2,8 +2,8 @@
  * 人脸识别窗口（face_login.jsp）：
  *   1. GET /api/face/status：系统里还没有任何人脸 → 提示“请先进行人脸录入”，提供“先不录入人脸”（访客）与“账号密码登录后录入”；
  *   2. 有人脸 → 打开摄像头，连续取 3 帧合格人脸，特征平均后连同 antispoof / liveness 分数 POST /api/face/identify；
- *   3. 服务端比对成功即建立会话并返回跳转地址（养护员 → 养护工作台，管理员 → 管理页）；失败可重试或以访客进入；
- *   账号密码登录始终保留为备用入口。
+ *   3. 服务端比对成功即建立会话并返回跳转地址（养护员 → 养护工作台，管理员 → 数据大屏）；失败可重试或以访客进入；
+ *   同一窗口里的“账号密码登录”页签见 password-login.js；切到该页签时（fl:mode 事件）关闭摄像头，切回时重新识别。
  */
 import { loadHuman, startCamera, stopCamera, analyze, averageEmbedding, mean, cameraProblem, api, sleep } from './face-core.js';
 
@@ -12,6 +12,8 @@ const $ = (id) => document.getElementById(id);
 const video = $('fl-video'), cam = $('fl-cam'), stateEl = $('face-state'), card = $('face-login');
 const FRAMES = 3, TIMEOUT_MS = 25000;
 let running = false;
+let enrolled = null;   // null：状态未知（接口失败）；true / false：系统里是否已有人脸
+const passwordMode = () => card.dataset.mode === 'password';
 
 function setState(text, cls, camState) {
   stateEl.textContent = text;
@@ -42,7 +44,7 @@ function fail(text) {
 }
 
 async function recognize() {
-  if (running) return;
+  if (running || passwordMode()) return;
   running = true;
   show('btn-retry', false); show('btn-start', false);
   $('fl-icon').hidden = true;
@@ -51,7 +53,8 @@ async function recognize() {
   try {
     step('model'); setState('正在加载人脸识别模型…', null, 'scanning');
     await Promise.all([loadHuman((m) => setState(m, null, 'scanning')), startCamera(video)]);
-  } catch (e) { console.warn(e); fail(e.message || String(e)); return; }
+  } catch (e) { console.warn(e); if (running) fail(e.message || String(e)); else stopCamera(video); return; }
+  if (!running) { stopCamera(video); return; }   // 加载期间切到了账号密码登录
 
   step('detect'); setState('请正对摄像头，保持 1–2 秒…', null, 'scanning');
   const t0 = performance.now();
@@ -94,6 +97,15 @@ function noFaces() {
 }
 
 $('btn-guest').addEventListener('click', () => { running = false; stopCamera(video); enterGuest(); });
+$('btn-enroll-first').addEventListener('click', () => { if (window.FacePw) window.FacePw.open('/face_enroll.jsp'); });
+document.addEventListener('fl:mode', (ev) => {
+  if (ev.detail && ev.detail.mode === 'password') {
+    if (running) { running = false; stopCamera(video); setState('已切换到账号密码登录。', null, 'idle'); $('fl-icon').hidden = false; show('btn-start', enrolled === true); }
+    return;
+  }
+  // 切回人脸识别：已有人脸录入时直接开始识别
+  if (enrolled === true && !running) recognize();
+});
 $('btn-retry').addEventListener('click', () => recognize());
 $('btn-start').addEventListener('click', () => recognize());
 
@@ -105,10 +117,11 @@ $('btn-start').addEventListener('click', () => recognize());
     card.dataset.state = 'error';
     return;
   }
+  enrolled = !!st.enrolled;
   if (!st.enrolled) { noFaces(); return; }
   $('btn-guest').textContent = '以访客身份进入';
-  if (window.FACE_CTX && window.FACE_CTX.autoStart === false) {
-    setState('您已退出登录。点击“开始人脸识别”重新登录，或以访客身份浏览。', null, 'idle');
+  if (passwordMode() || (window.FACE_CTX && window.FACE_CTX.autoStart === false)) {
+    setState(passwordMode() ? '点击“开始人脸识别”刷脸登录。' : '您已退出登录。点击“开始人脸识别”重新登录，或以访客身份浏览。', null, 'idle');
     show('btn-start', true);
     card.dataset.state = 'ready';
     return;

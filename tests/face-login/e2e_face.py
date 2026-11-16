@@ -7,7 +7,7 @@ Chromium 启动参数 --use-fake-device-for-media-stream --use-file-for-fake-vid
     personA.y4m  —— 人物 A（person-vlado*.jpg，3 张不同照片），录入为管理员 admin
     personB.y4m  —— 人物 B（ai-face.jpg），养护员 keeper_zhang 本人登录后录入
     stranger.y4m —— 陌生人（person-lexi.jpg、person-celeste.jpg），从未录入
-验证：无人脸时提示录入 +“先不录入”进入访客只读；录入 A / B；A 刷脸进入管理员且只有管理员看到大屏入口；B 刷脸进入养护员、
+验证：无人脸时提示录入 +“先不录入”进入访客只读；同一窗口切换“账号密码登录”；录入 A / B；A 刷脸进入管理员且只有管理员看到大屏入口；B 刷脸进入养护员、
 看到工作台、能浇水 / 喂食且数据库有记录；陌生人识别失败；全程无未捕获 JS 异常；人脸相关页面不请求任何外部域名。
 用法：python3 tests/face-login/e2e_face.py --media <y4m 目录> --out <截图目录> [--base http://localhost:8080/demo1]
 注意：会清空 face_profile、care_log（只能对测试库执行）；需先跑过 api_test.py（建好翠湖的垂柳 / 锦鲤测试个体）或手动建好。
@@ -53,7 +53,7 @@ def shot(page, name):
     print("    📸", path, flush=True)
 
 
-FACE_PAGES = ("face_login.jsp", "face_enroll.jsp", "care_workbench.jsp", "data_screen.jsp")
+FACE_PAGES = ("face_login.jsp", "face_enroll.jsp", "care_workbench.jsp", "data_screen.jsp", "account_admin.jsp", "face_admin.jsp")
 
 
 def watch(page, tag):
@@ -83,11 +83,14 @@ def new_page(br, tag):
     return ctx, pg
 
 
-def password_login(pg, user):
-    pg.goto(BASE + "/login.jsp")
-    pg.fill("#username", user)
-    pg.fill("#password", "123456")
-    pg.click("button[type=submit]")
+def password_login(pg, user, pwd="123456"):
+    """人脸识别窗口里的“账号密码登录”页签（POST /api/auth/login）。"""
+    pg.goto(BASE + "/face_login.jsp?switch=1&mode=password")
+    pg.wait_for_selector("#pw-username", state="visible")
+    pg.fill("#pw-username", user)
+    pg.fill("#pw-password", pwd)
+    pg.click("#pw-submit")
+    pg.wait_for_url(lambda u: "face_login.jsp" not in u, timeout=30000)   # 成功后跳到 data_screen.jsp / care_workbench.jsp
     pg.wait_for_load_state("load")
 
 
@@ -102,7 +105,7 @@ def enroll_self(pg, tag):
 
 
 def nav_ids(pg):
-    return pg.evaluate("() => ['nav-dashboard','nav-workbench','nav-face-enroll','nav-face-login'].filter(id => document.getElementById(id))")
+    return pg.evaluate("() => ['nav-dashboard','nav-workbench','nav-face-enroll','nav-face-admin','nav-account-admin','nav-face-login'].filter(id => document.getElementById(id))")
 
 
 print("== 准备：清空人脸与养护记录 ==", flush=True)
@@ -124,8 +127,16 @@ with sync_playwright() as p:
     check("打开系统先出现人脸识别窗口（根路径即 face_login.jsp）", "face_login.jsp" in pg.url or pg.locator("#face-login").count() == 1, pg.url)
     check("提示“请先进行人脸录入”", pg.is_visible("#no-face-tip") and "请先进行人脸录入" in pg.inner_text("#no-face-tip"))
     check("有“先不录入人脸”按钮", pg.inner_text("#btn-guest").strip() == "先不录入人脸", pg.inner_text("#btn-guest"))
-    check("保留账号密码登录入口", pg.is_visible("#btn-password"))
+    check("同一窗口有“账号密码登录”页签", pg.is_visible("#tab-password"))
     shot(pg, "01_no_faces_prompt")
+    pg.click("#tab-password")
+    check("切到账号密码登录：显示账号 / 密码表单、隐藏摄像头", pg.is_visible("#pw-username") and pg.is_visible("#pw-password") and not pg.is_visible("#fl-cam"))
+    pg.fill("#pw-username", "admin"); pg.fill("#pw-password", "wrong-password-1")
+    pg.click("#pw-submit")
+    pg.wait_for_function("() => window.__pwResult !== undefined", timeout=30000)
+    check("密码错误时在窗口内提示、不跳转", pg.evaluate("window.__pwResult.ok") is False and pg.locator("#pw-form").count() == 1 and "错误" in pg.inner_text("#pw-state"), pg.inner_text("#pw-state"))
+    shot(pg, "01b_password_login_error")
+    pg.click("#tab-face")
     pg.click("#btn-guest")
     pg.wait_for_url("**/ecohome.jsp", timeout=20000)
     pg.wait_for_selector("#eco-actions")
@@ -134,10 +145,9 @@ with sync_playwright() as p:
     check("访客身份标识为“访客（只读）”", "访客（只读）" in pg.inner_text("#eco-actions"), pg.inner_text("#eco-actions"))
     pg.wait_for_timeout(6000)
     shot(pg, "02_visitor_ecohome")
-    pg.goto(BASE + "/index.jsp")
-    ids = nav_ids(pg)
-    check("访客在管理系统首页看不到大屏 / 工作台 / 人脸录入入口", ids == ["nav-face-login"], ids)
-    for path in ["/data_screen.jsp", "/care_workbench.jsp", "/face_enroll.jsp"]:
+    r = pg.goto(BASE + "/index.jsp")
+    check("旧版管理系统首页 index.jsp 已删除（404）", r.status == 404, r.status)
+    for path in ["/data_screen.jsp", "/care_workbench.jsp", "/face_enroll.jsp", "/account_admin.jsp"]:
         r = pg.goto(BASE + path)
         check(f"访客直接访问 {path} 被服务端拦截 403", r.status == 403, r.status)
     shot(pg, "03_visitor_403")
@@ -155,9 +165,13 @@ with sync_playwright() as p:
     br = browser(p, "personA.y4m")
     ctx, pg = new_page(br, "录入A")
     password_login(pg, "admin")
+    check("管理员账号密码登录后进入数据大屏", pg.url.endswith("/data_screen.jsp"), pg.url)
     ids = nav_ids(pg)
-    check("管理员登录后首页有大屏 + 人脸录入入口、无工作台", ids == ["nav-dashboard", "nav-face-enroll"], ids)
-    check("管理员登录后首页有“人脸信息管理”入口", pg.locator("#nav-face-admin").count() == 1)
+    check("数据大屏顶栏有“人脸信息管理”“账号管理”入口、无工作台", "nav-face-admin" in ids and "nav-account-admin" in ids and "nav-workbench" not in ids, ids)
+    pg.goto(BASE + "/account_admin.jsp")
+    pg.wait_for_selector("#aa-rows tr[data-id]")
+    check("账号管理列出 admin / keeper_zhang", "keeper_zhang" in pg.inner_text("#aa-rows") and "admin" in pg.inner_text("#aa-rows"))
+    shot(pg, "04a_account_admin")
     r = enroll_self(pg, "04_enroll_A_admin")
     check("管理员录入人脸 A 成功（多帧平均）", r and r.get("ok") and r.get("frames", 0) >= 3, r)
     opts = pg.evaluate("() => Array.from(document.querySelectorAll('#target-select option')).map(o => o.textContent)")
@@ -169,8 +183,11 @@ with sync_playwright() as p:
     br = browser(p, "personB.y4m")
     ctx, pg = new_page(br, "录入B")
     password_login(pg, "keeper_zhang")
+    check("养护员账号密码登录后进入养护工作台", pg.url.endswith("/care_workbench.jsp"), pg.url)
+    pg.goto(BASE + "/ecohome.jsp")
+    pg.wait_for_selector("#eco-actions a")
     ids = nav_ids(pg)
-    check("养护员登录后首页有工作台 + 人脸录入入口、无大屏", ids == ["nav-workbench", "nav-face-enroll"], ids)
+    check("生态主页：养护员有工作台 + 人脸录入入口、无大屏 / 账号管理", ids == ["nav-workbench", "nav-face-enroll"], ids)
     r = enroll_self(pg, "05_enroll_B_maintainer")
     check("养护员录入人脸 B 成功", r and r.get("ok") and r.get("frames", 0) >= 3, r)
     check("养护员页面没有“录入给其他账号”的选项", pg.evaluate("document.querySelectorAll('#target-select option').length") == 1)
@@ -189,8 +206,8 @@ with sync_playwright() as p:
     r = pg.evaluate("window.__faceResult")
     check("A 识别为管理员 admin", r.get("ok") and r["user"]["username"] == "admin", r)
     shot(pg, "06_A_recognized")
-    pg.wait_for_url("**/AdminDashboardServlet", timeout=20000)
-    check("管理员刷脸后进入管理页（系统后台）", "AdminDashboardServlet" in pg.url, pg.url)
+    pg.wait_for_url("**/data_screen.jsp", timeout=20000)
+    check("管理员刷脸后进入数据大屏", "data_screen.jsp" in pg.url, pg.url)
     pg.goto(BASE + "/ecohome.jsp")
     pg.wait_for_selector("#eco-actions a")
     ids = nav_ids(pg)
@@ -265,7 +282,7 @@ with sync_playwright() as p:
     pg.wait_for_function("() => window.__faceResult !== undefined", timeout=90000, polling=300)
     r = pg.evaluate("window.__faceResult")
     check("陌生人识别失败（401 not_recognized）", r.get("ok") is False and r.get("status") == 401, r)
-    check("失败后可重试 / 以访客进入 / 账号密码登录", pg.is_visible("#btn-retry") and pg.is_visible("#btn-guest") and pg.is_visible("#btn-password"))
+    check("失败后可重试 / 以访客进入 / 账号密码登录", pg.is_visible("#btn-retry") and pg.is_visible("#btn-guest") and pg.is_visible("#tab-password"))
     shot(pg, "13_stranger_rejected")
     me = pg.evaluate("fetch('%s/api/me').then(r => r.json())" % BASE)
     check("陌生人没有获得任何账号会话", me["user"]["group"] == "anonymous", me)
@@ -274,15 +291,12 @@ with sync_playwright() as p:
     check("陌生人可以以访客身份进入", "ecohome.jsp" in pg.url)
     ctx.close(); br.close()
 
-benign = [e for e in CONSOLE_ERRORS if "status of 403" in e or "status of 401" in e]
-# 原有页面 index.jsp / admin.jsp（AdminDashboardServlet）引用 Google Fonts 与 cdnjs 上的 ECharts，测试环境外网被代理拒绝（407），与本功能无关
-legacy_cdn = [e for e in CONSOLE_ERRORS if "status of 407" in e and ("/index.jsp" in e or "/AdminDashboardServlet" in e)]
-other_console = [e for e in CONSOLE_ERRORS if e not in benign and e not in legacy_cdn]
+benign = [e for e in CONSOLE_ERRORS if "status of 403" in e or "status of 401" in e or "status of 404" in e]
+other_console = [e for e in CONSOLE_ERRORS if e not in benign]
 check("全程没有未捕获的 JS 异常（pageerror）", not JS_ERRORS, JS_ERRORS)
 check("没有其他 console.error（预期的 401 / 403 资源报错除外）", not other_console, other_console)
 check("人脸 / 工作台 / 大屏页面没有请求任何外部域名（模型与库全部本地）", not EXTERNAL, EXTERNAL)
-print("\n原有页面外部 CDN 请求被测试环境代理拒绝（与本功能无关）：", len(legacy_cdn))
-print("预期内的 401 / 403 控制台报错：", len(benign))
+print("预期内的 401 / 403 / 404 控制台报错：", len(benign))
 for e in benign: print("   ", e)
 print(f"\n通过 {len(PASS)} 项，失败 {len(FAIL)} 项")
 if FAIL: print("失败：\n  " + "\n  ".join(FAIL))

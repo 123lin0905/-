@@ -22,7 +22,7 @@
   function api(method, url) {
     return fetch(CTX + url, { method: method, credentials: "same-origin", headers: { Accept: "application/json" } }).then(function (r) {
       return r.json().catch(function () { return null; }).then(function (j) {
-        if (r.status === 401) { location.href = CTX + "/login.jsp?returnUrl=" + encodeURIComponent("/face_admin.jsp"); throw new Error("请先登录"); }
+        if (r.status === 401) { location.href = CTX + "/face_login.jsp?switch=1&mode=password&returnUrl=" + encodeURIComponent("/face_admin.jsp"); throw new Error("请先登录"); }
         if (!r.ok) { var e = new Error((j && j.message) || ("请求失败 " + r.status)); e.status = r.status; throw e; }
         return j;
       });

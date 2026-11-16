@@ -36,8 +36,11 @@ class RolesTest {
     @Test
     void homePages() {
         assertEquals("/care_workbench.jsp", Roles.homeFor(new AdminUser(1, "k", "n", "MAINTAINER")));
-        assertEquals("/AdminDashboardServlet", Roles.homeFor(new AdminUser(1, "a", "n", "SYSTEM_ADMIN")));
-        assertEquals("/index.jsp", Roles.homeFor(new AdminUser(1, "p", "n", "PLANT_ADMIN")));
+        // 旧版管理系统已删除：所有管理员角色登录后都进数据大屏
+        for (String r : new String[]{"SYSTEM_ADMIN", "SUPER_ADMIN", "ADMIN", "PLANT_ADMIN", "MAINTENANCE_ADMIN"}) {
+            assertEquals("/data_screen.jsp", Roles.homeFor(new AdminUser(1, "a", "n", r)), r);
+        }
+        assertEquals("/ecohome.jsp", Roles.homeFor(new AdminUser(1, "x", "n", "GUEST")));
         assertEquals("/ecohome.jsp", Roles.homeFor(null));
     }
 }

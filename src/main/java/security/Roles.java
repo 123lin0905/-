@@ -12,11 +12,13 @@ import java.util.Set;
 /**
  * 三类身份（管理员 / 养护人员 / 普通用户·访客）与现有角色常量的映射，集中在这里，页面和接口都从这里判断。
  * <pre>
- * 管理员   ADMIN_ROLES      = SYSTEM_ADMIN、SUPER_ADMIN、ADMIN、PLANT_ADMIN、MAINTENANCE_ADMIN（现有后台角色，细分权限仍由 AuthFilter 原规则控制）
+ * 管理员   ADMIN_ROLES      = SYSTEM_ADMIN、SUPER_ADMIN、ADMIN、PLANT_ADMIN、MAINTENANCE_ADMIN（数据大屏、人脸信息管理）
+ *          ACCOUNT_ADMIN_ROLES = SYSTEM_ADMIN、SUPER_ADMIN、ADMIN（另可进入“账号管理”，规则见 {@link AccountRules}）
  * 养护人员 MAINTAINER       = MAINTAINER（admin_user.role_code，admin_user.maintainer_id 关联 maintainer 表档案）
  * 访客     未登录，或在人脸识别窗口点“先不录入人脸 / 以访客进入”（会话属性 visitor=true），只读
  * </pre>
- * 会话属性：adminUser（{@link AdminUser}，沿用原登录）、visitor（Boolean）、loginMethod（password / face）。
+ * 会话属性：adminUser（{@link AdminUser}）、visitor（Boolean）、loginMethod（password / face / visitor）、signedInAt（登录时间，毫秒）。
+ * 账号被停用、改角色或重置密码后，{@link #revokeSessions} 让该账号在此之前建立的会话全部失效（下次请求视为未登录）。
  */
 public final class Roles {
     private Roles() {
@@ -26,6 +28,10 @@ public final class Roles {
     public static final String SESSION_USER = "adminUser";
     public static final String SESSION_VISITOR = "visitor";
     public static final String SESSION_LOGIN_METHOD = "loginMethod";
+    public static final String SESSION_SIGNED_IN_AT = "signedInAt";
+
+    /** 账号 id → 会话失效时间：早于该时间登录的会话一律视为已退出（单机内存即可，重启后旧会话本来也不存在）。 */
+    private static final java.util.Map<Integer, Long> REVOKED = new java.util.concurrent.ConcurrentHashMap<>();
 
     /** 管理员身份：可打开数据大屏、人脸信息管理（可管理范围见 canManageFaceOf）。 */
     public static final Set<String> ADMIN_ROLES = Collections.unmodifiableSet(new HashSet<>(Arrays.asList(
@@ -52,6 +58,12 @@ public final class Roles {
      */
     public static final Set<String> FACE_SUPER_ROLES = Collections.unmodifiableSet(new HashSet<>(Arrays.asList(
             "SYSTEM_ADMIN", "SUPER_ADMIN", "ADMIN")));
+
+    /** 系统级管理员：可进入“账号管理”（新建账号、启用 / 停用、重置密码、改角色、分配负责区域）。 */
+    public static final Set<String> ACCOUNT_ADMIN_ROLES = Collections.unmodifiableSet(new HashSet<>(Arrays.asList(
+            "SYSTEM_ADMIN", "SUPER_ADMIN", "ADMIN")));
+
+    public static boolean canManageAccounts(String role) { return role != null && ACCOUNT_ADMIN_ROLES.contains(role); }
 
     public static boolean isAdmin(String role) { return role != null && ADMIN_ROLES.contains(role); }
 
@@ -135,7 +147,26 @@ public final class Roles {
     public static AdminUser currentUser(HttpServletRequest request) {
         HttpSession s = request.getSession(false);
         Object v = s == null ? null : s.getAttribute(SESSION_USER);
-        return v instanceof AdminUser ? (AdminUser) v : null;
+        if (!(v instanceof AdminUser)) return null;
+        AdminUser u = (AdminUser) v;
+        Long revokedAt = REVOKED.get(u.getId());
+        if (revokedAt != null) {
+            Object at = s.getAttribute(SESSION_SIGNED_IN_AT);
+            long signedInAt = at instanceof Long ? (Long) at : 0L;
+            if (signedInAt <= revokedAt) {
+                // 账号已被管理员停用 / 改角色 / 重置密码：本会话作废（回到未登录）
+                s.removeAttribute(SESSION_USER);
+                s.removeAttribute(SESSION_SIGNED_IN_AT);
+                s.removeAttribute(SESSION_LOGIN_METHOD);
+                return null;
+            }
+        }
+        return u;
+    }
+
+    /** 让该账号此前建立的所有会话失效（账号管理里停用、改角色、重置密码后调用）。 */
+    public static void revokeSessions(int accountId) {
+        REVOKED.put(accountId, System.currentTimeMillis());
     }
 
     public static boolean isVisitor(HttpServletRequest request) {
@@ -153,6 +184,10 @@ public final class Roles {
         s.removeAttribute(SESSION_VISITOR);
         s.setAttribute(SESSION_USER, user);
         s.setAttribute(SESSION_LOGIN_METHOD, method);
+        long now = System.currentTimeMillis();
+        Long revokedAt = REVOKED.get(user.getId());
+        // 与 revokeSessions 同一毫秒内重新登录时也要晚于失效时间
+        s.setAttribute(SESSION_SIGNED_IN_AT, revokedAt != null && now <= revokedAt ? revokedAt + 1 : now);
     }
 
     /** 以访客身份进入：只读，不能改动任何东西。 */
@@ -163,12 +198,28 @@ public final class Roles {
         s.setAttribute(SESSION_LOGIN_METHOD, "visitor");
     }
 
-    /** 各身份登录后的默认落地页（相对 context path）。 */
+    /** 各身份登录后的默认落地页（相对 context path）：管理员（含绿植 / 养护管理员）→ 数据大屏，养护人员 → 养护工作台，其他 → 生态主页。 */
     public static String homeFor(AdminUser user) {
-        if (user == null) return "/ecohome.jsp";
-        String r = user.getRoleCode();
-        if (isMaintainer(r)) return "/care_workbench.jsp";
-        if ("SYSTEM_ADMIN".equals(r) || "SUPER_ADMIN".equals(r) || "ADMIN".equals(r)) return "/AdminDashboardServlet";
-        return "/index.jsp";
+        return homeForRole(user == null ? null : user.getRoleCode());
+    }
+
+    public static String homeForRole(String role) {
+        if (isMaintainer(role)) return "/care_workbench.jsp";
+        if (isAdmin(role)) return "/data_screen.jsp";
+        return "/ecohome.jsp";
+    }
+
+    /** 角色中文名（账号管理、提示语用）。 */
+    public static String roleLabel(String role) {
+        if (role == null) return "未知";
+        switch (role) {
+            case "SYSTEM_ADMIN": return "系统管理员";
+            case "SUPER_ADMIN": return "超级管理员";
+            case "ADMIN": return "管理员";
+            case "PLANT_ADMIN": return "绿植管理员";
+            case "MAINTENANCE_ADMIN": return "养护管理员";
+            case MAINTAINER: return "养护人员";
+            default: return role;
+        }
     }
 }

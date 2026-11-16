@@ -36,7 +36,7 @@ body { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans SC", system-ui,
 .eco-actions { margin-left: auto; display: flex; gap: 8px; align-items: center; }   /* 天气卡已移到右下角，顶栏右侧不再为它预留位置 */
 .eco-user { color: #fff; background: rgba(8, 40, 26, 0.5); padding: 8px 12px; border-radius: 999px; font-size: 13px; white-space: nowrap; }
 
-/* 天气卡片（右下角）：原在右上角会压住画质切换 / 进入管理系统 / 人脸登录等按钮，现移到右下角。
+/* 天气卡片（右下角）：原在右上角会压住画质切换 / 人脸登录等按钮，现移到右下角。
    底部中间是工具栏（巡游 / ⚙️），左下是小地图与帧率 HUD，右侧详情面板的高度已为它让出底部空间（见 .eco-panel）。
    紧凑两列布局：左列图标 + 温度，右列天气 + 风速，底行数据来源；高度约 85–100px（--eco-wx-h 按最大值预留）。 */
 :root { --eco-wx-h: 104px; --eco-wx-bottom: 30px; }   /* --eco-wx-h 为默认预留值，运行时由 ecohome.js 按天气卡实际高度覆盖 */

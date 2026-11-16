@@ -1,22 +1,8 @@
 package org.example.demo1.mapper;
 
-import org.apache.ibatis.annotations.Param;
 import org.example.demo1.PlantMaintenance;
 
-import java.util.List;
-
+/** 原养护台账 plant_maintenance：养护工作台给绿植记养护时同步写一条，便于与历史台账衔接。 */
 public interface PlantMaintenanceMapper {
     int insertMaintenance(PlantMaintenance maintenance);
-
-    List<PlantMaintenance> selectAllMaintenance(@Param("keyword") String keyword, @Param("mtype") String mtype);
-
-    int deleteMaintenance(@Param("mid") int mid);
-
-    List<PlantMaintenance> selectAllOrderAsc();
-
-    int countTodayMaintenance(@Param("todayPrefix") String todayPrefix);
-
-    List<PlantMaintenance> selectMaintenanceByPid(@Param("pid") String pid);
-
-    List<PlantMaintenance> selectRecentMaintenance(@Param("limit") int limit);
 }

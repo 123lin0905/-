@@ -29,6 +29,7 @@
     <% if (Roles.canViewDashboard(me.getRoleCode())) { %><a class="ec-btn ec-btn-sm" id="nav-dashboard" href="<%= ctx %>/data_screen.jsp">📊 数据大屏</a><% } %>
     <% if (Roles.canCare(me.getRoleCode())) { %><a class="ec-btn ec-btn-sm" id="nav-workbench" href="<%= ctx %>/care_workbench.jsp">🧑‍🌾 养护工作台</a><% } %>
     <% if (Roles.canManageFaces(me.getRoleCode())) { %><a class="ec-btn ec-btn-sm" id="nav-face-admin" href="<%= ctx %>/face_admin.jsp">🗂 人脸信息管理</a><% } %>
+    <% if (Roles.canManageAccounts(me.getRoleCode())) { %><a class="ec-btn ec-btn-sm" id="nav-account-admin" href="<%= ctx %>/account_admin.jsp">👥 账号管理</a><% } %>
     <a class="ec-btn ec-btn-sm" href="<%= ctx + back %>">返回</a>
     <span class="ec-user">👤 <%= name %>（<%= Roles.groupLabel(Roles.group(me, false)) %>）</span>
     <a class="ec-btn ec-btn-sm" href="<%= ctx %>/LogoutServlet">退出</a>

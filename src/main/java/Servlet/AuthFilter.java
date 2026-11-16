@@ -14,10 +14,19 @@ import security.Roles;
 import java.io.IOException;
 import java.util.Set;
 
+/**
+ * 全站访问控制（系统只保留三维生态 + 人脸登录这一套页面）：
+ * <ul>
+ *   <li>公开：人脸识别窗口 face_login.jsp（含账号密码登录）、生态主页 ecohome.jsp、/campus3d/ 静态资源与各生态板块场景、
+ *       /face/ 前端资源、/api/me、/api/face/*（具体权限由 FaceServlet 再校验）、/api/auth/login、/api/weather、/api/zones 的 GET；</li>
+ *   <li>按身份：见 {@link #roleGate}（数据大屏、养护工作台、人脸录入、人脸信息管理、账号管理）；</li>
+ *   <li>/api/zones 的增删改：管理员或养护员（{@link ZoneSpeciesService#canEdit}）。</li>
+ * </ul>
+ * 未登录访问按身份页面 → 跳到 face_login.jsp?switch=1&amp;mode=password&amp;returnUrl=…（直接打开账号密码登录）；接口返回 JSON 401。
+ * 访客或角色不符 → 403（页面为 403 提示页，接口为 JSON）。
+ */
 @WebFilter(filterName = "AuthFilter", urlPatterns = "/*")
 public class AuthFilter implements Filter {
-    private static final String AUTHENTICATED = "AUTHENTICATED";
-
     @Override
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
             throws IOException, ServletException {
@@ -29,7 +38,7 @@ public class AuthFilter implements Filter {
         // 未登录：接口 401 / 页面跳登录；访客或角色不符：403。入口按身份在导航中显示，这里保证直接访问 URL 也被拦截。
         Set<String> gate = roleGate(path);
         if (gate != null) {
-            AdminUser gateUser = getCurrentUser(httpRequest);
+            AdminUser gateUser = Roles.currentUser(httpRequest);
             boolean api = path.startsWith("/api/");
             if (gateUser != null && gate.contains(gateUser.getRoleCode())) {
                 chain.doFilter(request, response);
@@ -39,7 +48,7 @@ public class AuthFilter implements Filter {
                 if (api) {
                     writeJson(httpResponse, HttpServletResponse.SC_UNAUTHORIZED, "{\"error\":\"login_required\",\"message\":\"请先登录\"}");
                 } else {
-                    httpResponse.sendRedirect(httpRequest.getContextPath() + "/login.jsp?returnUrl=" + java.net.URLEncoder.encode(path, "UTF-8"));
+                    httpResponse.sendRedirect(loginUrl(httpRequest, path));
                 }
                 return;
             }
@@ -58,7 +67,7 @@ public class AuthFilter implements Filter {
         if (path.startsWith("/api/zones/")) {
             String method = httpRequest.getMethod();
             if (!"GET".equals(method) && !"HEAD".equals(method) && !"OPTIONS".equals(method)) {
-                AdminUser zoneUser = getCurrentUser(httpRequest);
+                AdminUser zoneUser = Roles.currentUser(httpRequest);
                 if (zoneUser == null || !ZoneSpeciesService.canEdit(zoneUser.getRoleCode())) {
                     // 未登录 401；访客（只读）与无编辑权限的角色 403
                     boolean anonymous = zoneUser == null && !visitor;
@@ -75,43 +84,21 @@ public class AuthFilter implements Filter {
             chain.doFilter(request, response);
             return;
         }
-        String requiredRole = requiredRole(path);
-
-        if (requiredRole == null) {
-            chain.doFilter(request, response);
-            return;
-        }
-
-        AdminUser user = getCurrentUser(httpRequest);
-        if (user == null && visitor) {
-            // 访客（人脸窗口选择“先不录入 / 以访客进入”）只读：后台功能页一律 403
-            httpResponse.setStatus(HttpServletResponse.SC_FORBIDDEN);
-            httpResponse.setContentType("text/html;charset=UTF-8");
-            renderForbiddenPage(httpRequest, httpResponse, null, requiredRole);
-            return;
-        }
-        if (user == null) {
-            String returnUrl = path;
-            if (httpRequest.getQueryString() != null && !httpRequest.getQueryString().isEmpty()) {
-                returnUrl += "?" + httpRequest.getQueryString();
-            }
-            httpResponse.sendRedirect(httpRequest.getContextPath() + "/login.jsp?returnUrl=" +
-                    java.net.URLEncoder.encode(returnUrl, "UTF-8"));
-            return;
-        }
-
-        if (AUTHENTICATED.equals(requiredRole) || hasRole(user, requiredRole)) {
-            chain.doFilter(request, response);
-            return;
-        }
-
-        httpResponse.setStatus(HttpServletResponse.SC_FORBIDDEN);
-        httpResponse.setContentType("text/html;charset=UTF-8");
-        renderForbiddenPage(httpRequest, httpResponse, user, requiredRole);
+        chain.doFilter(request, response);
     }
 
-    /** 按身份开放的新页面 / 接口；null 表示不归这里管。 */
+    /** 未登录时的登录地址：人脸识别窗口直接切到账号密码登录，登录后回到原页面（AuthServlet 只接受站内相对路径）。 */
+    static String loginUrl(HttpServletRequest req, String path) throws java.io.UnsupportedEncodingException {
+        String returnUrl = path;
+        if (req.getQueryString() != null && !req.getQueryString().isEmpty()) returnUrl += "?" + req.getQueryString();
+        return req.getContextPath() + "/face_login.jsp?switch=1&mode=password&returnUrl=" + java.net.URLEncoder.encode(returnUrl, "UTF-8");
+    }
+
+    /** 按身份开放的页面 / 接口；null 表示公开（不归这里管）。 */
     public static Set<String> roleGate(String path) {
+        if (path == null) return null;
+        // 账号管理（仅系统级管理员）：页面 + 接口
+        if ("/account_admin.jsp".equals(path) || "/api/accounts".equals(path) || path.startsWith("/api/accounts/")) return Roles.ACCOUNT_ADMIN_ROLES;
         if ("/care_workbench.jsp".equals(path) || "/api/care".equals(path) || path.startsWith("/api/care/")) return Roles.CARE_ROLES;
         if ("/data_screen.jsp".equals(path) || "/api/dashboard".equals(path) || path.startsWith("/api/dashboard/")) return Roles.ADMIN_ROLES;
         if ("/face_enroll.jsp".equals(path)) return Roles.FACE_ROLES;
@@ -121,6 +108,7 @@ public class AuthFilter implements Filter {
     }
 
     private static String gateTip(String path) {
+        if (path.contains("account")) return "TIP:账号管理仅<strong>系统管理员</strong>（SYSTEM_ADMIN / SUPER_ADMIN / ADMIN）登录后可用。";
         if (path.contains("care")) return "TIP:养护工作台仅<strong>养护人员 (MAINTAINER)</strong>登录后可用（浇水、施肥、喂食）。";
         if (path.contains("dashboard") || path.contains("data_screen")) return "TIP:数据大屏仅<strong>管理员</strong>登录后可以打开。";
         if (path.contains("face_admin") || path.startsWith("/api/face/accounts")) return "TIP:人脸信息管理仅<strong>管理员</strong>登录后可用；养护人员的人脸录入后长期保存，如需更换请联系管理员。";
@@ -134,88 +122,6 @@ public class AuthFilter implements Filter {
         resp.getWriter().write(json);
     }
 
-    private String requiredRole(String path) {
-        if (path == null || path.isEmpty() || "/".equals(path) || "/index.jsp".equals(path) ||
-                "/face_login.jsp".equals(path) || "/api/me".equals(path) || path.startsWith("/api/face/") ||
-                "/login.jsp".equals(path) || "/LoginServlet".equals(path) || "/LogoutServlet".equals(path) ||
-                "/AiPetServlet".equals(path) || "/plant_detail.jsp".equals(path) ||
-                "/ecohome.jsp".equals(path) || "/api/weather".equals(path)) {
-            return null;
-        }
-        // 生态动态主页的三维静态资源（js/css/json/图片/glb 模型）全部公开，未登录也能看到首页大屏；
-        // 第二阶段的板块细节场景（如池塘 /campus3d/pond/pond.html）也在此目录下，同样公开
-        if (path.startsWith("/campus3d/")) {
-            return null;
-        }
-        if (path.endsWith(".png") || path.endsWith(".jpg") || path.endsWith(".jpeg") ||
-                path.endsWith(".gif") || path.endsWith(".css") || path.endsWith(".js") ||
-                path.endsWith(".svg") || path.startsWith("/uploads/") || path.startsWith("/greenkeeper/assets/")) {
-            return null;
-        }
-        // 1. 植物管理员专属权限：增添作物、修改作物、更新作物、删除作物（系统管理员不可操作）
-        if ("/addplant.jsp".equals(path) || "/editplant.jsp".equals(path) ||
-                "/AddPlantServlet".equals(path) || "/EditPlantServlet".equals(path) ||
-                "/UpdatePlantServlet".equals(path) || "/DeletePlantServlet".equals(path)) {
-            return "PLANT_ADMIN";
-        }
-        // 2. 养护管理功能
-        if ("/maintain.jsp".equals(path) || "/MaintainServlet".equals(path) ||
-                "/AddMaintenanceServlet".equals(path) || "/DeleteMaintenanceServlet".equals(path) ||
-                "/AssignmentServlet".equals(path) || "/assignment.jsp".equals(path)) {
-            return "MAINTENANCE_ADMIN";
-        }
-        // 3. 系统管理员专属权限：养护员管理、系统后台
-        if ("/maintainer.jsp".equals(path) || "/MaintainerServlet".equals(path) ||
-                "/AddMaintainerServlet".equals(path) || "/UpdateMaintainerServlet".equals(path) ||
-                "/DeleteMaintainerServlet".equals(path) || "/admin.jsp".equals(path) ||
-                "/AdminDashboardServlet".equals(path)) {
-            return "SYSTEM_ADMIN";
-        }
-        // 4. 登录即可访问的公共模块：查询绿植、查看全景地图、绿植交互标绘、生态动物、导出等
-        if ("/searchplant.jsp".equals(path) || "/QueryServlet".equals(path) ||
-                "/animal.jsp".equals(path) || "/AnimalServlet".equals(path) || "/addanimal.jsp".equals(path) ||
-                "/map.jsp".equals(path) || "/MapServlet".equals(path) ||
-                "/greenkeeper.jsp".equals(path) || "/GreenKeeperServlet".equals(path) ||
-                "/AreaServlet".equals(path) || "/area.jsp".equals(path) ||
-                "/ExportServlet".equals(path)) {
-            return AUTHENTICATED;
-        }
-        return null;
-    }
-
-    private AdminUser getCurrentUser(HttpServletRequest request) {
-        Object value = request.getSession(false) == null ? null :
-                request.getSession(false).getAttribute("adminUser");
-        return value instanceof AdminUser ? (AdminUser) value : null;
-    }
-
-    private boolean hasRole(AdminUser user, String requiredRole) {
-        if (user == null || user.getRoleCode() == null) {
-            return false;
-        }
-        String role = user.getRoleCode();
-
-        // 核心权限分离规则：
-        // 规则 1：植物增删改查业务（PLANT_ADMIN）必须只能由植物管理员执行！
-        // 系统管理员（SYSTEM_ADMIN）严格禁止操作作物增添、变动与减少。
-        if ("PLANT_ADMIN".equals(requiredRole)) {
-            return "PLANT_ADMIN".equals(role);
-        }
-
-        // 规则 2：系统管理业务（SYSTEM_ADMIN，如区域管理、人员档案管理）由系统管理员负责。
-        // 植物管理员不可越权修改系统人员和区域。
-        if ("SYSTEM_ADMIN".equals(requiredRole)) {
-            return "SYSTEM_ADMIN".equals(role) || "SUPER_ADMIN".equals(role) || "ADMIN".equals(role);
-        }
-
-        // 规则 3：日常养护记录（MAINTENANCE_ADMIN）
-        if ("MAINTENANCE_ADMIN".equals(requiredRole)) {
-            return "MAINTENANCE_ADMIN".equals(role) || "SYSTEM_ADMIN".equals(role) || "SUPER_ADMIN".equals(role) || "ADMIN".equals(role);
-        }
-
-        return requiredRole.equals(role);
-    }
-
     private void renderForbiddenPage(HttpServletRequest request, HttpServletResponse response,
                                     AdminUser user, String requiredRole) throws IOException {
         String roleCode = user != null ? user.getRoleCode() : "访客·只读";
@@ -224,38 +130,23 @@ public class AuthFilter implements Filter {
         if (requiredRole != null && requiredRole.startsWith("TIP:")) {
             tip = "<strong>【权限拒绝】</strong>" + requiredRole.substring(4) + "<br/>您当前是<strong>" + escape(displayName) + "（" + escape(roleCode) + "）</strong>。";
         } else if (user == null) {
-            tip = "<strong>【权限拒绝】</strong>您正以<strong>访客</strong>身份浏览，只能查看生态主页等公开页面，不能进入后台或改动任何数据。如需操作，请登录管理员 / 养护员账号。";
-        } else if ("PLANT_ADMIN".equals(requiredRole)) {
-            tip = "<strong>【权限拒绝】</strong>当前功能属于<strong>植物管理员 (PLANT_ADMIN)</strong>专属权限（负责绿植的增添、修改与删除）。<br/>您当前登录的是<strong>" + escape(displayName) + "（" + escape(roleCode) + "）</strong>，系统管理员负责全局系统和人员区域管理，<strong>无权对作物进行增添、修改或删除作业</strong>。";
-        } else if ("SYSTEM_ADMIN".equals(requiredRole)) {
-            tip = "<strong>【权限拒绝】</strong>当前功能属于<strong>系统管理员 (SYSTEM_ADMIN)</strong>专属权限（负责系统参数、维护人员与网格区域管理）。<br/>您当前登录的是<strong>" + escape(displayName) + "（" + escape(roleCode) + "）</strong>，植物管理员专职负责绿植业务，<strong>无权修改系统人员与区域配置</strong>。";
+            tip = "<strong>【权限拒绝】</strong>您正以<strong>访客</strong>身份浏览，只能查看生态主页等公开页面，不能改动任何数据。如需操作，请登录管理员 / 养护员账号。";
         } else {
             tip = "<strong>【权限拒绝】</strong>您当前的账号角色为 <strong>" + escape(roleCode) + "</strong>，没有权限访问此功能。";
         }
-
+        String ctx = request.getContextPath();
         StringBuilder html = new StringBuilder();
         html.append("<!DOCTYPE html><html lang='zh-CN'><head><meta charset='UTF-8'>");
         html.append("<meta name='viewport' content='width=device-width, initial-scale=1.0'>");
-        html.append("<title>403 权限拒绝 - 智能绿化系统</title>");
-        html.append("<style>");
-        html.append("body { margin:0; min-height:100vh; display:grid; place-items:center; font-family:'Microsoft YaHei', -apple-system, sans-serif; background:linear-gradient(135deg, #fef2f2, #fff1f2); color:#1f2937; padding:20px; box-sizing:border-box; }");
-        html.append(".box { max-width:540px; width:100%; padding:36px; background:#fff; border-radius:20px; box-shadow:0 20px 50px rgba(0,0,0,0.08); border-top:6px solid #ef4444; }");
-        html.append("h2 { margin:0 0 16px; font-size:22px; color:#b91c1c; display:flex; align-items:center; gap:8px; }");
-        html.append("p { margin:14px 0; font-size:14.5px; line-height:1.7; color:#4b5563; }");
-        html.append(".btn-group { margin-top:28px; display:flex; gap:12px; }");
-        html.append(".btn { flex:1; padding:11px 18px; border-radius:10px; font-size:14px; text-decoration:none; font-weight:600; text-align:center; transition:all .2s; }");
-        html.append(".btn-primary { background:#059669; color:#fff; }");
-        html.append(".btn-primary:hover { background:#047857; }");
-        html.append(".btn-secondary { background:#f1f5f9; color:#334155; border:1px solid #cbd5e1; }");
-        html.append(".btn-secondary:hover { background:#e2e8f0; }");
-        html.append("</style></head><body>");
-        html.append("<div class='box'>");
-        html.append("<h2>🚫 没有权限访问此功能 (403)</h2>");
-        html.append("<p>").append(tip).append("</p>");
-        html.append("<div class='btn-group'>");
-        html.append("<a class='btn btn-primary' href='").append(request.getContextPath()).append("/face_login.jsp?switch=1'>人脸 / 账号登录</a>");
-        html.append("<a class='btn btn-secondary' href='").append(request.getContextPath()).append("/index.jsp'>返回系统首页</a>");
-        html.append("</div></div></body></html>");
+        html.append("<title>403 权限拒绝 · 智慧校园虚拟生态</title>");
+        html.append("<link rel='stylesheet' href='").append(ctx).append("/console/console.css'>");
+        html.append("</head><body><div class='fl-wrap'><main class='fl-card ec-glass' style='text-align:left'>");
+        html.append("<h1 style='color:#fecaca'>🚫 没有权限访问此功能 (403)</h1>");
+        html.append("<p class='fl-state' style='font-size:14.5px'>").append(tip).append("</p>");
+        html.append("<div class='fl-actions'>");
+        html.append("<a class='ec-btn ec-btn-primary' href='").append(ctx).append("/face_login.jsp?switch=1'>人脸 / 账号登录</a>");
+        html.append("<a class='ec-btn' href='").append(ctx).append("/ecohome.jsp'>返回生态主页</a>");
+        html.append("</div></main></div></body></html>");
 
         response.getWriter().write(html.toString());
     }

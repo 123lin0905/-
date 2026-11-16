@@ -11,7 +11,7 @@
 (function () {
   "use strict";
   const CFG = Object.assign(
-    { base: "./", weatherApi: null, systemUrl: null, loginUrl: null, userName: null, roleGroup: null, roleLabel: null, navLinks: [], autoEnterMs: 4000 },
+    { base: "./", weatherApi: null, userName: null, roleGroup: null, roleLabel: null, navLinks: [], autoEnterMs: 4000 },
     window.ECO_CONFIG || {}
   );
   const BASE = CFG.base.replace(/\/?$/, "/");
@@ -82,10 +82,8 @@
   ].join("\n");
 
   const actions = $("eco-actions");
-  if (CFG.systemUrl) {
-    const a = el("a", "eco-btn eco-btn-primary", "进入管理系统 →"); a.href = CFG.systemUrl; actions.appendChild(a);
-  }
-  // 按身份显示的入口（ecohome.jsp 计算 navLinks：管理员 → 数据大屏 / 人脸管理，养护人员 → 养护工作台 / 人脸录入，未登录 / 访客 → 人脸登录）
+  // 按身份显示的入口（ecohome.jsp 计算 navLinks：管理员 → 数据大屏 / 人脸管理 / 账号管理（系统管理员），养护人员 → 养护工作台 / 人脸录入，
+  // 未登录 / 访客 → 登录（人脸识别窗口，可切换账号密码登录））
   (CFG.navLinks || []).forEach((l) => {
     if (l.id === "nav-logout") return;
     const a = el("a", "eco-btn", esc(l.text)); a.href = l.href; if (l.id) a.id = l.id; actions.appendChild(a);
@@ -94,8 +92,6 @@
     actions.appendChild(el("span", "eco-user", "👤 " + esc(CFG.userName) + (CFG.roleLabel ? "（" + esc(CFG.roleLabel) + "）" : "")));
   } else if (CFG.roleGroup === "visitor") {
     actions.appendChild(el("span", "eco-user", "👤 访客（只读）"));
-  } else if (CFG.loginUrl) {
-    const a = el("a", "eco-btn", "管理员登录"); a.href = CFG.loginUrl; actions.appendChild(a);
   }
   (CFG.navLinks || []).forEach((l) => {
     if (l.id !== "nav-logout") return;
@@ -135,7 +131,7 @@
     console.error(err);
     msgEl.textContent = "加载失败：" + (err && err.message ? err.message : err);
     const b = $("eco-enter");
-    if (CFG.systemUrl) { b.hidden = false; b.textContent = "直接进入管理系统"; b.onclick = () => (location.href = CFG.systemUrl); }
+    b.hidden = false; b.textContent = "重新加载"; b.onclick = () => location.reload();
   }
 
   // three 与池塘细节场景统一为 r160；pond-style-core.js / pond-style.js 为两边共用的池塘画风（纹理、天空、光照、色调、植被、画质档）

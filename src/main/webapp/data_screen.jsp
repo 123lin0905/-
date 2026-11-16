@@ -20,7 +20,7 @@
   <nav>
     <span class="ec-muted" id="ds-time" style="font-size:13px"></span>
     <a class="ec-btn ec-btn-sm" href="<%= ctx %>/ecohome.jsp">🌿 生态主页</a>
-    <a class="ec-btn ec-btn-sm" href="<%= ctx %>/index.jsp">管理系统</a>
+    <% if (Roles.canManageAccounts(me.getRoleCode())) { %><a class="ec-btn ec-btn-sm" id="nav-account-admin" href="<%= ctx %>/account_admin.jsp">👥 账号管理</a><% } %>
     <a class="ec-btn ec-btn-sm" id="nav-face-admin" href="<%= ctx %>/face_admin.jsp">🗂 人脸信息管理</a>
     <a class="ec-btn ec-btn-sm" href="<%= ctx %>/face_enroll.jsp">🙂 人脸录入</a>
     <span class="ec-user">👤 <%= name %>（管理员）</span>
