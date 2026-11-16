@@ -25,7 +25,7 @@ public class AuthFilter implements Filter {
         HttpServletResponse httpResponse = (HttpServletResponse) response;
         String path = httpRequest.getRequestURI().substring(httpRequest.getContextPath().length());
         boolean visitor = Roles.isVisitor(httpRequest);
-        // 人脸登录新增的按身份页面 / 接口：数据大屏（管理员）、养护工作台（养护人员）、人脸录入（管理员 + 养护人员）。
+        // 人脸登录新增的按身份页面 / 接口：数据大屏（管理员）、养护工作台（养护人员）、人脸录入（管理员 + 养护人员）、人脸信息管理（管理员）。
         // 未登录：接口 401 / 页面跳登录；访客或角色不符：403。入口按身份在导航中显示，这里保证直接访问 URL 也被拦截。
         Set<String> gate = roleGate(path);
         if (gate != null) {
@@ -111,16 +111,19 @@ public class AuthFilter implements Filter {
     }
 
     /** 按身份开放的新页面 / 接口；null 表示不归这里管。 */
-    static Set<String> roleGate(String path) {
+    public static Set<String> roleGate(String path) {
         if ("/care_workbench.jsp".equals(path) || "/api/care".equals(path) || path.startsWith("/api/care/")) return Roles.CARE_ROLES;
         if ("/data_screen.jsp".equals(path) || "/api/dashboard".equals(path) || path.startsWith("/api/dashboard/")) return Roles.ADMIN_ROLES;
         if ("/face_enroll.jsp".equals(path)) return Roles.FACE_ROLES;
+        // 人脸信息管理（仅管理员）：页面 + 管理接口；具体能管哪些账号由 FaceServlet 按 Roles.canManageFaceOf 再校验
+        if ("/face_admin.jsp".equals(path) || "/api/face/accounts".equals(path) || path.startsWith("/api/face/accounts/")) return Roles.ADMIN_ROLES;
         return null;
     }
 
     private static String gateTip(String path) {
         if (path.contains("care")) return "TIP:养护工作台仅<strong>养护人员 (MAINTAINER)</strong>登录后可用（浇水、施肥、喂食）。";
         if (path.contains("dashboard") || path.contains("data_screen")) return "TIP:数据大屏仅<strong>管理员</strong>登录后可以打开。";
+        if (path.contains("face_admin") || path.startsWith("/api/face/accounts")) return "TIP:人脸信息管理仅<strong>管理员</strong>登录后可用；养护人员的人脸录入后长期保存，如需更换请联系管理员。";
         return "TIP:人脸录入仅<strong>管理员 / 养护人员</strong>用账号密码登录后才能给自己录入；访客不需要录入人脸。";
     }
 

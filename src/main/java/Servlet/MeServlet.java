@@ -11,7 +11,7 @@ import java.io.IOException;
 
 /**
  * GET /api/me：当前身份与能力（公开，不查库）。三维场景（静态 html）据此决定“管理动植物”按钮是否显示。
- * {user:{…group: admin / maintainer / visitor / anonymous}, can_edit_species, can_care, can_dashboard, can_enroll_face}
+ * {user:{…group: admin / maintainer / visitor / anonymous}, can_edit_species, can_care, can_dashboard, can_enroll_face, can_manage_faces}
  */
 @WebServlet(name = "MeServlet", value = "/api/me")
 public class MeServlet extends HttpServlet {
@@ -25,6 +25,7 @@ public class MeServlet extends HttpServlet {
                 "can_edit_species", ZoneSpeciesService.canEdit(role),
                 "can_care", Roles.canCare(role),
                 "can_dashboard", Roles.canViewDashboard(role),
-                "can_enroll_face", Roles.canEnrollFace(role)));
+                "can_enroll_face", Roles.canEnrollFace(role),
+                "can_manage_faces", Roles.canManageFaces(role)));
     }
 }

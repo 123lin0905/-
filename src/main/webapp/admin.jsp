@@ -338,6 +338,7 @@
         <a href="MaintainerServlet" class="nav-btn">👷 养护员管理</a>
         <a href="data_screen.jsp" id="nav-dashboard" class="nav-btn">📊 数据大屏</a>
         <a href="face_enroll.jsp" id="nav-face-enroll" class="nav-btn">🙂 人脸录入</a>
+        <a href="face_admin.jsp" id="nav-face-admin" class="nav-btn">🗂 人脸信息管理</a>
         <a href="index.jsp" class="nav-btn">🏠 返回主页</a>
     </div>
 </header>

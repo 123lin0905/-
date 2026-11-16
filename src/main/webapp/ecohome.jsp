@@ -9,14 +9,16 @@
     if (ecoUserName != null) {
         ecoUserName = ecoUserName.replace("\\", "\\\\").replace("\"", "\\\"").replace("<", "\\u003c").replace(">", "\\u003e");
     }
-    // 按身份显示的入口：数据大屏只给管理员，养护工作台只给养护人员，人脸录入给两者；访客只读（服务端 AuthFilter 同样拦截直接访问）
+    // 按身份显示的入口：数据大屏、人脸信息管理只给管理员，养护工作台只给养护人员，人脸录入给养护人员；访客只读（服务端 AuthFilter 同样拦截直接访问）
     boolean ecoVisitor = Roles.isVisitor(request);
     String ecoRole = ecoUser == null ? null : ecoUser.getRoleCode();
     String ecoGroup = Roles.group(ecoUser, ecoVisitor);
     StringBuilder ecoLinks = new StringBuilder("[");
     if (Roles.canViewDashboard(ecoRole)) ecoLinks.append("{\"id\":\"nav-dashboard\",\"text\":\"📊 数据大屏\",\"href\":\"").append(ctx).append("/data_screen.jsp\"},");
     if (Roles.canCare(ecoRole)) ecoLinks.append("{\"id\":\"nav-workbench\",\"text\":\"🧑‍🌾 养护工作台\",\"href\":\"").append(ctx).append("/care_workbench.jsp\"},");
-    if (Roles.canEnrollFace(ecoRole)) ecoLinks.append("{\"id\":\"nav-face-enroll\",\"text\":\"🙂 人脸录入\",\"href\":\"").append(ctx).append("/face_enroll.jsp\"},");
+    // 管理员：“人脸信息管理”（页内可为自己 / 他人录入）；养护人员：“人脸录入”（只能给自己录入，不能删除）
+    if (Roles.canManageFaces(ecoRole)) ecoLinks.append("{\"id\":\"nav-face-admin\",\"text\":\"🗂 人脸管理\",\"href\":\"").append(ctx).append("/face_admin.jsp\"},");
+    else if (Roles.canEnrollFace(ecoRole)) ecoLinks.append("{\"id\":\"nav-face-enroll\",\"text\":\"🙂 人脸录入\",\"href\":\"").append(ctx).append("/face_enroll.jsp\"},");
     if (ecoUser == null) ecoLinks.append("{\"id\":\"nav-face-login\",\"text\":\"🙂 人脸登录\",\"href\":\"").append(ctx).append("/face_login.jsp?switch=1\"},");
     else ecoLinks.append("{\"id\":\"nav-logout\",\"text\":\"退出\",\"href\":\"").append(ctx).append("/LogoutServlet\"},");
     if (ecoLinks.charAt(ecoLinks.length() - 1) == ',') ecoLinks.setLength(ecoLinks.length() - 1);

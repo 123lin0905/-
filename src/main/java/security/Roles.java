@@ -27,7 +27,7 @@ public final class Roles {
     public static final String SESSION_VISITOR = "visitor";
     public static final String SESSION_LOGIN_METHOD = "loginMethod";
 
-    /** 管理员身份：可打开数据大屏、可给养护员录入 / 删除人脸。 */
+    /** 管理员身份：可打开数据大屏、人脸信息管理（可管理范围见 canManageFaceOf）。 */
     public static final Set<String> ADMIN_ROLES = Collections.unmodifiableSet(new HashSet<>(Arrays.asList(
             "SYSTEM_ADMIN", "SUPER_ADMIN", "ADMIN", "PLANT_ADMIN", "MAINTENANCE_ADMIN")));
 
@@ -46,6 +46,13 @@ public final class Roles {
         FACE_ROLES = Collections.unmodifiableSet(s);
     }
 
+    /**
+     * 可以管理“所有人”人脸（含其他管理员）的系统级管理员：SYSTEM_ADMIN、SUPER_ADMIN、ADMIN。
+     * 其他管理员角色（PLANT_ADMIN、MAINTENANCE_ADMIN）在人脸信息管理里只能管理养护人员和自己。
+     */
+    public static final Set<String> FACE_SUPER_ROLES = Collections.unmodifiableSet(new HashSet<>(Arrays.asList(
+            "SYSTEM_ADMIN", "SUPER_ADMIN", "ADMIN")));
+
     public static boolean isAdmin(String role) { return role != null && ADMIN_ROLES.contains(role); }
 
     public static boolean isMaintainer(String role) { return MAINTAINER.equals(role); }
@@ -55,6 +62,55 @@ public final class Roles {
     public static boolean canViewDashboard(String role) { return isAdmin(role); }
 
     public static boolean canEnrollFace(String role) { return role != null && FACE_ROLES.contains(role); }
+
+    // ---------------- 人脸数据的长期保存规则 ----------------
+    // 人脸一经录入就长期保存，只有管理员手动删除 / 更换才会变化：退出登录、重新录入、超过条数上限都不会自动删除或覆盖旧记录。
+    // 养护人员可以给自己录入（追加），但不能删除；管理员可以删除 / 为他人录入，范围见 canManageFaceOf。
+
+    /** 能否打开“人脸信息管理”（face_admin.jsp、/api/face/accounts 等）：全部管理员角色。 */
+    public static boolean canManageFaces(String role) { return isAdmin(role); }
+
+    /** 能否管理“所有人”的人脸（含其他管理员）：SYSTEM_ADMIN / SUPER_ADMIN / ADMIN。 */
+    public static boolean canManageAllFaces(String role) { return role != null && FACE_SUPER_ROLES.contains(role); }
+
+    /**
+     * 管理员能否管理目标账号的人脸（查看全部记录、删除、为其录入 / 更换）。
+     * 系统级管理员：任何账号（含其他管理员，以及角色已变更 / 账号已删除后遗留的人脸）；
+     * 其他管理员：自己 + 养护人员账号；养护人员与访客：一律不行。
+     *
+     * @param targetRole 目标账号当前角色；账号已删除时为 null
+     */
+    public static boolean canManageFaceOf(String actorRole, int actorId, String targetRole, int targetId) {
+        if (!canManageFaces(actorRole)) return false;
+        if (actorId == targetId) return true;
+        if (canManageAllFaces(actorRole)) return true;
+        return isMaintainer(targetRole);
+    }
+
+    /** 能否为目标账号录入（追加）人脸：本人（管理员 / 养护人员）；或有管理权限的管理员。目标角色必须是需要人脸的角色。 */
+    public static boolean canEnrollFaceFor(String actorRole, int actorId, String targetRole, int targetId) {
+        if (!canEnrollFace(actorRole) || !canEnrollFace(targetRole)) return false;
+        if (actorId == targetId) return true;
+        return canManageFaceOf(actorRole, actorId, targetRole, targetId);
+    }
+
+    /** 能否删除目标账号的人脸：只有管理员（范围同 canManageFaceOf）；养护人员连自己的也不能删。 */
+    public static boolean canDeleteFaceOf(String actorRole, int actorId, String targetRole, int targetId) {
+        return canManageFaceOf(actorRole, actorId, targetRole, targetId);
+    }
+
+    /** 能否查看目标账号的人脸记录列表（不含特征向量）：本人，或有管理权限的管理员。 */
+    public static boolean canViewFacesOf(String actorRole, int actorId, String targetRole, int targetId) {
+        if (actorId == targetId && canEnrollFace(actorRole)) return true;
+        return canManageFaceOf(actorRole, actorId, targetRole, targetId);
+    }
+
+    /** 人脸信息管理里的身份标签：管理员 / 养护人员 / 其他。 */
+    public static String faceRoleLabel(String role) {
+        if (isAdmin(role)) return "管理员";
+        if (isMaintainer(role)) return "养护人员";
+        return role == null ? "账号已删除" : "其他（" + role + "）";
+    }
 
     /** admin / maintainer / visitor / anonymous */
     public static String group(AdminUser user, boolean visitor) {

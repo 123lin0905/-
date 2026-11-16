@@ -1,6 +1,7 @@
 /*
- * 人脸录入（face_enroll.jsp）：按 5 个角度提示逐帧采集，至少 3 帧合格即提交 POST /api/face/enroll（服务端多帧平均后保存）。
- * 管理员可在“录入给”里选择养护员账号（GET /api/face/accounts），并删除其人脸（DELETE /api/face/profiles/{id}）。
+ * 人脸录入（face_enroll.jsp）：按 5 个角度提示逐帧采集，至少 3 帧合格即提交 POST /api/face/enroll（服务端多帧平均后追加保存）。
+ * 人脸长期保存：录入只会追加，不会覆盖旧记录；只有管理员能删除（DELETE /api/face/profiles/{id}，按返回的 can_delete 显示按钮）。
+ * 管理员可在“录入给”里选择其管理范围内的账号（GET /api/face/accounts）；从“人脸信息管理”跳过来时带 ?account_id= 预先选中。
  */
 import { loadHuman, startCamera, stopCamera, analyze, mean, thumbnail, api, sleep, cameraProblem } from './face-core.js';
 
@@ -19,16 +20,21 @@ function target() { const v = $('target-select').value; return v ? +v : null; }
 
 async function loadAccounts() {
   if (!C.isAdmin) return;
+  const sel = $('target-select');
   try {
     const r = await api('GET', CTX + '/api/face/accounts');
-    const sel = $('target-select');
     for (const a of r.items) {
+      if (a.is_me || !a.can_enroll) continue;
       const o = document.createElement('option');
       o.value = a.id;
-      o.textContent = '养护员：' + a.display_name + '（' + a.username + (a.maintainer_name ? ' · ' + a.maintainer_name : '') + '）· 已录 ' + a.face_count + ' 条';
+      o.textContent = a.role_label + '：' + (a.display_name || a.username) + '（' + a.username + (a.maintainer_name ? ' · ' + a.maintainer_name : '') + '）· 已录 ' + a.face_count + ' 条';
       sel.appendChild(o);
     }
-  } catch (e) { toast('读取养护员账号失败：' + e.message, true); }
+  } catch (e) { toast('读取账号列表失败：' + e.message, true); }
+  if (C.preselect) {
+    if ([...sel.options].some((o) => o.value === String(C.preselect))) sel.value = String(C.preselect);
+    else if (C.preselect !== C.myId) toast('无权为该账号录入人脸，已改为给自己录入', true);
+  }
 }
 
 function renderList(r) {
@@ -36,10 +42,11 @@ function renderList(r) {
   $('profile-account').textContent = '— ' + (acc.display_name || '') + '（' + (acc.username || '') + '）';
   const ul = $('profile-list');
   if (!r.items.length) { ul.innerHTML = '<li class="ec-muted" id="profile-empty">还没有录入人脸</li>'; return; }
+  // 删除按钮只给有权限的管理员；养护人员的人脸长期保存，如需更换请联系管理员
   ul.innerHTML = r.items.map((p) =>
     '<li data-id="' + p.id + '">' + (p.thumbnail ? '<img alt="人脸缩略图" src="' + esc(p.thumbnail) + '">' : '<span class="fe-noimg">🙂</span>') +
     '<div class="fe-meta"><b>#' + p.id + '</b> · ' + p.frames + ' 帧平均<br><span class="ec-muted">' + esc(p.created_at) + ' · 录入人 ' + esc(p.created_by || '') + '</span></div>' +
-    '<button class="ec-btn ec-btn-sm ec-btn-danger profile-del" type="button" data-id="' + p.id + '">删除</button></li>').join('');
+    (r.can_delete ? '<button class="ec-btn ec-btn-sm ec-btn-danger profile-del" type="button" data-id="' + p.id + '">删除</button>' : '') + '</li>').join('');
   ul.querySelectorAll('.profile-del').forEach((b) => b.addEventListener('click', () => del(+b.dataset.id)));
 }
 
@@ -50,7 +57,7 @@ async function refresh() {
 }
 
 async function del(id) {
-  if (!confirm('确定删除人脸记录 #' + id + ' 吗？删除后该记录不能再用于刷脸登录。')) return;
+  if (!confirm('确定删除人脸记录 #' + id + ' 吗？人脸数据长期保存，删除后无法恢复，该记录不能再用于刷脸登录。')) return;
   try { renderList(await api('DELETE', CTX + '/api/face/profiles/' + id)); toast('已删除 #' + id); }
   catch (e) { toast('删除失败：' + e.message, true); }
 }
@@ -97,7 +104,7 @@ async function enroll() {
     const r = await api('POST', CTX + '/api/face/enroll', body);
     renderList(r);
     window.__enrollResult = r;
-    status('录入成功：' + r.frames + ' 帧取平均，已保存为 #' + r.id + '。下次打开系统即可刷脸登录。', 'ok');
+    status('录入成功：' + r.frames + ' 帧取平均，已保存为 #' + r.id + '（长期保存，不会因退出登录而删除）。下次打开系统即可刷脸登录。', 'ok');
     $('fe-prompt').textContent = '✅ 录入完成';
   } catch (e) {
     console.warn(e);

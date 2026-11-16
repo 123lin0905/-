@@ -144,5 +144,31 @@ a { color: #86efac; }
 .ds-table th, .ds-table td { text-align: left; padding: 7px 6px; border-bottom: 1px solid rgba(255,255,255,.08); }
 .ds-table th { color: #a7c4b4; font-weight: 600; }
 .ds-note { margin-top: 14px; font-size: 12px; color: #8fa99b; line-height: 1.6; }
+
+/* ---------------- 人脸信息管理（仅管理员） ---------------- */
+.fa-kpis { display: grid; grid-template-columns: repeat(4, minmax(140px, 1fr)); gap: 12px; margin-bottom: 16px; }
+@media (max-width: 860px) { .fa-kpis { grid-template-columns: repeat(2, 1fr); } }
+.fa-search, .fa-select { min-height: 32px; padding: 0 12px; border-radius: 999px; border: 1px solid rgba(255,255,255,.2); background: rgba(0,0,0,.25); color: #effaf3; font: inherit; font-size: 13px; }
+.fa-search { width: 240px; max-width: 100%; }
+.fa-select option { background: #0f241a; }
+.fa-layout { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 16px; align-items: start; }
+@media (max-width: 1100px) { .fa-layout { grid-template-columns: 1fr; } }
+.fa-table-wrap { padding: 8px 12px; overflow-x: auto; }
+.fa-table td { vertical-align: middle; }
+.fa-table tbody tr.is-active td { background: rgba(34, 197, 94, .12); }
+.fa-thumb { width: 42px; height: 42px; border-radius: 10px; object-fit: cover; display: grid; place-items: center; background: rgba(255,255,255,.08); }
+.fa-ops { white-space: nowrap; }
+.fa-ops .ec-btn { margin: 2px 4px 2px 0; }
+.fa-has { color: #86efac; font-size: 16px; } .fa-none { color: #7f978a; font-size: 16px; }
+.fa-warn { color: #fdba74; }
+.fa-role-admin { background: rgba(56, 189, 248, .18); color: #bae6fd; }
+.fa-role-keeper { background: rgba(34, 197, 94, .2); color: #bbf7d0; }
+.fa-role-other { background: rgba(250, 204, 21, .16); color: #fef3c7; }
+.fa-detail { padding: 16px; position: sticky; top: 12px; max-height: calc(100vh - 24px); overflow: auto; }
+.fa-detail-empty { padding: 20px 6px; text-align: center; font-size: 13px; }
+.fa-detail-head { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; margin-bottom: 8px; }
+.fa-detail-head h2 { margin: 0; font-size: 17px; }
+.fa-detail-head p { margin: 2px 0 0; font-size: 13px; }
+
 .ec-btn[aria-pressed="true"] { background: #15803d; border-color: #22c55e; color: #fff; }
 [hidden] { display: none !important; }

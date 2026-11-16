@@ -15,6 +15,7 @@ import java.util.Map;
 
 /**
  * face_profile 表（DDL 见 {@link Jdbc#DDL} / database/003_face_login_care.sql）。一人可多条，特征向量只在服务端读写。
+ * 人脸长期保存：本类只有 insert（追加）与管理员手动触发的 delete / deleteByAccount，没有更新、覆盖或过期清理。
  */
 public class JdbcFaceStore {
 
@@ -42,6 +43,21 @@ public class JdbcFaceStore {
         List<FaceMatcher.Profile> out = new ArrayList<>();
         try (Connection c = JdbcAccountStore.open(); PreparedStatement ps = c.prepareStatement(
                 "SELECT f.id, f.account_id, f.embedding FROM face_profile f JOIN admin_user u ON u.id = f.account_id WHERE u.status = 1");
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) out.add(new FaceMatcher.Profile(rs.getLong(1), rs.getInt(2), FaceMatcher.fromBytes(rs.getBytes(3))));
+            return out;
+        } catch (SQLException e) {
+            throw new Jdbc.DbUnavailableException("读取人脸特征失败：" + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 全部人脸特征，不论账号是否停用、是否已删除（只用于录入时的“同一张脸不能录到两个账号”检查）。
+     * 停用 / 已删除账号的人脸仍长期保留，所以同一个人换个账号重新录入也会被拦下，需管理员先删除旧记录。
+     */
+    public List<FaceMatcher.Profile> allVectorsAnyAccount() throws Jdbc.DbUnavailableException {
+        List<FaceMatcher.Profile> out = new ArrayList<>();
+        try (Connection c = JdbcAccountStore.open(); PreparedStatement ps = c.prepareStatement("SELECT id, account_id, embedding FROM face_profile");
              ResultSet rs = ps.executeQuery()) {
             while (rs.next()) out.add(new FaceMatcher.Profile(rs.getLong(1), rs.getInt(2), FaceMatcher.fromBytes(rs.getBytes(3))));
             return out;
@@ -108,10 +124,24 @@ public class JdbcFaceStore {
         }
     }
 
+    /**
+     * 删除一条人脸。只在管理员于“人脸信息管理”/录入页手动操作时调用（FaceServlet 已校验 Roles.canDeleteFaceOf）；
+     * 系统中没有任何自动删除人脸的路径（退出登录、重新录入、达到条数上限、账号停用 / 删除都不会删）。
+     */
     public boolean delete(long id) throws Jdbc.DbUnavailableException {
         try (Connection c = JdbcAccountStore.open(); PreparedStatement ps = c.prepareStatement("DELETE FROM face_profile WHERE id = ?")) {
             ps.setLong(1, id);
             return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            throw new Jdbc.DbUnavailableException("删除人脸失败：" + e.getMessage(), e);
+        }
+    }
+
+    /** 删除某账号的全部人脸（管理员手动操作，见 {@link #delete}）。返回删除条数。 */
+    public int deleteByAccount(int accountId) throws Jdbc.DbUnavailableException {
+        try (Connection c = JdbcAccountStore.open(); PreparedStatement ps = c.prepareStatement("DELETE FROM face_profile WHERE account_id = ?")) {
+            ps.setInt(1, accountId);
+            return ps.executeUpdate();
         } catch (SQLException e) {
             throw new Jdbc.DbUnavailableException("删除人脸失败：" + e.getMessage(), e);
         }

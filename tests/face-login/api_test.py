@@ -134,7 +134,7 @@ _, js, *_ = admin.req("GET", "/api/me")
 check("管理员：can_dashboard=true, can_care=false（默认管理员不进工作台）", js["can_dashboard"] and not js["can_care"], js)
 
 print("== 页面与接口权限（401 / 403 / 通过） ==")
-for path in ["/care_workbench.jsp", "/data_screen.jsp", "/face_enroll.jsp"]:
+for path in ["/care_workbench.jsp", "/data_screen.jsp", "/face_enroll.jsp", "/face_admin.jsp"]:
     s, _, _, h = expect(f"未登录访问 {path} 跳登录", anon, "GET", path, 302)
     check(f"  {path} 跳到 login.jsp", "login.jsp" in (h.get("Location") or ""), h.get("Location"))
 for path in ["/api/care/targets", "/api/dashboard/stats", "/api/face/profiles", "/api/face/accounts"]:
@@ -143,7 +143,7 @@ expect("未登录录入人脸", anon, "POST", "/api/face/enroll", 401, {"embeddi
 expect("未登录养护", anon, "POST", "/api/care/logs", 401, {"target_type": "plant", "target_id": "TEST-P1", "care_type": "water"})
 expect("未登录增删动植物", anon, "POST", "/api/zones/cuihu_water/species", 401, {"species_type": "plant", "species_key": "willow", "species_name": "垂柳", "x": 1, "z": 1})
 
-for path in ["/care_workbench.jsp", "/data_screen.jsp", "/face_enroll.jsp", "/QueryServlet", "/AdminDashboardServlet", "/addplant.jsp"]:
+for path in ["/care_workbench.jsp", "/data_screen.jsp", "/face_enroll.jsp", "/face_admin.jsp", "/QueryServlet", "/AdminDashboardServlet", "/addplant.jsp"]:
     expect("访客只读", visitor, "GET", path, 403)
 for path in ["/api/care/targets", "/api/dashboard/stats", "/api/face/profiles"]:
     expect("访客只读", visitor, "GET", path, 403)
@@ -157,12 +157,15 @@ for path in ["/ecohome.jsp", "/index.jsp", "/campus3d/pond/pond.html", "/campus3
 expect("管理员", admin, "GET", "/data_screen.jsp", 200)
 expect("管理员", admin, "GET", "/api/dashboard/stats", 200)
 expect("管理员", admin, "GET", "/face_enroll.jsp", 200)
+expect("管理员：人脸信息管理", admin, "GET", "/face_admin.jsp", 200)
+expect("绿植管理员：人脸信息管理", plant_admin, "GET", "/face_admin.jsp", 200)
 expect("管理员默认不能进工作台", admin, "GET", "/care_workbench.jsp", 403)
 expect("管理员默认不能进工作台", admin, "GET", "/api/care/targets", 403)
 expect("绿植管理员属于管理员身份", plant_admin, "GET", "/api/dashboard/stats", 200)
 expect("养护员", zhang, "GET", "/care_workbench.jsp", 200)
 expect("养护员", zhang, "GET", "/api/care/targets", 200)
 expect("养护员", zhang, "GET", "/face_enroll.jsp", 200)
+expect("养护员不能进人脸信息管理", zhang, "GET", "/face_admin.jsp", 403)
 expect("养护员不能看大屏", zhang, "GET", "/data_screen.jsp", 403)
 expect("养护员不能看大屏", zhang, "GET", "/api/dashboard/stats", 403)
 expect("养护员不能进系统后台（原有规则不变）", zhang, "GET", "/AdminDashboardServlet", 403)
@@ -184,7 +187,7 @@ li_id = q("SELECT id FROM admin_user WHERE username = 'keeper_li'")[0][0]
 pa_id = q("SELECT id FROM admin_user WHERE username = 'plant_admin'")[0][0]
 expect("养护员不能给管理员录入", zhang, "POST", "/api/face/enroll", 403, {"account_id": admin_id, "embeddings": frames(C, 30), "real": .9, "live": .9})
 expect("养护员不能给其他养护员录入", zhang, "POST", "/api/face/enroll", 403, {"account_id": li_id, "embeddings": frames(C, 30), "real": .9, "live": .9})
-expect("管理员不能给其他管理员录入", admin, "POST", "/api/face/enroll", 403, {"account_id": pa_id, "embeddings": frames(C, 30), "real": .9, "live": .9})
+expect("绿植管理员不能给其他管理员录入", plant_admin, "POST", "/api/face/enroll", 403, {"account_id": admin_id, "embeddings": frames(C, 30), "real": .9, "live": .9})
 s, js, *_ = expect("管理员给养护员李录入 C", admin, "POST", "/api/face/enroll", 201, {"account_id": li_id, "embeddings": frames(C, 30), "real": .9, "live": .9})
 li_profile = js["id"]
 expect("同一张脸不能录到第二个账号", admin, "POST", "/api/face/enroll", 409, {"embeddings": frames(B, 40), "real": .9, "live": .9})
@@ -194,9 +197,18 @@ s, js, *_ = expect("养护员看自己的人脸", zhang, "GET", "/api/face/profi
 check("  只有 1 条且不含特征", len(js["items"]) == 1 and "embedding" not in json.dumps(js), js)
 expect("养护员不能看管理员的人脸", zhang, "GET", f"/api/face/profiles?account_id={admin_id}", 403)
 s, js, *_ = expect("管理员看养护员李的人脸", admin, "GET", f"/api/face/profiles?account_id={li_id}", 200)
-s, js, *_ = expect("管理员的养护员账号列表", admin, "GET", "/api/face/accounts", 200)
-check("  列表含 keeper_zhang / keeper_li 及人脸条数", {a["username"]: a["face_count"] for a in js["items"]} == {"keeper_zhang": 1, "keeper_li": 1}, js)
+s, js, *_ = expect("系统管理员的人脸信息管理账号列表", admin, "GET", "/api/face/accounts", 200)
+counts = {a["username"]: a["face_count"] for a in js["items"]}
+check("  含管理员与养护员账号及人脸条数", counts.get("keeper_zhang") == 1 and counts.get("keeper_li") == 1 and counts.get("admin") == 1 and "plant_admin" in counts and js["scope"] == "all", js)
+check("  列表不含特征向量", "embedding" not in json.dumps(js), "")
+s, js, *_ = expect("绿植管理员的账号列表只含养护员和自己", plant_admin, "GET", "/api/face/accounts", 200)
+check("  范围 maintainers", js["scope"] == "maintainers" and {a["username"] for a in js["items"]} >= {"keeper_zhang", "keeper_li", "plant_admin"} and "admin" not in {a["username"] for a in js["items"]}, js)
 expect("养护员不能看账号列表", zhang, "GET", "/api/face/accounts", 403)
+expect("养护员不能看某账号的记录（管理接口）", zhang, "GET", f"/api/face/accounts/{li_id}/profiles", 403)
+s, js, *_ = expect("管理员看某账号的记录（管理接口）", admin, "GET", f"/api/face/accounts/{li_id}/profiles", 200)
+check("  can_delete=true 且不含特征", js["can_delete"] and "embedding" not in json.dumps(js), js)
+s, js, *_ = expect("养护员看自己的记录", zhang, "GET", "/api/face/profiles", 200)
+check("  养护员 can_delete=false", js["can_delete"] is False, js)
 _, js, *_ = anon.req("GET", "/api/face/status")
 check("status.enrolled=true", js["enrolled"] is True, js)
 
@@ -226,10 +238,21 @@ expect("特征格式错误", fs, "POST", "/api/face/identify", 400, {"embedding"
 expect("缺少活体分数", fs, "POST", "/api/face/identify", 422, {"embedding": jitter(A, 95)})
 
 expect("养护员不能删管理员的人脸", zhang, "DELETE", f"/api/face/profiles/{admin_profile}", 403)
+zhang_profile = q("SELECT f.id FROM face_profile f JOIN admin_user u ON u.id = f.account_id WHERE u.username = 'keeper_zhang'")[0][0]
+expect("养护员不能删自己的人脸（长期保存，只有管理员能删）", zhang, "DELETE", f"/api/face/profiles/{zhang_profile}", 403)
+zhang_id = q("SELECT id FROM admin_user WHERE username = 'keeper_zhang'")[0][0]
+expect("养护员不能删除自己账号的全部人脸", zhang, "DELETE", f"/api/face/accounts/{zhang_id}/profiles", 403)
+expect("绿植管理员不能删系统管理员的人脸", plant_admin, "DELETE", f"/api/face/profiles/{admin_profile}", 403)
+zc = Client("养护员张-退出")
+zc.login("keeper_zhang"); zc.req("GET", "/LogoutServlet")
+check("退出登录不会删除人脸", q("SELECT COUNT(*) FROM face_profile WHERE id = %s", zhang_profile)[0][0] == 1)
 expect("访客不能删人脸", visitor, "DELETE", f"/api/face/profiles/{admin_profile}", 403)
 expect("管理员删除养护员李的人脸", admin, "DELETE", f"/api/face/profiles/{li_profile}", 200)
 expect("删除后不存在", admin, "DELETE", f"/api/face/profiles/{li_profile}", 404)
 expect("删除后李刷脸失败", Client("刷脸C"), "POST", "/api/face/identify", 401, {"embedding": jitter(C, 94), "real": .8, "live": .9})
+s, js, *_ = expect("管理员给养护员李重新录入 C", admin, "POST", "/api/face/enroll", 201, {"account_id": li_id, "embeddings": frames(C, 31), "real": .9, "live": .9})
+s, js, *_ = expect("管理员删除养护员李的全部人脸", admin, "DELETE", f"/api/face/accounts/{li_id}/profiles", 200)
+check("  删除 1 条、列表为空", js["deleted"] == 1 and js["items"] == [], js)
 check("face_profile 剩 2 条", q("SELECT COUNT(*) FROM face_profile")[0][0] == 2)
 
 print("== 养护工作台 ==")

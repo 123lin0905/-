@@ -14,7 +14,7 @@ Java Servlet + JSP + MyBatis 实现的校园绿化管理系统（西南财经大
 | --- | --- |
 | 3D 校园 | 由已发布的“天府学院绵阳校区 3D 交互地图”迁移而来，建筑按官方平面图拉伸；点击建筑飞行定位并显示详情（含校园实景照片）；校门雕塑为 AI 复原模型 `sculpture_ai.glb`。**画风与池塘细节场景统一为写实风**（见下文“画风统一”）：红砖 / 白色涂料外墙 + 铝框玻璃窗（程序化反照率、法线、粗糙度/金属度、夜间窗灯）、灰石勒脚、混凝土平屋面与灰瓦坡屋面、金属穹顶；校外沥青路、校内花岗岩条石铺装、广场大石板、塑胶跑道与人造草坪。 |
 | 活的场景 | 与池塘相同的 Preetham 物理天空 + 程序化云层 + 星月夜空；鸟群（Boids 分离/对齐/聚合，扇翅 + 滑翔）在空中盘旋；中心草坪上橘色虎斑猫追蝴蝶（奔跑、扑击、坐下看蝴蝶飞走）；翠湖、荷花池、游泳池为池塘水面的简化版（菲涅尔 + 天空环境光反射 + 平面反射 + 两层涟漪法线 + 雨点涟漪，冬季结冰）；树木用池塘同款程序化树种（香樟、桂花、银杏、水杉、垂柳、樱花）随风摆动，灌木杜鹃与草坪花丛。 |
-| 天气 | 先请求服务器代理 `/api/weather`（`WeatherServlet`，10 分钟缓存），失败再由浏览器直连 Open-Meteo，都失败时使用“虚拟天气”（每 30 分钟按 晴 → 多云 → 小雨 → 雾 循环，冬季小雨换成雪）。天气码映射：晴（阳光、光晕）、多云/阴（云量增多、天空变灰）、雨（粒子雨 + 地面变暗 + 水面波纹加大）、雷阵雨（加闪电）、雪（粒子雪 + 地面泛白）、雾（`scene.fog` 加浓）。右上角天气卡片显示温度、天气、风速与数据来源（实时 / 虚拟 / 演示）。 |
+| 天气 | 先请求服务器代理 `/api/weather`（`WeatherServlet`，10 分钟缓存），失败再由浏览器直连 Open-Meteo，都失败时使用“虚拟天气”（每 30 分钟按 晴 → 多云 → 小雨 → 雾 循环，冬季小雨换成雪）。天气码映射：晴（阳光、光晕）、多云/阴（云量增多、天空变灰）、雨（粒子雨 + 地面变暗 + 水面波纹加大）、雷阵雨（加闪电）、雪（粒子雪 + 地面泛白）、雾（`scene.fog` 加浓）。**右下角**天气卡片显示温度、天气、风速与数据来源（实时 / 虚拟 / 演示），点击打开演示面板（见下文“天气卡片位置”）。 |
 | 昼夜 | 按北京时间（UTC+8 计算，不依赖电脑时区）和校区经纬度实时计算太阳高度与方位，连续变化天空颜色、日光方向与强度；夜晚路灯（灯头 + 光晕 + 地面光斑）和建筑窗户亮起，星星与月亮出现。 |
 | 季节 | 按北京时间月份：3–5 春（樱花粉/嫩绿树冠 + 花瓣飘落 + 草地小花）、6–8 夏（深绿 + 荷花池荷叶 + 夜间萤火虫）、9–11 秋（银杏黄/枫红树冠 + 落叶）、12–2 冬（灰绿常绿树 + 落叶树只剩枯枝，可下雪）。 |
 | 生态板块 | 7 个可点击板块：翠湖水景、中心草坪、图书馆·荷花池、教学楼绿化带、A 区宿舍生活区、C 区宿舍庭院、运动场周边。悬浮高亮 + 浮动标签；点击后相机飞过去放大，显示板块简介面板和“进入板块细节”按钮：配置了 `detail_scene` 的板块（翠湖水景、图书馆·荷花池）镜头俯冲 + 淡出后进入细节 3D 场景，其余板块提示“建设中”。底部“🎬 巡游”按钮会自动依次飞过各板块，适合大屏无人值守展示。 |
@@ -100,7 +100,7 @@ python3 tools/build_pond.py            # 或 python3 tools/build_pond.py <koi-po
 
 ### 画质档与省电模式（清晰 / 流畅 / 省电）
 
-两个场景右上角都有同一个“画质 清晰 | 流畅 | 省电”切换（全景在顶栏按钮组最前、天气卡左侧；池塘在“池塘生态”面板左侧），选择保存在 `localStorage`（`campus.gfx`），两页共用，**用户手动选择后始终以用户为准**。
+两个场景右上角都有同一个“画质 清晰 | 流畅 | 省电”切换（全景在顶栏按钮组最前；池塘在“池塘生态”面板左侧），选择保存在 `localStorage`（`campus.gfx`），两页共用，**用户手动选择后始终以用户为准**。
 
 选择顺序：
 
@@ -264,9 +264,16 @@ tools/build_lawn_ground.py                       底图生成脚本
 - 坐标为西南财经大学天府学院绵阳校区（绵阳市涪城区园兴西街 2 号）附近 31.493°N, 104.687°E。
 - 卡片“数据来源”会标明：`实时 · Open-Meteo（服务器代理）` / `实时 · Open-Meteo（浏览器直连）` / `虚拟天气（离线模拟）` / `演示模式`。
 
+### 天气卡片位置
+
+- 全景主页（`ecohome.jsp`）的天气卡片原来在右上角，会压住顶栏右侧的“画质”切换、“进入管理系统”、“人脸登录 / 退出”、访客标签等按钮，现已移到**右下角**（`campus3d/css/ecohome.css` 的 `.eco-weather`），顶栏右侧不再为它预留 236px。
+- 右下角布局：底部中间是工具栏（🏠 全景 / 🗺️ 俯视 / 🎬 巡游 / ⚙️），左下是小地图与帧率 HUD，演示面板在小地图右侧；右侧板块详情面板从顶栏下方（88px）开始，最大高度扣掉天气卡高度，底部给天气卡让出位置。`ecohome.js` 用 `ResizeObserver` 把天气卡实际高度写进 CSS 变量 `--eco-wx-h`，内容换行或字体不同也不会重叠。
+- 小屏：窗口高度 ≤ 700px（如 1280×720、1366×768 扣掉浏览器地址栏后）天气卡收紧、隐藏风速行；宽度 ≤ 1100px 时卡片收窄；宽度 ≤ 900px（手机）天气卡移到底部工具栏上方右侧，只留温度与天气，详情 / 演示面板再往上让出位置。已在 1920×1080、1366×768、1366×657、1280×720、1280×609、1100×620、1024×700、800×600、390×844 下用 headless Chromium 检查：天气卡完全在屏幕内，不与工具栏、小地图、HUD、详情面板、演示面板、顶栏按钮重叠，点击仍打开演示面板。
+- 池塘细节场景（`campus3d/pond/`）的天气信息在左上角板块卡片里（`.cp-wx`），不在右上角，不与按钮重叠，未改动；中心草坪场景（`campus3d/lawn/`）没有天气卡片，未改动。
+
 ### 如何演示切换
 
-- 按 **W** 键，或点击右上角天气卡片 / 底部 **⚙️** 按钮，打开“演示切换面板”：
+- 按 **W** 键，或点击右下角天气卡片 / 底部 **⚙️** 按钮，打开“演示切换面板”：
   - 天气：自动 / 晴 / 多云 / 阴 / 小雨 / 大雨 / 雷阵雨 / 雪 / 雾
   - 季节：自动 / 春 / 夏 / 秋 / 冬
   - 时间：取消“跟随北京时间”后拖动滑块选择 0–24 点；“时间流速”可设 ×60、×600 快速看日出日落
@@ -299,11 +306,11 @@ tools/build_lawn_ground.py                       底图生成脚本
 
 | 身份 | 对应角色（`security/Roles.java`） | 能做什么 | 导航里出现的入口 |
 | --- | --- | --- | --- |
-| 管理员 | `SYSTEM_ADMIN`、`SUPER_ADMIN`、`ADMIN`、`PLANT_ADMIN`、`MAINTENANCE_ADMIN`（原有细分权限不变） | 查看 / 整理后台数据；**数据大屏** `data_screen.jsp`；给自己录入人脸，给任一养护员录入 / 删除人脸；板块动植物增删 | 📊 数据大屏、🙂 人脸录入 |
-| 养护人员（可多个） | `MAINTAINER`（`admin_user.maintainer_id` 关联 `maintainer` 档案 → `plant_area.maintainer_id` 得到负责区域） | **养护工作台** `care_workbench.jsp`：浇水 / 施肥 / 喂食；板块动植物增删改查（沿用 species-editor 权限）；给自己录入人脸 | 🧑‍🌾 养护工作台、🙂 人脸录入 |
+| 管理员 | `SYSTEM_ADMIN`、`SUPER_ADMIN`、`ADMIN`、`PLANT_ADMIN`、`MAINTENANCE_ADMIN`（原有细分权限不变） | 查看 / 整理后台数据；**数据大屏** `data_screen.jsp`；**人脸信息管理** `face_admin.jsp`（查看 / 删除 / 为他人录入、更换人脸，范围见下文）；板块动植物增删 | 📊 数据大屏、🗂 人脸信息管理（生态主页上为“🗂 人脸管理”）、🙂 人脸录入 |
+| 养护人员（可多个） | `MAINTAINER`（`admin_user.maintainer_id` 关联 `maintainer` 档案 → `plant_area.maintainer_id` 得到负责区域） | **养护工作台** `care_workbench.jsp`：浇水 / 施肥 / 喂食；板块动植物增删改查（沿用 species-editor 权限）；给自己录入人脸（**不能删除**，更换需找管理员） | 🧑‍🌾 养护工作台、🙂 人脸录入 |
 | 普通用户（访客） | 未登录，或在人脸窗口点“先不录入人脸 / 以访客进入”（会话属性 `visitor=true`） | 只能浏览生态主页、板块场景、系统首页；编辑按钮隐藏，写接口 403 | 🙂 人脸登录 |
 
-- 入口只在对应身份登录后出现在导航（`ecohome.jsp`、`index.jsp`、`admin.jsp`、各新页面顶栏）；直接访问 URL 也由 `AuthFilter.roleGate` 拦截：未登录 → 页面跳 `login.jsp` / 接口 **401**；访客或角色不符 → **403**。访客访问原有后台页面（`QueryServlet`、`AdminDashboardServlet` 等）同样 403。
+- 入口只在对应身份登录后出现在导航（`ecohome.jsp`、`index.jsp`、`admin.jsp`、`data_screen.jsp`、`face_enroll.jsp` 等新页面顶栏；养护工作台的顶栏只有当管理员被加进 `CARE_ROLES` 时才会出现“人脸信息管理”）；直接访问 URL 也由 `AuthFilter.roleGate` 拦截：未登录 → 页面跳 `login.jsp` / 接口 **401**；访客或角色不符 → **403**。访客访问原有后台页面（`QueryServlet`、`AdminDashboardServlet` 等）同样 403。
 - **管理员默认不能进养护工作台**（按需求字面）。要允许，改 `security/Roles.java` 一行：`CARE_ROLES` 里加上 `"SYSTEM_ADMIN"` 等角色。
 - 登录后的落地页：养护员 → 养护工作台（负责区域排在最前）；`SYSTEM_ADMIN` / `SUPER_ADMIN` / `ADMIN` → 系统后台 `AdminDashboardServlet`；`PLANT_ADMIN` / `MAINTENANCE_ADMIN` → 系统首页 `index.jsp`。账号密码登录仍按原约定统一进 `index.jsp`（唯一例外：从人脸窗口“账号密码登录后录入人脸”过来的直接进录入页）。
 - 新建养护员账号：系统后台“新增管理账号”选择角色“养护人员”，并选择关联的养护员档案；负责区域在“园区网格”里给区域指定养护员。演示账号 `keeper_zhang`（关联 WH-1001 张师傅）、`keeper_li`（关联 WH-1002 李工），初始密码 `123456`。
@@ -313,7 +320,28 @@ tools/build_lawn_ground.py                       底图生成脚本
 1. 打开系统（`web.xml` 欢迎页 `face_login.jsp`）先出现人脸识别窗口。已登录 / 已选访客身份的会话直接去各自主页；退出登录后回到窗口但不自动开摄像头（`?logout=1`），避免刚退出又被识别登录。
 2. 系统里还没有任何人脸时：提示 **“请先进行人脸录入”**，提供 **“先不录入人脸”**（以访客进入只读的生态主页）和“账号密码登录后录入人脸”。
 3. 有人脸时：打开摄像头，连续取 3 帧合格人脸（单人、够近、清晰），特征平均后连同 antispoof / liveness 分数提交 `POST /api/face/identify`；服务端比对成功即建立该账号会话（换 session id），失败可重试、以访客进入或账号密码登录。
-4. **录入的身份证明**：必须先用账号密码（或已录入的人脸）登录，只能给自己录入；管理员可以给任一养护员录入 / 删除（不能给其他管理员录入）。录入时按“正视 / 左转 / 右转 / 抬头 / 低头”采集 3–5 帧，服务端校验多帧两两相似（防混进别人）后取平均存为一条；一人可多条（默认最多 5 条）；同一张脸不能录到两个账号。
+4. **录入的身份证明**：必须先用账号密码（或已录入的人脸）登录，只能给自己录入；管理员可以按管理范围（见“人脸信息管理”）为他人录入 / 删除。录入时按“正视 / 左转 / 右转 / 抬头 / 低头”采集 3–5 帧，服务端校验多帧两两相似（防混进别人）后取平均，**追加**存为一条；一人可多条（默认最多 5 条）；同一张脸不能录到两个账号（包括已停用 / 已删除账号仍保留的人脸）。
+
+### 人脸数据长期保存
+
+人脸一经录入就长期保存在 `face_profile` 表里，**只有管理员手动删除 / 更换才会变化**：
+
+- 退出登录（`LogoutServlet` 只注销会话）、刷脸登录、切换账号都不会删除人脸；
+- 再次录入是**追加**一条，不覆盖旧记录；达到上限（`face.maxPerAccount`，默认 5）时拒绝录入（409），不会自动淘汰旧记录——养护人员看到“请联系管理员删除旧记录”，管理员看到“请先在人脸信息管理中删除旧记录”；
+- 没有过期 / 定时清理；账号停用后人脸保留（停用账号不能刷脸登录），账号被删除后人脸也保留，在“人脸信息管理”里显示为“（账号已删除）”，由系统管理员决定是否删除；
+- 养护人员可以给自己录入、查看自己的记录，但**不能删除**（接口 403，录入页不显示删除按钮）；
+- “同一张脸不能录到两个账号”的检查覆盖所有账号（含停用 / 已删除账号保留的人脸）；确需转移时由管理员先删除原账号的人脸。
+
+权限规则集中在 `security/Roles.java`（`canManageFaces` / `canManageFaceOf` / `canEnrollFaceFor` / `canDeleteFaceOf` / `canViewFacesOf`），单元测试 `FacePermissionTest`。
+
+### 人脸信息管理（仅管理员）
+
+`face_admin.jsp` + `console/face-admin.js`，入口：生态主页顶栏“🗂 人脸管理”、数据大屏、人脸录入页、系统首页 `index.jsp`、系统后台 `admin.jsp` 的导航。`AuthFilter` 拦截：未登录跳登录页（接口 401），养护人员 / 访客 403。
+
+- 列表：所有“有人脸或可以录入人脸”的账号——账号、姓名（含关联养护员档案）、身份（管理员 / 养护人员 + 角色代码）、人脸条数（x / 上限）、首次 / 最近录入时间、录入人、最近一张缩略图（录入时保存了才有）；可按账号 / 姓名搜索，按身份、是否已录入筛选。
+- 操作：**查看**某账号的全部记录（缩略图、帧数、录入时间、录入人、录入时身份）；**删除单条**；**删除全部**；**录入 / 追加**（打开 `face_enroll.jsp?account_id=…`，复用原录入流程，录入时请本人在摄像头前）；**更换**（确认后先删除该账号全部人脸，再打开录入页重新录入）。删除都有二次确认，并提示删除后无法恢复。
+- 管理范围：`SYSTEM_ADMIN` / `SUPER_ADMIN` / `ADMIN` 可以管理**所有人**（含其他管理员，以及“账号已删除”遗留的人脸）；`PLANT_ADMIN` / `MAINTENANCE_ADMIN` 只能管理**养护人员和自己**（其他管理员的人脸不出现在他们的列表里，直接调接口也 403）。理由：前三者本来就是负责账号与人员管理的系统管理员（`AuthFilter` 原有规则里也只有它们能进系统后台 / 养护员管理），而植物 / 养护管理员是业务角色，不应能删其他管理员的登录凭据。
+- 页面与接口都**不返回特征向量**，只返回缩略图和录入信息；所有按钮只是方便，权限由服务端再次校验。
 
 ### 人脸识别实现
 
@@ -344,11 +372,13 @@ tools/build_lawn_ground.py                       底图生成脚本
 | GET | `/api/face/status` | 公开 | `{enrolled}` 系统里是否已有人脸 |
 | POST | `/api/face/identify` | 公开（限流） | `{embedding, real, live}` → 200 建立会话 + `redirect`；401 未识别；422 活体不通过；409 还没有人脸 |
 | POST | `/api/face/guest` | 公开 | 以访客身份进入 |
-| GET | `/api/face/profiles[?account_id=]` | 本人；管理员可看养护员 | 录入记录（不含特征向量） |
-| POST | `/api/face/enroll` | 管理员 / 养护员本人；管理员可带 `account_id` 给养护员录 | `{embeddings:[3–5 帧], real, live, thumbnail?}` |
-| DELETE | `/api/face/profiles/{id}` | 本人；管理员可删养护员的 | 删除一条 |
-| GET | `/api/face/accounts` | 管理员 | 养护员账号列表与已录入条数 |
-| GET | `/api/me` | 公开 | 当前身份与能力（`can_edit_species`、`can_care`、`can_dashboard`、`can_enroll_face`） |
+| GET | `/api/face/profiles[?account_id=]` | 本人；管理员可看其管理范围内的账号 | 录入记录（不含特征向量）+ `can_delete` / `can_enroll` |
+| POST | `/api/face/enroll` | 管理员 / 养护员本人；管理员可带 `account_id` 给管理范围内的账号录 | `{embeddings:[3–5 帧], real, live, thumbnail?}`，追加一条（不覆盖）；达到上限 409 |
+| DELETE | `/api/face/profiles/{id}` | **仅管理员**（管理范围内；养护人员连自己的也不能删） | 删除一条 |
+| GET | `/api/face/accounts` | 管理员（`AuthFilter` + Servlet 双重校验） | 人脸信息管理账号列表：账号、姓名、身份、条数、首次 / 最近录入时间、录入人、缩略图、`can_delete` / `can_enroll`；`scope` 为 `all` 或 `maintainers` |
+| GET | `/api/face/accounts/{id}/profiles` | 管理员（管理范围内） | 某账号的全部录入记录 |
+| DELETE | `/api/face/accounts/{id}/profiles` | 管理员（管理范围内） | 删除该账号的全部人脸，返回 `deleted` 条数 |
+| GET | `/api/me` | 公开 | 当前身份与能力（`can_edit_species`、`can_care`、`can_dashboard`、`can_enroll_face`、`can_manage_faces`） |
 | GET | `/api/care/targets` | 养护人员 | 个体与浇水 / 施肥 / 喂食状态、负责区域、待办数 |
 | POST | `/api/care/logs` | 养护人员 | `{target_type, target_id, care_type, note?}` 执行一次养护 |
 | GET | `/api/care/logs` | 养护人员 | 最近记录 |
@@ -372,7 +402,7 @@ tools/build_lawn_ground.py                       底图生成脚本
 
 ### 测试
 
-见 `tests/face-login/README.md`：`api_test.py`（后端接口与权限，跑 MariaDB + Tomcat）、`e2e_face.py`（Playwright + Chromium `--use-fake-device-for-media-stream --use-file-for-fake-video-capture` 喂人脸测试视频）；单元测试 `./mvnw -Dtest='FaceMatcherTest,CareScheduleTest,RolesTest,ZoneSpeciesServiceTest' test`。测试人脸图来自 human 仓库自带样例（`tests/face-login/samples/SOURCE.md`）。
+见 `tests/face-login/README.md`：`api_test.py`（后端接口与权限，跑 MariaDB + Tomcat）、`e2e_face.py`（Playwright + Chromium `--use-fake-device-for-media-stream --use-file-for-fake-video-capture` 喂人脸测试视频）；单元测试 `./mvnw -Dtest='FaceMatcherTest,CareScheduleTest,RolesTest,ZoneSpeciesServiceTest,FacePermissionTest' test`（`FacePermissionTest` 覆盖人脸删除 / 录入的权限规则与 `AuthFilter` 对 `face_admin.jsp`、`/api/face/accounts*` 的拦截）。测试人脸图来自 human 仓库自带样例（`tests/face-login/samples/SOURCE.md`）。
 
 ### 已知限制
 

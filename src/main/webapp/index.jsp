@@ -644,6 +644,9 @@
         <% if (canEnrollFace) { %>
             <a href="face_enroll.jsp" id="nav-face-enroll" class="nav-btn btn-secondary">🙂 人脸录入</a>
         <% } %>
+        <% if (Roles.canManageFaces(currentRole)) { %>
+            <a href="face_admin.jsp" id="nav-face-admin" class="nav-btn btn-secondary" style="border-color:#0d9488;color:#0f766e;">🗂 人脸信息管理</a>
+        <% } %>
         <% if (currentUser == null) { %>
             <% if (isVisitor) { %><span class="nav-btn btn-user" style="font-weight:600;">👤 访客（只读）</span><% } %>
             <a href="face_login.jsp?switch=1" id="nav-face-login" class="nav-btn btn-user">🙂 人脸登录</a>

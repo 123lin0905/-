@@ -33,17 +33,23 @@ body { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans SC", system-ui,
 .eco-clock { display: grid; padding: 6px 14px; border-radius: 14px; background: rgba(8, 40, 26, 0.45); color: #fff; -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
 .eco-clock b { font: 700 22px/1.1 "SF Mono", "Consolas", monospace; letter-spacing: 1px; }
 .eco-clock span { font-size: 12px; opacity: .85; }
-.eco-actions { margin-left: auto; margin-right: 236px; display: flex; gap: 8px; align-items: center; }
+.eco-actions { margin-left: auto; display: flex; gap: 8px; align-items: center; }   /* 天气卡已移到右下角，顶栏右侧不再为它预留位置 */
 .eco-user { color: #fff; background: rgba(8, 40, 26, 0.5); padding: 8px 12px; border-radius: 999px; font-size: 13px; white-space: nowrap; }
 
-/* 天气卡片（右上角） */
-.eco-weather { position: absolute; z-index: 6; right: 16px; top: 14px; width: 206px; padding: 12px 14px; cursor: pointer; }
-.eco-w-main { display: flex; align-items: center; gap: 10px; }
-.eco-w-icon { font-size: 34px; line-height: 1; }
-.eco-w-temp { font: 700 30px/1 inherit; font-family: inherit; color: #0b3a24; }
-.eco-w-text { margin-top: 6px; font-weight: 600; font-size: 15px; }
-.eco-w-meta { margin-top: 2px; font-size: 12px; color: #43584c; }
-.eco-w-src { margin-top: 8px; font-size: 11.5px; line-height: 1.4; padding: 4px 8px; border-radius: 8px; }
+/* 天气卡片（右下角）：原在右上角会压住画质切换 / 进入管理系统 / 人脸登录等按钮，现移到右下角。
+   底部中间是工具栏（巡游 / ⚙️），左下是小地图与帧率 HUD，右侧详情面板的高度已为它让出底部空间（见 .eco-panel）。
+   紧凑两列布局：左列图标 + 温度，右列天气 + 风速，底行数据来源；高度约 85–100px（--eco-wx-h 按最大值预留）。 */
+:root { --eco-wx-h: 104px; --eco-wx-bottom: 30px; }   /* --eco-wx-h 为默认预留值，运行时由 ecohome.js 按天气卡实际高度覆盖 */
+.eco-weather { position: absolute; z-index: 6; right: 16px; bottom: var(--eco-wx-bottom); width: 256px; box-sizing: border-box; padding: 10px 12px; cursor: pointer;
+  display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "main text" "main meta" "src src"; column-gap: 12px; align-items: center; }
+.eco-weather:hover { background: rgba(255, 255, 255, 0.88); }
+.eco-w-main { grid-area: main; display: flex; align-items: center; gap: 6px; }
+.eco-w-icon { font-size: 30px; line-height: 1; }
+.eco-w-temp { font: 700 26px/1 inherit; font-family: inherit; color: #0b3a24; }
+.eco-w-text { grid-area: text; align-self: end; font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.eco-w-meta { grid-area: meta; align-self: start; margin-top: 2px; font-size: 12px; color: #43584c; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.eco-w-src { grid-area: src; margin-top: 7px; font-size: 11px; line-height: 1.35; padding: 3px 8px; border-radius: 8px; }
+.eco-w-src:empty, .eco-w-meta:empty { display: none; }
 .eco-w-src.is-live { background: #dcfce7; color: #166534; }
 .eco-w-src.is-virtual { background: #fef3c7; color: #92400e; }
 .eco-w-src.is-demo { background: #e0e7ff; color: #3730a3; }
@@ -72,7 +78,8 @@ body { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans SC", system-ui,
 .eco-zlabel[hidden] { display: none; }
 
 /* 右侧详情面板 */
-.eco-panel { position: absolute; z-index: 6; right: 16px; top: 200px; width: 320px; max-height: calc(100% - 290px); overflow: auto; padding: 14px 16px 16px; }
+/* 右上角不再有天气卡，面板上移到顶栏下方；底部为右下角天气卡留出空间（天气卡高度 + 底边距 + 14px 间隙） */
+.eco-panel { position: absolute; z-index: 6; right: 16px; top: 88px; width: 320px; max-height: calc(100% - 88px - var(--eco-wx-h) - var(--eco-wx-bottom) - 14px); overflow: auto; padding: 14px 16px 16px; box-sizing: border-box; }
 .eco-panel[hidden] { display: none; }
 .eco-panel h2 { margin: 2px 0 6px; font-size: 20px; padding-right: 30px; }
 .eco-kicker { margin: 0; font-size: 12px; font-weight: 700; color: #15803d; letter-spacing: 1px; }
@@ -146,13 +153,33 @@ body:not(.eco-entered) .eco-hud { opacity: 0; }
 .eco-hud { position: absolute; z-index: 5; left: 16px; bottom: 8px; pointer-events: none; font: 500 11px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-variant-numeric: tabular-nums; color: rgba(255, 255, 255, .85); text-shadow: 0 1px 2px rgba(0, 0, 0, .7); white-space: nowrap; }
 
+/* 窗口较矮（如 1280×720、1366×768 浏览器扣掉地址栏后只有 600 多像素高）：天气卡收成一行半，减少占用 */
+@media (max-height: 700px) {
+  :root { --eco-wx-h: 72px; --eco-wx-bottom: 26px; }
+  .eco-weather { padding: 8px 12px; }
+  .eco-w-icon { font-size: 26px; } .eco-w-temp { font-size: 22px; }
+  .eco-w-src { margin-top: 5px; }
+  .eco-w-meta { display: none; }
+  .eco-toolbar { bottom: 26px; }
+  .eco-mini { bottom: 26px; width: 140px; }
+}
+/* 宽度不够放下“底部工具栏 + 右下天气卡”同一行时（工具栏约 380px 居中，天气卡 256px），天气卡收窄并只留温度 / 天气 / 来源 */
+@media (max-width: 1100px) {
+  .eco-weather { width: 200px; }
+  .eco-w-meta { display: none; }
+}
+
 @media (max-width: 900px) {
+  :root { --eco-wx-h: 64px; --eco-wx-bottom: 84px; }
   .eco-zones, .eco-mini, .eco-clock { display: none; }
   .eco-actions { margin-right: 0; position: absolute; top: 64px; left: 0; }
   .eco-brand h1 { font-size: 16px; }
-  .eco-weather { width: 160px; padding: 10px; }
-  .eco-panel { left: 12px; right: 12px; width: auto; top: auto; bottom: 90px; max-height: 45%; }
-  .eco-demo { left: 12px; right: 12px; width: auto; bottom: 90px; }
+  /* 窄屏：天气卡放在底部工具栏上方的右侧，详情 / 演示面板再往上让出天气卡的位置 */
+  .eco-weather { width: 172px; padding: 8px 10px; column-gap: 8px; }
+  .eco-w-icon { font-size: 24px; } .eco-w-temp { font-size: 20px; }
+  .eco-w-src { display: none; }
+  .eco-panel, .eco-demo { left: 12px; right: 12px; width: auto; top: auto; bottom: calc(var(--eco-wx-bottom) + var(--eco-wx-h) + 12px);
+    max-height: calc(100% - 150px - var(--eco-wx-bottom) - var(--eco-wx-h)); }
 }
 
 /* 第二阶段：进入板块细节的过渡（镜头俯冲 + 淡出） */

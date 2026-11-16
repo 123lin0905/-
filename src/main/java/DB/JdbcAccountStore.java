@@ -99,30 +99,72 @@ public class JdbcAccountStore {
         }
     }
 
-    /** 管理员人脸管理用：所有养护员账号（含关联档案、已录入人脸条数）。 */
-    public List<Map<String, Object>> maintainerAccounts() throws Jdbc.DbUnavailableException {
+    /**
+     * 人脸信息管理用：所有“有人脸或可以录入人脸”的账号（管理员角色 + 养护人员，以及角色已变更但仍留有人脸的账号），
+     * 含已录入条数、最早 / 最近录入时间、最近录入人、最近一张缩略图；另附“账号已删除但人脸仍保留”的记录（username 为 null）。
+     * 不含特征向量。可管理范围由调用方按 {@link security.Roles#canManageFaceOf} 过滤。
+     */
+    public List<Map<String, Object>> faceAccounts() throws Jdbc.DbUnavailableException {
+        StringBuilder in = new StringBuilder();
+        for (String r : security.Roles.FACE_ROLES) in.append(in.length() == 0 ? "" : ",").append('\'').append(r).append('\'');
         String sql = "SELECT u.id, u.username, u.display_name, u.role_code, u.status, u.maintainer_id, m.name AS maintainer_name, " +
-                "(SELECT COUNT(*) FROM face_profile f WHERE f.account_id = u.id) AS face_count " +
-                "FROM admin_user u LEFT JOIN maintainer m ON m.id = u.maintainer_id WHERE u.role_code = 'MAINTAINER' ORDER BY u.id";
+                "(SELECT COUNT(*) FROM face_profile f WHERE f.account_id = u.id) AS face_count, " +
+                "(SELECT MIN(f.created_at) FROM face_profile f WHERE f.account_id = u.id) AS first_at, " +
+                "(SELECT MAX(f.created_at) FROM face_profile f WHERE f.account_id = u.id) AS last_at, " +
+                "(SELECT f.created_by FROM face_profile f WHERE f.account_id = u.id ORDER BY f.id DESC LIMIT 1) AS last_by, " +
+                "(SELECT f.thumbnail FROM face_profile f WHERE f.account_id = u.id AND f.thumbnail IS NOT NULL ORDER BY f.id DESC LIMIT 1) AS thumbnail " +
+                "FROM admin_user u LEFT JOIN maintainer m ON m.id = u.maintainer_id " +
+                "WHERE u.role_code IN (" + in + ") OR EXISTS (SELECT 1 FROM face_profile f WHERE f.account_id = u.id) ORDER BY u.id";
         List<Map<String, Object>> out = new ArrayList<>();
-        try (Connection c = open(); PreparedStatement ps = c.prepareStatement(sql); ResultSet rs = ps.executeQuery()) {
-            while (rs.next()) {
-                Map<String, Object> m = new LinkedHashMap<>();
-                m.put("id", rs.getInt("id"));
-                m.put("username", rs.getString("username"));
-                m.put("display_name", rs.getString("display_name"));
-                m.put("role_code", rs.getString("role_code"));
-                m.put("status", rs.getInt("status"));
-                int mid = rs.getInt("maintainer_id");
-                m.put("maintainer_id", rs.wasNull() ? null : mid);
-                m.put("maintainer_name", rs.getString("maintainer_name"));
-                m.put("face_count", rs.getInt("face_count"));
-                out.add(m);
+        try (Connection c = open()) {
+            try (PreparedStatement ps = c.prepareStatement(sql); ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    Map<String, Object> m = new LinkedHashMap<>();
+                    m.put("id", rs.getInt("id"));
+                    m.put("username", rs.getString("username"));
+                    m.put("display_name", rs.getString("display_name"));
+                    m.put("role_code", rs.getString("role_code"));
+                    m.put("status", rs.getInt("status"));
+                    int mid = rs.getInt("maintainer_id");
+                    m.put("maintainer_id", rs.wasNull() ? null : mid);
+                    m.put("maintainer_name", rs.getString("maintainer_name"));
+                    m.put("face_count", rs.getInt("face_count"));
+                    m.put("first_enrolled_at", JdbcCareStore.cst(rs.getTimestamp("first_at")));
+                    m.put("last_enrolled_at", JdbcCareStore.cst(rs.getTimestamp("last_at")));
+                    m.put("last_enrolled_by", rs.getString("last_by"));
+                    m.put("thumbnail", rs.getString("thumbnail"));
+                    m.put("deleted", false);
+                    out.add(m);
+                }
+            }
+            // 账号已被删除、但人脸仍保留的记录（人脸不随账号自动删除，只能由管理员在人脸信息管理里手动删除）
+            try (PreparedStatement ps = c.prepareStatement(
+                    "SELECT f.account_id, MAX(f.role_code) AS role_code, COUNT(*) AS face_count, MIN(f.created_at) AS first_at, MAX(f.created_at) AS last_at " +
+                            "FROM face_profile f LEFT JOIN admin_user u ON u.id = f.account_id WHERE u.id IS NULL GROUP BY f.account_id ORDER BY f.account_id");
+                 ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    Map<String, Object> m = new LinkedHashMap<>();
+                    m.put("id", rs.getInt("account_id"));
+                    m.put("username", null);
+                    m.put("display_name", "（账号已删除）");
+                    m.put("role_code", null);
+                    m.put("enrolled_role_code", rs.getString("role_code"));
+                    m.put("status", 0);
+                    m.put("maintainer_id", null);
+                    m.put("maintainer_name", null);
+                    m.put("face_count", rs.getInt("face_count"));
+                    m.put("first_enrolled_at", JdbcCareStore.cst(rs.getTimestamp("first_at")));
+                    m.put("last_enrolled_at", JdbcCareStore.cst(rs.getTimestamp("last_at")));
+                    m.put("last_enrolled_by", null);
+                    m.put("thumbnail", null);
+                    m.put("deleted", true);
+                    out.add(m);
+                }
             }
             return out;
         } catch (SQLException e) {
             if (Jdbc.isMissingTable(e)) return out;
-            throw new Jdbc.DbUnavailableException("查询养护员账号失败：" + e.getMessage(), e);
+            throw new Jdbc.DbUnavailableException("查询人脸账号失败：" + e.getMessage(), e);
         }
     }
 

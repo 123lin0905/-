@@ -85,7 +85,7 @@
   if (CFG.systemUrl) {
     const a = el("a", "eco-btn eco-btn-primary", "进入管理系统 →"); a.href = CFG.systemUrl; actions.appendChild(a);
   }
-  // 按身份显示的入口（ecohome.jsp 计算 navLinks：管理员 → 数据大屏 / 人脸录入，养护人员 → 养护工作台 / 人脸录入，未登录 / 访客 → 人脸登录）
+  // 按身份显示的入口（ecohome.jsp 计算 navLinks：管理员 → 数据大屏 / 人脸管理，养护人员 → 养护工作台 / 人脸录入，未登录 / 访客 → 人脸登录）
   (CFG.navLinks || []).forEach((l) => {
     if (l.id === "nav-logout") return;
     const a = el("a", "eco-btn", esc(l.text)); a.href = l.href; if (l.id) a.id = l.id; actions.appendChild(a);
@@ -102,6 +102,14 @@
     const a = el("a", "eco-btn", esc(l.text)); a.href = l.href; a.id = l.id; actions.appendChild(a);
   });
   $("eco-mini-img").src = BASE + "img/plan_official.jpg";
+  // 天气卡在右下角：把它的实际高度写进 CSS 变量 --eco-wx-h，右侧详情面板 / 窄屏演示面板据此给它让出底部空间（内容换行、字体不同也不重叠）
+  (function syncWeatherHeight() {
+    const wx = $("eco-weather"), rootStyle = document.documentElement.style;
+    const apply = () => { const h = Math.ceil(wx.getBoundingClientRect().height); if (h > 0) rootStyle.setProperty("--eco-wx-h", h + "px"); };
+    if (window.ResizeObserver) new ResizeObserver(apply).observe(wx);
+    window.addEventListener("resize", apply);
+    apply();
+  })();
 
   // ---------------- 加载进度 ----------------
   const fill = $("eco-bar-fill"), pctEl = $("eco-load-pct"), msgEl = $("eco-load-msg");
@@ -612,7 +620,7 @@
 
     // ---------------- 画质：清晰 / 流畅 / 省电（与池塘共用 PondQuality；核显笔记本首次默认省电；未手动选择时按实测帧率只降不升） ----------------
     const gfx = PondQuality.button(); gfx.id = "eco-gfx"; gfx.classList.add("eco-gfx");
-    const acts = $("eco-actions"); acts.insertBefore(gfx, acts.firstChild);   // 右上角（顶栏右侧按钮组最前，天气卡左侧）
+    const acts = $("eco-actions"); acts.insertBefore(gfx, acts.firstChild);   // 右上角（顶栏右侧按钮组最前；天气卡已移到右下角）
     const hud = el("div", "eco-hud"); hud.id = "eco-hud"; hud.setAttribute("aria-hidden", "true");
     root.appendChild(hud);                       // 左下角：帧率 · 档位
     let sinceChange = 0;

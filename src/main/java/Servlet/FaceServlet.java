@@ -26,19 +26,24 @@ import java.util.regex.Pattern;
 /**
  * 人脸登录接口 /api/face/*（比对全部在服务端完成，特征向量从不下发到前端）：
  * <pre>
- * GET    /api/face/status                 公开：系统里是否已有人脸录入（只返回是否，不返回数量以外的信息）
- * POST   /api/face/identify               公开：{embedding:[…], real, live} → 识别成功则建立该账号的会话（养护员 → 工作台，管理员 → 管理页）
- * POST   /api/face/guest                  公开：以访客身份进入（只读）
- * GET    /api/face/profiles[?account_id=] 登录：本人的录入记录；管理员可看任一养护员账号
- * POST   /api/face/enroll                 登录：{account_id?, embeddings:[[…]×3–5], real, live, thumbnail?} 多帧取平均后保存
- * DELETE /api/face/profiles/{id}          登录：删除本人的；管理员可删除任一养护员的
- * GET    /api/face/accounts               管理员：养护员账号列表（含已录入条数）
+ * GET    /api/face/status                    公开：系统里是否已有人脸录入（只返回是否）
+ * POST   /api/face/identify                  公开：{embedding:[…], real, live} → 识别成功则建立该账号的会话（养护员 → 工作台，管理员 → 管理页）
+ * POST   /api/face/guest                     公开：以访客身份进入（只读）
+ * GET    /api/face/profiles[?account_id=]    登录：本人的录入记录；管理员可看其管理范围内的账号
+ * POST   /api/face/enroll                    登录：{account_id?, embeddings:[[…]×3–5], real, live, thumbnail?} 多帧取平均后追加保存
+ * DELETE /api/face/profiles/{id}             仅管理员：删除一条（养护人员不能删，连自己的也不能）
+ * GET    /api/face/accounts                  仅管理员：人脸信息管理账号列表（条数、录入时间、录入人、缩略图）
+ * GET    /api/face/accounts/{id}/profiles    仅管理员：某账号的全部录入记录
+ * DELETE /api/face/accounts/{id}/profiles    仅管理员：删除某账号的全部人脸
  * </pre>
- * 录入必须先用账号密码（或已录入的人脸）登录，只能给自己录入；管理员可以给任一养护员录入 / 删除。访客 403，未登录 401。
+ * 人脸长期保存：一经录入，只有管理员在“人脸信息管理”里手动删除 / 更换才会变化；退出登录、重新录入、达到条数上限、账号停用都不会自动删除或覆盖。
+ * 管理范围（{@link Roles#canManageFaceOf}）：SYSTEM_ADMIN / SUPER_ADMIN / ADMIN 可管理所有人（含其他管理员）；
+ * PLANT_ADMIN / MAINTENANCE_ADMIN 只能管理养护人员和自己；养护人员只能给自己录入、查看，不能删除。访客 403，未登录 401。
  */
 @WebServlet(name = "FaceServlet", value = "/api/face/*")
 public class FaceServlet extends HttpServlet {
     private static final Pattern PROFILE = Pattern.compile("^/profiles/(\\d{1,18})/?$");
+    private static final Pattern ACCOUNT_PROFILES = Pattern.compile("^/accounts/(\\d{1,9})/profiles/?$");
     private static final Pattern THUMB = Pattern.compile("^data:image/jpeg;base64,[A-Za-z0-9+/=]+$");
     private static final long WINDOW_MS = 5 * 60_000L;
 
@@ -57,9 +62,12 @@ public class FaceServlet extends HttpServlet {
             if ("POST".equals(m) && "/guest".equals(path)) { guest(req, resp); return; }
             if ("GET".equals(m) && ("/profiles".equals(path) || "/profiles/".equals(path))) { profiles(req, resp); return; }
             if ("POST".equals(m) && "/enroll".equals(path)) { enroll(req, resp); return; }
-            if ("GET".equals(m) && "/accounts".equals(path)) { accounts(req, resp); return; }
+            if ("GET".equals(m) && ("/accounts".equals(path) || "/accounts/".equals(path))) { accounts(req, resp); return; }
             Matcher pm = PROFILE.matcher(path);
             if ("DELETE".equals(m) && pm.matches()) { delete(req, resp, Long.parseLong(pm.group(1))); return; }
+            Matcher am = ACCOUNT_PROFILES.matcher(path);
+            if (am.matches() && "GET".equals(m)) { accountProfiles(req, resp, Integer.parseInt(am.group(1))); return; }
+            if (am.matches() && "DELETE".equals(m)) { deleteAll(req, resp, Integer.parseInt(am.group(1))); return; }
             ApiSupport.error(resp, 404, "not_found", "没有这个接口：" + m + " /api/face" + path);
         } catch (Jdbc.DbUnavailableException e) {
             ApiSupport.dbDown(this, resp, e);
@@ -131,16 +139,37 @@ public class FaceServlet extends HttpServlet {
                 "redirect", req.getContextPath() + "/ecohome.jsp"));
     }
 
-    /** 可操作的目标账号：本人；或管理员操作养护员账号。不允许返回 null 并写好 403。 */
-    private Map<String, Object> targetAccount(HttpServletRequest req, HttpServletResponse resp, AdminUser me, Integer accountId)
+    private enum Op { VIEW, ENROLL, DELETE }
+
+    /**
+     * 解析目标账号并按操作校验权限（规则集中在 {@link Roles}）。账号已删除但人脸仍在时返回只含 id 的占位信息（role_code 为 null）。
+     * 不允许返回 null，并已写好 403 / 404。
+     */
+    private Map<String, Object> targetAccount(HttpServletResponse resp, AdminUser me, Integer accountId, Op op)
             throws IOException, Jdbc.DbUnavailableException {
         int target = accountId == null ? me.getId() : accountId;
         Map<String, Object> acc = accounts.accountInfo(target);
-        if (acc == null) { ApiSupport.error(resp, 404, "not_found", "账号不存在"); return null; }
-        if (target == me.getId()) return acc;
-        if (Roles.isAdmin(me.getRoleCode()) && Roles.isMaintainer((String) acc.get("role_code"))) return acc;
-        ApiSupport.error(resp, 403, "forbidden", Roles.isAdmin(me.getRoleCode())
-                ? "管理员只能为养护员账号录入 / 删除人脸，其他管理员请本人登录后录入" : "只能为自己的账号录入 / 管理人脸");
+        if (acc == null) {
+            if (op == Op.ENROLL || faces.countByAccount(target) == 0) { ApiSupport.error(resp, 404, "not_found", "账号不存在"); return null; }
+            acc = ApiSupport.obj("id", target, "username", null, "display_name", "（账号已删除）", "role_code", null, "deleted", true);
+        }
+        String role = (String) acc.get("role_code");
+        boolean ok;
+        switch (op) {
+            case ENROLL: ok = Roles.canEnrollFaceFor(me.getRoleCode(), me.getId(), role, target); break;
+            case DELETE: ok = Roles.canDeleteFaceOf(me.getRoleCode(), me.getId(), role, target); break;
+            default: ok = Roles.canViewFacesOf(me.getRoleCode(), me.getId(), role, target);
+        }
+        if (ok) return acc;
+        String msg;
+        if (!Roles.canManageFaces(me.getRoleCode())) {
+            msg = op == Op.DELETE ? "人脸录入后长期保存，只有管理员可以删除 / 更换；如需更换请联系管理员" : "只能为自己的账号录入 / 查看人脸";
+        } else if (op == Op.ENROLL && !Roles.canEnrollFace(role)) {
+            msg = "该账号角色不需要录入人脸";
+        } else {
+            msg = "当前管理员角色只能管理养护人员和自己的人脸；其他管理员的人脸请由系统管理员（SYSTEM_ADMIN / SUPER_ADMIN / ADMIN）管理";
+        }
+        ApiSupport.error(resp, 403, "forbidden", msg);
         return null;
     }
 
@@ -149,19 +178,70 @@ public class FaceServlet extends HttpServlet {
         try { return Integer.valueOf(s.trim()); } catch (NumberFormatException e) { throw new IllegalArgumentException("account_id 应为整数"); }
     }
 
+    /** 记录列表 + 当前操作人对该账号的能力（前端据此显示 / 隐藏删除按钮；服务端仍会再校验）。 */
+    private Map<String, Object> profilesBody(AdminUser me, Map<String, Object> acc) throws Jdbc.DbUnavailableException {
+        int id = (Integer) acc.get("id");
+        String role = (String) acc.get("role_code");
+        Map<String, Object> a = new java.util.LinkedHashMap<>(acc);
+        a.put("role_label", Roles.faceRoleLabel(role));
+        return ApiSupport.obj("account", a, "items", faces.listByAccount(id),
+                "max", FaceConfig.maxProfilesPerAccount(),
+                "can_delete", Roles.canDeleteFaceOf(me.getRoleCode(), me.getId(), role, id),
+                "can_enroll", Roles.canEnrollFaceFor(me.getRoleCode(), me.getId(), role, id));
+    }
+
     private void profiles(HttpServletRequest req, HttpServletResponse resp) throws IOException, Jdbc.DbUnavailableException {
         AdminUser me = ApiSupport.require(req, resp, Roles.FACE_ROLES, "人脸管理");
         if (me == null) return;
-        Map<String, Object> acc = targetAccount(req, resp, me, intParam(req.getParameter("account_id")));
+        Map<String, Object> acc = targetAccount(resp, me, intParam(req.getParameter("account_id")), Op.VIEW);
         if (acc == null) return;
-        ApiSupport.json(resp, 200, ApiSupport.obj("account", acc, "items", faces.listByAccount((Integer) acc.get("id")),
-                "max", FaceConfig.maxProfilesPerAccount()));
+        ApiSupport.json(resp, 200, profilesBody(me, acc));
     }
 
-    private void accounts(HttpServletRequest req, HttpServletResponse resp) throws IOException, Jdbc.DbUnavailableException {
-        AdminUser me = ApiSupport.require(req, resp, Roles.ADMIN_ROLES, "养护员人脸管理");
+    private void accountProfiles(HttpServletRequest req, HttpServletResponse resp, int accountId) throws IOException, Jdbc.DbUnavailableException {
+        AdminUser me = ApiSupport.require(req, resp, Roles.ADMIN_ROLES, "人脸信息管理");
         if (me == null) return;
-        ApiSupport.json(resp, 200, ApiSupport.obj("items", accounts.maintainerAccounts()));
+        Map<String, Object> acc = targetAccount(resp, me, accountId, Op.VIEW);
+        if (acc == null) return;
+        ApiSupport.json(resp, 200, profilesBody(me, acc));
+    }
+
+    /** 人脸信息管理：当前管理员可管理的全部账号（不含特征向量）。 */
+    private void accounts(HttpServletRequest req, HttpServletResponse resp) throws IOException, Jdbc.DbUnavailableException {
+        AdminUser me = ApiSupport.require(req, resp, Roles.ADMIN_ROLES, "人脸信息管理");
+        if (me == null) return;
+        List<Map<String, Object>> items = new ArrayList<>();
+        int withFace = 0, total = 0;
+        for (Map<String, Object> a : accounts.faceAccounts()) {
+            int id = (Integer) a.get("id");
+            String role = (String) a.get("role_code");
+            if (!Roles.canManageFaceOf(me.getRoleCode(), me.getId(), role, id)) continue;
+            a.put("role_label", Roles.faceRoleLabel(role));
+            a.put("is_me", id == me.getId());
+            a.put("can_delete", Roles.canDeleteFaceOf(me.getRoleCode(), me.getId(), role, id));
+            a.put("can_enroll", Roles.canEnrollFaceFor(me.getRoleCode(), me.getId(), role, id));
+            items.add(a);
+            total += (Integer) a.get("face_count");
+            if ((Integer) a.get("face_count") > 0) withFace++;
+        }
+        ApiSupport.json(resp, 200, ApiSupport.obj("items", items,
+                "scope", Roles.canManageAllFaces(me.getRoleCode()) ? "all" : "maintainers",
+                "max", FaceConfig.maxProfilesPerAccount(), "accounts_with_face", withFace, "profiles", total,
+                "me", ApiSupport.userJson(me, false)));
+    }
+
+    /** 删除某账号的全部人脸（仅管理员手动操作）。 */
+    private void deleteAll(HttpServletRequest req, HttpServletResponse resp, int accountId) throws IOException, Jdbc.DbUnavailableException {
+        AdminUser me = ApiSupport.require(req, resp, Roles.ADMIN_ROLES, "人脸信息管理");
+        if (me == null) return;
+        Map<String, Object> acc = targetAccount(resp, me, accountId, Op.DELETE);
+        if (acc == null) return;
+        int n = faces.deleteByAccount(accountId);
+        log("删除账号全部人脸：账号 " + acc.get("username") + "（#" + accountId + "）共 " + n + " 条，操作人 " + me.getUsername());
+        Map<String, Object> body = profilesBody(me, acc);
+        body.put("ok", true);
+        body.put("deleted", n);
+        ApiSupport.json(resp, 200, body);
     }
 
     @SuppressWarnings("unchecked")
@@ -173,10 +253,9 @@ public class FaceServlet extends HttpServlet {
         Map<String, Object> in = MiniJson.parseObject(body);
         Object aid = in.get("account_id");
         Integer accountId = aid instanceof Number ? Integer.valueOf(((Number) aid).intValue()) : null;
-        Map<String, Object> acc = targetAccount(req, resp, me, accountId);
+        Map<String, Object> acc = targetAccount(resp, me, accountId, Op.ENROLL);
         if (acc == null) return;
         int target = (Integer) acc.get("id");
-        if (!Roles.canEnrollFace((String) acc.get("role_code"))) { ApiSupport.error(resp, 403, "forbidden", "该账号角色不需要录入人脸"); return; }
 
         Object raw = in.get("embeddings");
         if (!(raw instanceof List) || ((List<?>) raw).size() < 3 || ((List<?>) raw).size() > 5) {
@@ -200,31 +279,43 @@ public class FaceServlet extends HttpServlet {
         if (thumb != null && (thumb.length() > 40_000 || !THUMB.matcher(thumb).matches())) {
             ApiSupport.error(resp, 400, "bad_request", "缩略图格式不正确（需为 40KB 以内的 JPEG data URL）"); return;
         }
+        // 达到条数上限时拒绝（不会自动淘汰旧记录）：只有管理员能删除旧记录后再录入
         if (faces.countByAccount(target) >= FaceConfig.maxProfilesPerAccount()) {
-            ApiSupport.error(resp, 409, "too_many", "该账号已录入 " + FaceConfig.maxProfilesPerAccount() + " 条人脸，请先删除旧的再录入"); return;
+            ApiSupport.error(resp, 409, "too_many", "该账号已录入 " + FaceConfig.maxProfilesPerAccount() + " 条人脸，已达上限。"
+                    + (Roles.canManageFaces(me.getRoleCode()) ? "如需更换，请先在“人脸信息管理”中删除旧记录再录入" : "人脸长期保存，如需更换请联系管理员删除旧记录")); return;
         }
-        // 防止同一张脸录到两个账号：与其他账号的已录入人脸过于相似时拒绝
+        // 防止同一张脸录到两个账号：与其他账号（含已停用 / 已删除账号仍保留的人脸）的人脸过于相似时拒绝
         List<FaceMatcher.Profile> others = new ArrayList<>();
-        for (FaceMatcher.Profile p : faces.allVectors()) if (p.accountId != target) others.add(p);
+        for (FaceMatcher.Profile p : faces.allVectorsAnyAccount()) if (p.accountId != target) others.add(p);
         FaceMatcher.Match near = FaceMatcher.closest(mean, others);
         if (near.accountId > 0 && near.best >= FaceConfig.threshold()) {
-            ApiSupport.error(resp, 409, "duplicate_face", "这张脸与系统里另一个账号已录入的人脸过于相似，不能重复录入到不同账号"); return;
+            ApiSupport.error(resp, 409, "duplicate_face", "这张脸与系统里另一个账号已录入的人脸过于相似，不能重复录入到不同账号"
+                    + "（如确需转到本账号，请管理员先在“人脸信息管理”中删除原账号的人脸）"); return;
         }
         long id = faces.insert(target, (String) acc.get("role_code"), mean, frames.size(), thumb, ApiSupport.displayName(me));
         log("人脸录入：账号 " + acc.get("username") + "，操作人 " + me.getUsername() + "，帧数 " + frames.size());
-        ApiSupport.json(resp, 201, ApiSupport.obj("ok", true, "id", id, "account", acc, "frames", frames.size(),
-                "items", faces.listByAccount(target)));
+        Map<String, Object> out = profilesBody(me, acc);
+        out.put("ok", true);
+        out.put("id", id);
+        out.put("frames", frames.size());
+        ApiSupport.json(resp, 201, out);
     }
 
+    /** 删除一条人脸：仅管理员（养护人员 403，连自己的也不能删；人脸长期保存，由管理员统一更换）。 */
     private void delete(HttpServletRequest req, HttpServletResponse resp, long id) throws IOException, Jdbc.DbUnavailableException {
         AdminUser me = ApiSupport.require(req, resp, Roles.FACE_ROLES, "人脸管理");
         if (me == null) return;
+        if (!Roles.canManageFaces(me.getRoleCode())) {
+            ApiSupport.error(resp, 403, "forbidden", "人脸录入后长期保存，只有管理员可以删除 / 更换；如需更换请联系管理员"); return;
+        }
         Integer owner = faces.ownerOf(id);
         if (owner == null) { ApiSupport.error(resp, 404, "not_found", "人脸记录不存在"); return; }
-        Map<String, Object> acc = targetAccount(req, resp, me, owner);
+        Map<String, Object> acc = targetAccount(resp, me, owner, Op.DELETE);
         if (acc == null) return;
         faces.delete(id);
         log("删除人脸：#" + id + "（账号 " + acc.get("username") + "），操作人 " + me.getUsername());
-        ApiSupport.json(resp, 200, ApiSupport.obj("ok", true, "items", faces.listByAccount(owner)));
+        Map<String, Object> body = profilesBody(me, acc);
+        body.put("ok", true);
+        ApiSupport.json(resp, 200, body);
     }
 }
