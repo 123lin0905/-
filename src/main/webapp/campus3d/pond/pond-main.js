@@ -124,8 +124,8 @@ renderer.shadowMap.autoUpdate = false;                   // updated once per fra
 MAX_ANISO = Math.min(8, renderer.capabilities.getMaxAnisotropy());
 
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(52, innerWidth / innerHeight, 0.02, 260);   // close near plane for macro shots
-camera.position.set(-0.6, 0.4, 5.3);
+const camera = new THREE.PerspectiveCamera(52, innerWidth / innerHeight, 0.02, 1500);   // close near plane for macro shots
+camera.position.copy(cuihuV(512, 1712, 62));
 
 // One global clip plane is always bound (a no-op in the main pass) so programs never recompile between passes.
 const CLIP_NONE = new THREE.Plane(new THREE.Vector3(0, 1, 0), 1e4);
@@ -173,7 +173,7 @@ const skyUniforms = {
 const skyMat = new THREE.ShaderMaterial({ name: 'Sky', uniforms: skyUniforms, vertexShader: SKY_VS, fragmentShader: SKY_FS, side: THREE.BackSide, depthWrite: false });
 const skyGeo = new THREE.BoxGeometry(1, 1, 1);
 const sky = new THREE.Mesh(skyGeo, skyMat);
-sky.scale.setScalar(900); sky.frustumCulled = false; sky.renderOrder = -10;
+sky.scale.setScalar(2400); sky.frustumCulled = false; sky.renderOrder = -10;
 setLayer(sky, LAYER.SKY); scene.add(sky);
 
 // Sun & fill
@@ -183,9 +183,9 @@ sun.castShadow = true;
 sun.shadow.bias = -0.00025;
 sun.shadow.normalBias = 0.025;
 {
-  const c = sun.shadow.camera; c.left = -13; c.right = 13; c.top = 13; c.bottom = -13; c.near = 1; c.far = 90;
+  const c = sun.shadow.camera; c.left = -48; c.right = 48; c.top = 48; c.bottom = -48; c.near = 1; c.far = 330;
 }
-sun.target.position.set(0, 0, -1.5);
+sun.target.position.set(0, 0, 0);
 scene.add(sun, sun.target);
 const hemi = new THREE.HemisphereLight(0x9cc4ef, 0x4b5a2c, 0.28);
 scene.add(hemi);
@@ -195,7 +195,7 @@ scene.add(hemi);
 const cubeRT = new THREE.WebGLCubeRenderTarget(128, { type: THREE.HalfFloatType, generateMipmaps: true, minFilter: THREE.LinearMipmapLinearFilter });
 const cubeCam = new THREE.CubeCamera(0.1, 1000, cubeRT);
 const skyScene = new THREE.Scene();
-{ const s2 = new THREE.Mesh(skyGeo, skyMat); s2.scale.setScalar(900); s2.frustumCulled = false; skyScene.add(s2); }
+{ const s2 = new THREE.Mesh(skyGeo, skyMat); s2.scale.setScalar(2400); s2.frustumCulled = false; skyScene.add(s2); }
 const pmrem = new THREE.PMREMGenerator(renderer);
 let envRT = null, envDirty = true, envTimer = 0;
 function updateEnv() {
@@ -228,7 +228,7 @@ function updateSun() {
   CAMPUS_EXPO = LIT.expo;
   sun.color.setRGB(r, g, b, THREE.SRGBColorSpace);
   sun.intensity = inten;
-  sun.position.copy(d).multiplyScalar(45).add(sun.target.position);
+  sun.position.copy(d).multiplyScalar(150).add(sun.target.position);
   skyUniforms.sunPosition.value.copy(d);
   skyUniforms.uCloudBright.value = LIT.cloudBrightK * WX.cur.cloudBright;
   SH.uSunDir.value.copy(d);
@@ -634,10 +634,467 @@ function rockMaterial(set, o) {
   });
 }
 
+/* ------------------------------------------------------------------ 翠湖水景：按官方校园地图重建（由 tools/build_pond.py 插入 pond-main.js）
+ * 官方地图（学校官方手绘鸟瞰图，自东南方向俯视）上的翠湖：一个南北长约 140 米、东西宽约 65 米的湖，北端窄、在翠湖广场收成湖尖，
+ * 南端分成两个湖湾；湖中只有一座长满青草的小岛，岛上一棵大香樟；没有桥、亭、跌水、石灯笼。南岸一块 D 形种植床伸进湖里，
+ * 种着 5 棵黄叶乔木，床后是半圆形铺装广场和成排银杏；北端湖尖旁是草坪种植床，放一块置石和一面立起来的镂空圆石盘；
+ * 西岸是沥青路和一排紫色的蓝花楹、几棵垂柳；东岸是垂柳、樱花和圆冠乔木，后面是 C 区 7 栋砖红色板楼（4 + 3 错列），
+ * 南面是 4 层坡屋顶的教师公寓。水面只有睡莲（4～5 片），没有荷花。
+ * 坐标：campus_layout.json 的平面图像素（x 向东、y 向南，0.4 米/像素）→ 场景米：x = (px − 366) × 0.4，z = (py − 1515) × 0.4，
+ * 原点在南岸种植床北面的湖面上（锦鲤、睡莲、青蛙、乌龟主要在这一片活动）。湖岸、湖心岛、翠湖广场、半圆广场和周边建筑的
+ * 轮廓直接取自 campus_layout.json（构建时写入下面的 CUIHU_DATA），与校园全景同一份数据。 */
+const CUIHU_DATA = {"lake":[[338,1250],[350,1256],[362,1270],[374,1292],[386,1316],[398,1342],[410,1370],[421,1398],[431,1426],[439,1454],[445,1484],[450,1514],[456,1546],[462,1576],[465,1600],[458,1618],[444,1624],[430,1618],[421,1602],[416,1580],[411,1562],[400,1551],[384,1545],[366,1543],[348,1546],[334,1552],[323,1563],[317,1580],[309,1594],[297,1596],[289,1584],[288,1560],[292,1530],[297,1500],[300,1470],[302,1440],[303,1410],[304,1380],[305,1350],[307,1320],[311,1293],[318,1270],[327,1256]],"island":{"c":[384,1442],"r":30,"rx":24,"ry":34,"rot":-18},"plaza":[[256,1029],[470,1019],[491,1045],[402,1092],[436,1196],[256,1196]],"promenade":[[330,1650],[331,1641],[335,1632],[341,1625],[348,1619],[357,1615],[366,1614],[375,1615],[384,1619],[391,1625],[397,1632],[401,1641],[402,1650]],"buildings":[{"id":"jiaoxue3","name":"第三教学楼","poly":[[172,1599],[204,1599],[274,1732],[334,1732],[334,1766],[251,1766],[172,1651]],"h":20,"style":"brick"},{"id":"juyou","name":"聚友宾馆","poly":[[219,1045],[298,1001],[451,993],[451,1019],[305,1024],[251,1057],[251,1149],[219,1149]],"h":18,"style":"canteen"},{"id":"B5","name":"B5 学生公寓","poly":[[172,1214],[214,1202],[258,1280],[258,1364],[216,1364],[216,1296]],"h":22,"style":"dorm"},{"id":"B6","name":"B6 学生公寓","poly":[[216,1390],[258,1390],[258,1484],[206,1557],[172,1536],[216,1479]],"h":22,"style":"dorm"},{"id":"C1","name":"C1 学生公寓","poly":[[405,1099],[444,1087],[481,1191],[441,1204]],"h":22,"style":"dorm"},{"id":"C2","name":"C2 学生公寓","poly":[[458,1220],[496,1208],[531,1311],[491,1324]],"h":22,"style":"dorm"},{"id":"C3","name":"C3 学生公寓","poly":[[504,1358],[541,1353],[556,1463],[519,1468]],"h":22,"style":"dorm"},{"id":"C4","name":"C4 学生公寓","poly":[[528,1505],[566,1505],[566,1614],[528,1614]],"h":22,"style":"dorm"},{"id":"C5","name":"C5 学生公寓","poly":[[493,1066],[531,1053],[569,1155],[531,1168]],"h":22,"style":"dorm"},{"id":"C6","name":"C6 学生公寓","poly":[[543,1183],[582,1170],[619,1273],[580,1285]],"h":22,"style":"dorm"},{"id":"C7","name":"C7 学生公寓","poly":[[590,1306],[629,1294],[666,1395],[627,1407]],"h":22,"style":"dorm"},{"id":"C8","name":"C8 学生公寓","poly":[[632,1428],[807,1428],[807,1533],[773,1533],[773,1465],[632,1465]],"h":22,"style":"dorm"},{"id":"C9","name":"C9 学生公寓","poly":[[632,1505],[671,1505],[671,1567],[773,1567],[773,1663],[731,1663],[731,1614],[632,1614]],"h":22,"style":"dorm"},{"id":"C10","name":"C10 学生公寓","poly":[[632,1661],[671,1661],[671,1722],[773,1722],[773,1768],[632,1768]],"h":22,"style":"dorm"},{"id":"jiaoshi","name":"教师公寓","poly":[[345,1698],[373,1698],[373,1726],[543,1726],[543,1698],[573,1698],[573,1768],[345,1768]],"h":22,"style":"dorm"}]};
+const CUIHU = (() => {
+  const O = [366, 1515], S = 0.4;
+  const W = (p) => [(p[0] - O[0]) * S, (p[1] - O[1]) * S];
+  const WL = (list) => list.map(W);
+  // ---- 多边形工具（场景米）
+  function polySd(poly, x, z) {             // 有向距离：内部为负
+    let best = 1e18, inside = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      const ax = poly[j][0], az = poly[j][1], bx = poly[i][0], bz = poly[i][1];
+      const ex = bx - ax, ez = bz - az, wx = x - ax, wz = z - az;
+      const t = clamp((wx * ex + wz * ez) / (ex * ex + ez * ez || 1), 0, 1);
+      const dx = wx - ex * t, dz = wz - ez * t, d = dx * dx + dz * dz;
+      if (d < best) best = d;
+      if ((az > z) !== (bz > z) && x < (bx - ax) * (z - az) / (bz - az) + ax) inside = !inside;
+    }
+    return inside ? -Math.sqrt(best) : Math.sqrt(best);
+  }
+  function inPoly(poly, x, z) {
+    let inside = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      const az = poly[j][1], bz = poly[i][1];
+      if ((az > z) !== (bz > z) && x < (poly[i][0] - poly[j][0]) * (z - az) / (bz - az) + poly[j][0]) inside = !inside;
+    }
+    return inside;
+  }
+  function bbox(poly) { let a = [1e9, 1e9, -1e9, -1e9]; for (const [x, z] of poly) a = [Math.min(a[0], x), Math.min(a[1], z), Math.max(a[2], x), Math.max(a[3], z)]; return a; }
+  // ---- 湖岸与湖心岛（来自 campus_layout.json water[id=cuihu]）
+  const lake = WL(CUIHU_DATA.lake);
+  const I = CUIHU_DATA.island, ic = W(I.c), irx = (I.rx || I.r) * S, irz = (I.ry || I.r) * S, ia = (I.rot || 0) * Math.PI / 180;
+  const island = [];
+  for (let k = 0; k < 72; k++) {
+    const t = k / 72 * Math.PI * 2, wob = 1 + 0.045 * Math.sin(t * 3 + 0.7) + 0.03 * Math.sin(t * 5 + 2.1);
+    const x = irx * Math.cos(t) * wob, z = irz * Math.sin(t) * wob;
+    island.push([ic[0] + x * Math.cos(ia) - z * Math.sin(ia), ic[1] + x * Math.sin(ia) + z * Math.cos(ia)]);
+  }
+  const islandSd = (x, z) => polySd(island, x, z);
+  // ---- 铺装、种植床（平面图像素，按官方地图描出）
+  const plaza = WL(CUIHU_DATA.plaza);                       // 翠湖广场
+  const prom = WL(CUIHU_DATA.promenade);                    // 南岸半圆广场
+  const bed = WL([[316, 1574], [322, 1560], [334, 1550], [348, 1544], [366, 1541], [384, 1543], [400, 1549], [412, 1560], [418, 1578], [421, 1600], [416, 1622],
+    [408, 1636], [402, 1640], [398, 1628], [390, 1618], [378, 1611], [366, 1609], [354, 1611], [342, 1618], [334, 1628], [330, 1640], [324, 1636], [318, 1620], [314, 1598]]);
+  const northBed = WL([[268, 1198], [404, 1198], [396, 1214], [372, 1232], [352, 1246], [330, 1252], [312, 1262], [296, 1290], [282, 1290], [270, 1250]]);
+  // 步道（中心线 + 宽度米）：西岸、东岸、南岸环形步道、广场到教师公寓
+  const paths = [
+    { w: 2.2, pts: WL([[292, 1196], [292, 1260], [293, 1350], [293, 1440], [290, 1490], [283, 1530], [280, 1570], [284, 1606], [296, 1630], [314, 1648], [330, 1656]]) },
+    { w: 2.4, pts: WL([[404, 1198], [404, 1240], [414, 1290], [428, 1340], [442, 1392], [453, 1442], [461, 1492], [467, 1540], [474, 1580], [478, 1612], [470, 1640], [450, 1652], [424, 1658], [402, 1656]]) },
+    { w: 3.0, pts: WL([[366, 1650], [366, 1700]]) },
+  ];
+  const road = { w: 6.2, pts: WL([[270, 1100], [270, 1300], [270, 1500], [262, 1540], [246, 1574], [234, 1600]]) };
+  // ---- 周边建筑（campus_layout.json：C 区 7 栋板楼 4 + 3 错列、C8–C10、教师公寓、聚友宾馆、B5 / B6、第三教学楼）
+  const STY = {
+    dorm: { floors: 7, fh: 3.1, brick: '#b4685a', band: '#9c9890', trim: '#d9d2c8' },
+    teacher: { floors: 4, fh: 3.1, brick: '#a85a46', band: '#8f8a84', trim: '#e2dbd0', pitched: true },
+    brick: { floors: 5, fh: 3.4, brick: '#a8644e', band: '#a39e96', trim: '#ddd5ca' },
+    canteen: { floors: 5, fh: 3.5, brick: '#b07a62', band: '#b9b4ac', trim: '#e6e0d6' },
+  };
+  const buildings = CUIHU_DATA.buildings.map((b) => {
+    const st = b.id === 'jiaoshi' ? 'teacher' : b.style === 'dorm' && /^B/.test(b.id) ? 'brick' : STY[b.style] ? b.style : 'brick';
+    const s = STY[st], poly = WL(b.poly);
+    return { id: b.id, name: b.name, poly, style: st, S: s, h: s.floors * s.fh + 0.6, bb: bbox(poly) };
+  });
+  // ---- 种植（平面图像素 → 米）；kind：camphor 香樟 / willow 垂柳 / jacaranda 蓝花楹 / ginkgo 银杏（锥形）/ koel 栾树（黄叶）/
+  //      blossom 樱花（粉）/ white 白花 / round 圆冠乔木
+  const T = (kind, px, py, h) => ({ kind, x: (px - O[0]) * S, z: (py - O[1]) * S, h });
+  const trees = [
+    T('camphor', 383, 1440, 13.5),                                                       // 湖心岛：一棵大香樟
+    // 西岸：沥青路与湖之间一排蓝花楹，几棵垂柳探向水面，夹两棵白花 / 粉花树
+    T('jacaranda', 284, 1276, 8.5), T('jacaranda', 284, 1318, 9), T('jacaranda', 285, 1360, 8.5), T('jacaranda', 285, 1404, 9), T('jacaranda', 284, 1446, 8.5),
+    T('jacaranda', 280, 1486, 9), T('jacaranda', 274, 1524, 8.5), T('white', 285, 1424, 7), T('blossom', 284, 1340, 6.5),
+    T('willow', 298, 1336, 8.5), T('willow', 299, 1428, 9), T('willow', 292, 1512, 8.5),
+    // 北端湖尖：蓝花楹、粉花小乔木
+    T('jacaranda', 280, 1228, 8), T('jacaranda', 360, 1214, 7.5), T('blossom', 318, 1210, 5), T('blossom', 384, 1222, 5.5),
+    // 翠湖广场：南侧一排树池银杏（聚友宾馆前），东南角两棵圆冠树
+    ...[0, 1, 2, 3, 4, 5, 6, 7, 8].map((k) => T('ginkgo', 300 + k * 11.5, 1040, 9.5)),
+    T('round', 372, 1168, 8), T('round', 392, 1150, 8.5),
+    // 东岸：垂柳贴水，樱花、圆冠乔木在步道两侧，再往东是 C 区宿舍
+    T('willow', 378, 1290, 8.5), T('willow', 406, 1356, 9), T('willow', 433, 1440, 9), T('willow', 449, 1520, 8.5),
+    T('blossom', 400, 1306, 6.5), T('blossom', 425, 1388, 6.5), T('blossom', 448, 1470, 6), T('blossom', 459, 1560, 6.5),
+    T('round', 420, 1270, 9), T('round', 446, 1330, 10), T('round', 462, 1400, 9.5), T('round', 476, 1452, 10), T('round', 483, 1506, 9.5), T('round', 490, 1560, 9),
+    T('round', 470, 1240, 9),
+    // 南岸 D 形种植床：5 棵黄叶乔木（栾树）；两端湖湾转角各一棵垂柳；半圆广场后成排银杏
+    T('koel', 333, 1566, 8), T('koel', 350, 1578, 8.5), T('koel', 368, 1566, 9), T('koel', 386, 1580, 8.5), T('koel', 404, 1566, 8),
+    T('willow', 302, 1606, 8.5), T('willow', 433, 1630, 8.5),
+    T('ginkgo', 266, 1606, 9.5), T('ginkgo', 282, 1622, 9), T('ginkgo', 296, 1648, 9.5), T('ginkgo', 262, 1636, 9), T('ginkgo', 278, 1656, 9.5), T('ginkgo', 300, 1676, 9),
+    T('ginkgo', 340, 1680, 9), T('ginkgo', 356, 1684, 9.5), T('ginkgo', 378, 1684, 9.5), T('ginkgo', 394, 1680, 9), T('ginkgo', 414, 1676, 9),
+    T('white', 444, 1662, 6.5), T('blossom', 462, 1650, 6),
+  ];
+  const shrubs = [   // [px, py, 半径(米), 花色]
+    [342, 1598, 1.1, 0xd78fc0], [372, 1600, 1.0, 0x9d7ad0], [398, 1602, 1.1, 0xe08aae],   // 种植床里的 3 丛开花灌木
+    [370, 1418, 0.9, 0xe9869f], [398, 1462, 0.8, null], [366, 1452, 0.9, null], [396, 1416, 0.7, 0xf2a6c2], [378, 1466, 0.8, null],   // 湖心岛岸边的低矮灌木与花
+    [330, 1236, 0.9, 0xe9869f], [346, 1220, 0.8, null], [300, 1210, 1.0, null], [374, 1206, 0.9, 0xc77fd8],                       // 北端草坪种植床
+  ];
+  // 绿篱：南岸种植床外缘（沿半圆广场）、北端种植床北缘（广场一侧）、广场树池
+  const hedges = [
+    WL([[330, 1640], [334, 1628], [342, 1618], [354, 1611], [366, 1609], [378, 1611], [390, 1618], [398, 1628], [402, 1640]]),
+    WL([[274, 1201], [286, 1201]]), WL([[298, 1201], [398, 1201]]),
+  ];
+  const rocks = [W([303, 1226])];                         // 北端置石
+  const disc = W([336, 1219]);                             // 北端镂空圆石盘
+  const lamps = WL([[318, 1120], [372, 1094], [330, 1664], [402, 1664], [298, 1622], [296, 1300], [296, 1396], [293, 1474], [420, 1318], [446, 1418], [464, 1516], [480, 1600]]);
+  const benches = [[W([346, 1654]), 0], [W([386, 1654]), 0], [W([297, 1360]), -Math.PI / 2], [W([300, 1452]), -Math.PI / 2], [W([436, 1372]), Math.PI / 2 - 0.3]];
+  const lilyPatches = [   // 睡莲：岛南、岛东、西南岸、东南湖湾、种植床北
+    { c: W([381, 1484]), r: 6.0, n: 190 }, { c: W([414, 1452]), r: 3.4, n: 70 }, { c: W([306, 1538]), r: 4.0, n: 90 },
+    { c: W([442, 1604]), r: 4.0, n: 90 }, { c: W([352, 1528]), r: 3.6, n: 70 },
+  ];
+  const reeds = WL([[330, 1252], [345, 1254], [356, 1262], [386, 1316], [395, 1336], [437, 1462], [441, 1480], [312, 1268]]);
+  // 锦鲤的主要活动范围：原点附近（南岸种植床北面、湖心岛以南）
+  const KOI_HOME = { x: 0, z: 0, r: 11 };
+  // 场景范围（米）
+  const B = { lake: bbox(lake) };
+  // ---- 地形：自然草坡入水，岸上平地 0.30 米；湖心岛、南北种植床略高起
+  const G = 0.30;
+  function bank(s) { return 0.035 + (G - 0.035) * smoothstep(0, 4.0, s); }
+  function depth(x, z, d) { return 0.07 + 1.25 * Math.pow(smoothstep(0.0, 7.5, d), 0.8) + 0.06 * fbm3(x * 0.25, 0.3, z * 0.25, 3, 5) * smoothstep(0, 1.5, d); }
+  function ground(x, z, s) {
+    let h = bank(s) + 0.025 * fbm3(x * 0.35, 0, z * 0.35, 3, 9) * smoothstep(0.3, 2.5, s);
+    const di = islandSd(x, z);
+    if (di < 0) h += 0.55 * smoothstep(1.5, 8, -di) * (0.85 + 0.15 * fbm3(x * 0.3, 2, z * 0.3, 2, 4));
+    if (z > 5 && z < 50 && x > -25 && x < 30) { const db = polySd(bed, x, z); if (db < 0) h += 0.32 * smoothstep(0, 1.4, -db); }
+    if (z < -100 && z > -135) { const dn = polySd(northBed, x, z); if (dn < 0) h += 0.18 * smoothstep(0, 3, -dn); }
+    return h;
+  }
+  // 地形网格坐标：湖区 0.4 米细网格，外面逐渐放大到 ±800 米
+  function axis(lo, hi, step, ext) {
+    const a = []; for (let v = lo; v <= hi + 1e-6; v += step) a.push(v);
+    let s = step, v = hi; while (v < ext) { s *= 1.08; v += s; a.push(Math.min(v, ext)); }
+    const b = []; s = step; v = lo; while (v > -ext) { s *= 1.08; v -= s; b.push(Math.max(v, -ext)); }
+    return b.reverse().concat(a);
+  }
+  return { O, S, W, WL, polySd, inPoly, bbox, lake, island, islandSd, plaza, prom, bed, northBed, paths, road, buildings, trees, shrubs, hedges, rocks, disc,
+    lamps, benches, lilyPatches, reeds, KOI_HOME, B, G, bank, depth, ground, axis,
+    xs: () => axis(-46, 54, 0.4, 800), zs: () => axis(-122, 58, 0.4, 800) };
+})();
+
+/* ---- 硬质景观：铺装、沥青路、置石与石盘、岸边低矮石块、周边建筑（第一阶段，首帧前） */
+function cuihuPaverTex(kind) {
+  const N = 512, cv = makeCanvas(N, N), g = cv.getContext('2d');
+  if (kind === 'asphalt') {
+    g.fillStyle = '#4a4c4e'; g.fillRect(0, 0, N, N);
+    for (let i = 0; i < 9000; i++) { const v = 55 + rand() * 50 | 0; g.fillStyle = `rgba(${v},${v},${v + 2},0.5)`; g.fillRect(rand() * N, rand() * N, 1 + rand() * 2, 1 + rand() * 2); }
+  } else {
+    // 浅灰方形透水砖（30 × 30 厘米，贴图 1 张 = 2.4 米），灰缝 + 轻微色差
+    const n = 8, c = N / n;
+    g.fillStyle = '#8e8c88'; g.fillRect(0, 0, N, N);
+    for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
+      const v = (kind === 'warm' ? 176 : 168) + (rand() * 26 - 13) | 0;
+      g.fillStyle = kind === 'warm' ? `rgb(${v + 6},${v},${v - 10})` : `rgb(${v},${v},${v - 3})`;
+      g.fillRect(i * c + 2, j * c + 2, c - 4, c - 4);
+      for (let k = 0; k < 40; k++) { const w = v - 20 + rand() * 40 | 0; g.fillStyle = `rgba(${w},${w},${w},0.35)`; g.fillRect(i * c + 2 + rand() * (c - 6), j * c + 2 + rand() * (c - 6), 2, 2); }
+    }
+  }
+  const t = canvasTex(cv); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
+}
+function cuihuFacadeTex(st) {
+  // 一层 × 一开间的立面单元：砖墙、楼层腰线、铝框窗（带阳台栏板），按 u = 墙长 / 3.6 米、v = 高度 / 层高平铺
+  const cv = makeCanvas(256, 256), g = cv.getContext('2d');
+  g.fillStyle = st.brick; g.fillRect(0, 0, 256, 256);
+  for (let y = 0; y < 256; y += 6) for (let x = (y / 6) % 2 ? 0 : 9; x < 256; x += 18) { g.fillStyle = `rgba(0,0,0,${0.05 + rand() * 0.08})`; g.fillRect(x, y, 17, 1); g.fillRect(x, y, 1, 6); }
+  for (let i = 0; i < 1500; i++) { g.fillStyle = `rgba(${rand() < 0.5 ? '255,235,220' : '60,20,10'},${rand() * 0.08})`; g.fillRect(rand() * 256, rand() * 256, 3, 2); }
+  g.fillStyle = st.band; g.fillRect(0, 0, 256, 22);                     // 楼层腰线（灰色）
+  g.fillStyle = st.trim; g.fillRect(52, 58, 152, 150);                 // 窗套
+  g.fillStyle = '#3b4a55'; g.fillRect(60, 66, 136, 120);               // 玻璃
+  const gr = g.createLinearGradient(0, 66, 0, 186); gr.addColorStop(0, 'rgba(190,215,235,0.55)'); gr.addColorStop(1, 'rgba(40,60,75,0.1)');
+  g.fillStyle = gr; g.fillRect(60, 66, 136, 120);
+  g.fillStyle = '#c9ccd0'; g.fillRect(126, 66, 5, 120); g.fillRect(60, 120, 136, 4);   // 铝框
+  g.fillStyle = 'rgba(225,225,228,0.92)'; g.fillRect(44, 172, 168, 36);             // 阳台栏板
+  g.fillStyle = 'rgba(0,0,0,0.25)'; g.fillRect(44, 206, 168, 4);
+  const t = canvasTex(cv); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
+}
+function cuihuRibbon(pts, w, lift, step = 1.0) {
+  // 沿折线的带状路面，贴着地形（每 step 米一段）
+  const P = [];
+  for (let i = 0; i < pts.length - 1; i++) {
+    const [ax, az] = pts[i], [bx, bz] = pts[i + 1], L = Math.hypot(bx - ax, bz - az), n = Math.max(1, Math.ceil(L / step));
+    for (let k = 0; k < n; k++) P.push([lerp(ax, bx, k / n), lerp(az, bz, k / n)]);
+  }
+  P.push(pts[pts.length - 1]);
+  const pos = [], uv = [], idx = []; let acc = 0;
+  for (let i = 0; i < P.length; i++) {
+    const a = P[Math.max(0, i - 1)], b = P[Math.min(P.length - 1, i + 1)];
+    let tx = b[0] - a[0], tz = b[1] - a[1]; const l = Math.hypot(tx, tz) || 1; tx /= l; tz /= l;
+    if (i) acc += Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]);
+    for (const sd of [-1, 1]) {
+      const x = P[i][0] - tz * sd * w / 2, z = P[i][1] + tx * sd * w / 2;
+      pos.push(x, Math.max(ground(x, z), CUIHU.G * 0.5) + lift, z); uv.push(x, z);
+    }
+    if (i) { const q = (i - 1) * 2; idx.push(q, q + 2, q + 1, q + 1, q + 2, q + 3); }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals();
+  return g;
+}
+function cuihuFlat(poly, y) {
+  const sh = new THREE.Shape(poly.map(([x, z]) => new THREE.Vector2(x, -z)));
+  const g = new THREE.ShapeGeometry(sh, 24); g.rotateX(-Math.PI / 2); g.translate(0, y, 0);
+  const p = g.attributes.position, uv = g.attributes.uv; for (let i = 0; i < p.count; i++) uv.setXY(i, p.getX(i), p.getZ(i));
+  return g;
+}
+function cuihuPrism(poly, y0, y1) {
+  const sh = new THREE.Shape(poly.map(([x, z]) => new THREE.Vector2(x, -z)));
+  const g = new THREE.ExtrudeGeometry(sh, { depth: y1 - y0, bevelEnabled: false, curveSegments: 4 }); g.rotateX(-Math.PI / 2); g.translate(0, y0, 0);
+  return g;
+}
+function cuihuWalls(poly, y0, h, fh) {
+  // 外墙：每条边一个四边形，UV 按开间 / 层高
+  const pos = [], uv = [], idx = [];
+  let area = 0; for (let i = 0; i < poly.length; i++) { const a = poly[i], b = poly[(i + 1) % poly.length]; area += a[0] * b[1] - b[0] * a[1]; }
+  const flip = area > 0;
+  for (let i = 0; i < poly.length; i++) {
+    let a = poly[i], b = poly[(i + 1) % poly.length]; if (flip) [a, b] = [b, a];
+    const L = Math.hypot(b[0] - a[0], b[1] - a[1]), bays = Math.max(1, Math.round(L / 3.6)), k = pos.length / 3;
+    pos.push(a[0], y0, a[1], b[0], y0, b[1], a[0], y0 + h, a[1], b[0], y0 + h, b[1]);
+    uv.push(0, 0, bays, 0, 0, h / fh, bays, h / fh);
+    idx.push(k, k + 1, k + 2, k + 2, k + 1, k + 3);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx);
+  g.computeVertexNormals(); return g;
+}
+function cuihuGable(x0, z0, x1, z1, y0, rise, alongX) {
+  // 坡屋顶（两坡 + 两端山墙），出檐 0.5 米
+  const e = 0.5; x0 -= e; z0 -= e; x1 += e; z1 += e;
+  const g = new THREE.BufferGeometry(), P = [];
+  if (alongX) {
+    const zm = (z0 + z1) / 2, y1 = y0 + rise;
+    P.push([x0, y0, z0, x1, y0, z0, x0, y1, zm], [x1, y0, z0, x1, y1, zm, x0, y1, zm], [x1, y0, z1, x0, y0, z1, x1, y1, zm], [x0, y0, z1, x0, y1, zm, x1, y1, zm],
+      [x0, y0, z1, x0, y0, z0, x0, y1, zm], [x1, y0, z0, x1, y0, z1, x1, y1, zm]);
+  } else {
+    const xm = (x0 + x1) / 2, y1 = y0 + rise;
+    P.push([x0, y0, z1, x0, y0, z0, xm, y1, z1], [x0, y0, z0, xm, y1, z0, xm, y1, z1], [x1, y0, z0, x1, y0, z1, xm, y1, z0], [x1, y0, z1, xm, y1, z1, xm, y1, z0],
+      [x0, y0, z0, x1, y0, z0, xm, y1, z0], [x1, y0, z1, x0, y0, z1, xm, y1, z1]);
+  }
+  const pos = [].concat(...P);
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  const uv = []; for (let i = 0; i < pos.length; i += 3) uv.push(pos[i] + pos[i + 2], pos[i + 1] * 1.6);
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.computeVertexNormals();
+  return g;
+}
+function buildCuihuHardscape() {
+  const granite = rockMaterial(TEX.granite, { key: 'granite', scale: 1.5, moss: 0.35, rough: 0.78, nrm: 0.9 });
+  const boulderMat = rockMaterial(TEX.boulder, { key: 'boulder', scale: 0.75, moss: 0.5, rough: 0.8, nrm: 1.3, tint: 0xb8b2a8 });
+  WORLD.granite = granite; WORLD.boulderMat = boulderMat; WORLD.solids = WORLD.solids || [];
+  granite.userData.uniforms.uTint.value.setScalar(0.97);
+  const C = CUIHU, G = C.G;
+  // 铺装
+  const paveMat = physical({ map: cuihuPaverTex('grey'), roughness: 0.8, envMapIntensity: 0.5 }, { key: 'pavers' });
+  const warmMat = physical({ map: cuihuPaverTex('warm'), roughness: 0.82, envMapIntensity: 0.5 }, { key: 'pavers2' });
+  const roadMat = physical({ map: cuihuPaverTex('asphalt'), roughness: 0.92, envMapIntensity: 0.4 }, { key: 'asphalt' });
+  for (const m of [paveMat, warmMat, roadMat]) { m.map.repeat.set(1 / 2.4, 1 / 2.4); m.polygonOffset = true; m.polygonOffsetFactor = -1; m.polygonOffsetUnits = -4; }
+  roadMat.map.repeat.set(1 / 6, 1 / 6);
+  const flats = [];
+  flats.push(new THREE.Mesh(cuihuFlat(C.plaza, G + 0.03), paveMat), new THREE.Mesh(cuihuFlat(C.prom, G + 0.03), warmMat));
+  for (const p of C.paths) flats.push(new THREE.Mesh(cuihuRibbon(p.pts, p.w, 0.035), warmMat));
+  flats.push(new THREE.Mesh(cuihuRibbon(C.road.pts, C.road.w, 0.03, 2), roadMat));
+  for (const m of flats) { m.receiveShadow = true; setLayer(m, LAYER.ABOVE); scene.add(m); WORLD.noReflect.push(m); }
+  // 路缘石（广场与半圆广场外沿）+ 银杏树池（方形石沿）
+  const curbs = [];
+  const curbAlong = (poly, closed) => {
+    const n = closed ? poly.length : poly.length - 1;
+    for (let i = 0; i < n; i++) {
+      const a = poly[i], b = poly[(i + 1) % poly.length], L = Math.hypot(b[0] - a[0], b[1] - a[1]); if (L < 0.2) continue;
+      const g = new THREE.BoxGeometry(L, 0.12, 0.18); g.rotateY(-Math.atan2(b[1] - a[1], b[0] - a[0])); g.translate((a[0] + b[0]) / 2, G + 0.05, (a[1] + b[1]) / 2); curbs.push(g);
+    }
+  };
+  curbAlong(C.plaza, true); curbAlong(C.prom, true);
+  for (const t of C.trees) if (t.kind === 'ginkgo' && C.inPoly(C.plaza, t.x, t.z)) {
+    for (let k = 0; k < 4; k++) { const g = new THREE.BoxGeometry(1.9, 0.38, 0.16); g.translate(0, 0, 0.87); g.rotateY(k * Math.PI / 2); g.translate(t.x, G + 0.19, t.z); curbs.push(g); }
+    const soil = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.05, 1.6).translate(t.x, G + 0.3, t.z), physical({ color: 0x4a3a2a, roughness: 0.95 }, { key: 'pitsoil' })); soil.receiveShadow = true; setLayer(soil, LAYER.ABOVE); scene.add(soil);
+  }
+  if (curbs.length) meshOf(curbs, granite, LAYER.ABOVE);
+  // 北端：一块大置石 + 一面立起来的镂空圆石盘（带石座）
+  const V = new THREE.Vector3(), Q = new THREE.Quaternion(), E = new THREE.Euler(), SC = new THREE.Vector3(), mtx = () => new THREE.Matrix4().compose(V, Q, SC);
+  const big = [];
+  for (const [x, z] of C.rocks) { V.set(x, ground(x, z) + 0.35, z); E.set(0.05, 0.7, -0.04); Q.setFromEuler(E); SC.set(1.6, 1.25, 1.3); big.push(mtx()); }
+  WORLD.solids.push(instanced(rockGeo(23.1, 5, -0.35, 0.25), boulderMat, big, LAYER.ABOVE));
+  {
+    const [x, z] = C.disc, R = 1.45, gy = ground(x, z);
+    const sh = new THREE.Shape(); sh.absarc(0, 0, R, 0, Math.PI * 2, false);
+    const holes = [[0, 0, 0.36], ...[0, 1, 2, 3, 4, 5, 6, 7].map((k) => [Math.cos(k * Math.PI / 4) * 0.92, Math.sin(k * Math.PI / 4) * 0.92, 0.2])];
+    for (const [hx, hy, hr] of holes) { const hp = new THREE.Path(); hp.absarc(hx, hy, hr, 0, Math.PI * 2, true); sh.holes.push(hp); }
+    const dg = new THREE.ExtrudeGeometry(sh, { depth: 0.32, bevelEnabled: true, bevelThickness: 0.04, bevelSize: 0.04, bevelSegments: 2, curveSegments: 40 });
+    dg.translate(0, R + 0.32, -0.16);
+    const plinth = roundedBox(1.9, 0.32, 0.9, 0.05, 31).translate(0, 0.16, 0);
+    const m = new THREE.Mesh(mergeGeos([dg, plinth]), granite);
+    m.position.set(x, gy - 0.05, z); m.rotation.y = 0.25; m.castShadow = m.receiveShadow = true; setLayer(m, LAYER.ABOVE); scene.add(m);
+    WORLD.disc = [x, z];
+  }
+  // 岸边零星低矮石块（官方地图：自然草坡，偶有低石）
+  const low = [[], [], []], variants = [0, 1, 2].map((i) => rockGeo(i * 9.3 + 4, 4));
+  for (let k = 0; k < 26; k++) {
+    const sh = shoreAt(((k * 0.618034) % 1) * POLY_LEN), r = rr(0.25, 0.55);
+    V.set(sh.x + sh.nx * r * 0.3, 0.02 + r * 0.25, sh.z + sh.nz * r * 0.3); E.set(rr(-0.2, 0.2), rand() * 6.28, rr(-0.2, 0.2)); Q.setFromEuler(E);
+    SC.set(r * rr(1.0, 1.4), r * rr(0.5, 0.75), r * rr(0.9, 1.2)); low[k % 3].push(mtx());
+  }
+  for (let i = 0; i < 3; i++) { const bm = instanced(variants[i], boulderMat, low[i], LAYER.BOTH); WORLD.solids.push(bm); addMossShells(bm, 0.5); }
+  buildCuihuBuildings();
+}
+function buildCuihuBuildings() {
+  const C = CUIHU, G = C.G, groups = {};
+  const roofMat = physical({ color: 0x9a9894, roughness: 0.9, envMapIntensity: 0.5 }, { key: 'roofslab' });
+  const plinthMat = physical({ color: 0x77736c, roughness: 0.85 }, { key: 'plinth' });
+  const tileMat = physical({ map: TEX.roof.map, normalMap: TEX.roof.normalMap, color: 0x8d949a, roughness: 0.7, envMapIntensity: 0.6 }, { key: 'pitchroof' });
+  tileMat.map.wrapS = tileMat.map.wrapT = THREE.RepeatWrapping;
+  const roofs = [], plinths = [], boxes = [], pitched = [];
+  WORLD.buildings = [];
+  for (const b of C.buildings) {
+    const st = b.S, h = b.h;
+    (groups[b.style] = groups[b.style] || { st, geos: [] }).geos.push(cuihuWalls(b.poly, G, h, st.fh));
+    plinths.push(cuihuWalls(b.poly.map(([x, z]) => [x, z]), G - 0.2, 0.9, 0.9));
+    let top = G + h;
+    if (st.pitched) {
+      // 教师公寓：主楼东西向、两翼南北向的坡屋顶
+      const [x0, z0, x1, z1] = b.bb, mainZ0 = z0 + (z1 - z0) * 0.4;
+      roofs.push(cuihuPrism(b.poly, G + h - 0.05, G + h + 0.1));
+      pitched.push(cuihuGable(x0, mainZ0, x1, z1, G + h + 0.1, 3.4, true));
+      pitched.push(cuihuGable(x0, z0, x0 + 11.2, mainZ0 + 1, G + h + 0.1, 3.2, false));
+      pitched.push(cuihuGable(x1 - 12, z0, x1, mainZ0 + 1, G + h + 0.1, 3.2, false));
+      top += 3.5;
+    } else {
+      roofs.push(cuihuPrism(b.poly, G + h - 0.05, G + h + 0.15));
+      // 女儿墙 + 屋顶楼梯间 / 电梯机房
+      const par = cuihuWalls(b.poly, G + h, 1.0, 1.0); plinths.push(par);
+      const [x0, z0, x1, z1] = b.bb, cx = (x0 + x1) / 2, cz = (z0 + z1) / 2, lx = x1 - x0, lz = z1 - z0;
+      if (b.style === 'dorm') for (const f of [-0.28, 0.28]) {
+        const px = lx > lz ? cx + f * lx : cx, pz = lx > lz ? cz : cz + f * lz;
+        if (C.inPoly(b.poly, px, pz)) boxes.push(new THREE.BoxGeometry(4.2, 3.0, 4.2).translate(px, G + h + 1.5, pz));
+      }
+      top += 3;
+    }
+    WORLD.buildings.push({ poly: b.poly, top, bb: b.bb, name: b.name });
+  }
+  for (const k in groups) {
+    const { st, geos } = groups[k];
+    const m = physical({ map: cuihuFacadeTex(st), roughness: 0.82, envMapIntensity: 0.55 }, { key: 'facade_' + k });
+    const mesh = meshOf(geos, m, LAYER.ABOVE);
+    mesh.material.side = THREE.DoubleSide;
+  }
+  meshOf(roofs.concat(boxes), roofMat, LAYER.ABOVE);
+  meshOf(plinths, plinthMat, LAYER.ABOVE);
+  if (pitched.length) meshOf(pitched, tileMat, LAYER.ABOVE);
+}
+// 相机 / 巡游用：点 (x,z) 处建筑屋顶高度（不在建筑内返回 -Infinity，pad 为外扩米数）
+function cuihuBuildingTop(x, z, pad = 1.5) {
+  for (const b of WORLD.buildings || []) {
+    if (x < b.bb[0] - pad || x > b.bb[2] + pad || z < b.bb[1] - pad || z > b.bb[3] + pad) continue;
+    if (CUIHU.polySd(b.poly, x, z) < pad) return b.top;
+  }
+  return -Infinity;
+}
+
+/* ---- 校园路灯（现代灯杆：灰色细杆 + 扁平灯头），夜晚亮起；前 4 盏配真实点光源（南岸与锦鲤区） */
+function buildCuihuLamps() {
+  const metal = physical({ color: 0x5d6368, roughness: 0.4, metalness: 0.75, envMapIntensity: 0.8 }, { key: 'lampmetal' });
+  const glow = new THREE.MeshBasicMaterial({ color: 0xffd9a0 });
+  const lit = [2, 3, 4, 10];
+  CUIHU.lamps.forEach(([x, z], i) => {
+    if (sdf(x, z) < 0.6) return;
+    const gy = Math.max(terrainHeight(x, z), CUIHU.G), parts = [];
+    parts.push(new THREE.CylinderGeometry(0.13, 0.16, 0.3, 14).translate(0, 0.15, 0));
+    parts.push(new THREE.CylinderGeometry(0.05, 0.07, 4.6, 12).translate(0, 2.6, 0));
+    parts.push(new THREE.BoxGeometry(0.9, 0.06, 0.06).translate(0.35, 4.85, 0));
+    parts.push(new THREE.CylinderGeometry(0.26, 0.3, 0.1, 18).translate(0.75, 4.82, 0));
+    const m = new THREE.Mesh(mergeGeos(parts), metal); m.position.set(x, gy - 0.02, z); m.rotation.y = rand() * 6.28;
+    m.castShadow = true; m.receiveShadow = true; setLayer(m, LAYER.ABOVE); scene.add(m);
+    const head = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.04, 18), glow.clone());
+    const hp = new THREE.Vector3(0.75, 4.76, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), m.rotation.y);
+    head.position.set(x + hp.x, gy - 0.02 + hp.y, z + hp.z); setLayer(head, LAYER.ABOVE); scene.add(head); LANTERNS.push(head);
+    if (lit.includes(i)) { const L = new THREE.PointLight(0xffc98a, 0, 16, 1.6); L.position.copy(head.position).y -= 0.2; scene.add(L); LAMPS.lights.push(L); }
+  });
+  for (const [[x, z], yaw] of CUIHU.benches) buildBench(x, z, yaw);
+}
+
+/* ---- 视点辅助：平面图像素 → 场景坐标；视线与水面的交点（涟漪模拟窗口、阴影范围都跟随它） */
+function cuihuV(px, py, y) { const [x, z] = CUIHU.W([px, py]); return new THREE.Vector3(x, y, z); }
+const _cf = new THREE.Vector3(), _cdir = new THREE.Vector3();
+function cuihuFocus(out) {
+  camera.getWorldDirection(_cdir);
+  const p = camera.position;
+  let t = _cdir.y < -0.03 ? (WATER_Y - p.y) / _cdir.y : 30;
+  t = clamp(t, 0, 45);
+  return out.set(p.x + _cdir.x * t, 0, p.z + _cdir.z * t);
+}
+// 全湖水面遮罩（有向距离，[-2, 2] 米 → 0..255，0.2 米一格）：水面着色器按它裁出湖岸（湖心岛也挖掉）
+let lakeMaskTex = null;
+const LAKE_R = new THREE.Vector4();
+function buildLakeMask() {
+  const [x0, z0, x1, z1] = CUIHU.B.lake, pad = 2, cell = 0.2;
+  const X0 = x0 - pad, Z0 = z0 - pad, w = Math.ceil((x1 - x0 + 2 * pad) / cell), h = Math.ceil((z1 - z0 + 2 * pad) / cell);
+  const md = new Uint8Array(w * h * 4);
+  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
+    const v = clamp((sdf(X0 + (i + 0.5) * cell, Z0 + (j + 0.5) * cell) + 2) / 4, 0, 1) * 255, k = (j * w + i) * 4;
+    md[k] = md[k + 1] = md[k + 2] = v; md[k + 3] = 255;
+  }
+  lakeMaskTex = new THREE.DataTexture(md, w, h); lakeMaskTex.magFilter = lakeMaskTex.minFilter = THREE.LinearFilter; lakeMaskTex.needsUpdate = true;
+  LAKE_R.set(X0, Z0, 1 / (w * cell), 1 / (h * cell));
+  return lakeMaskTex;
+}
+// 涟漪模拟只覆盖视点附近 30 米见方的窗口（全湖 145 米按原分辨率模拟太贵）：视点移出窗口中部时，窗口按整格平移，已有涟漪随之搬过去
+const SHIFT_FS = /* glsl */`
+uniform sampler2D tPrev;
+uniform vec2 uOff;
+varying vec2 vUv;
+void main(){ vec2 uv = vUv + uOff; gl_FragColor = (uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) ? vec4(0.0) : texture2D(tPrev, uv); }`;
+const SIMFOLLOW = { pass: null };
+function simWindowMask() {
+  const N = SIM.N, md = maskTex.image.data;
+  for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+    const v = clamp((sdf(SIM.x0 + (i + 0.5) / N * SIM.size, SIM.z0 + (j + 0.5) / N * SIM.size) + 2) / 4, 0, 1) * 255, k = (j * N + i) * 4;
+    md[k] = md[k + 1] = md[k + 2] = v;
+  }
+  maskTex.needsUpdate = true;
+}
+function simFollow() {
+  if (!simPass || !maskTex) return;
+  cuihuFocus(_cf);
+  const cx = SIM.x0 + SIM.size / 2, cz = SIM.z0 + SIM.size / 2;
+  if (Math.abs(_cf.x - cx) < SIM.size * 0.22 && Math.abs(_cf.z - cz) < SIM.size * 0.22) return;
+  const cell = SIM.size / SIM.N, di = Math.round((_cf.x - cx) / cell), dj = Math.round((_cf.z - cz) / cell);
+  if (!SIMFOLLOW.pass) SIMFOLLOW.pass = shaderPass(SHIFT_FS, { tPrev: { value: null }, uOff: { value: new THREE.Vector2() } });
+  SIMFOLLOW.pass.uniforms.tPrev.value = simA.texture; SIMFOLLOW.pass.uniforms.uOff.value.set(di / SIM.N, dj / SIM.N);
+  SIMFOLLOW.pass.render(simB);
+  const t = simA; simA = simB; simB = t;
+  SIM.x0 += di * cell; SIM.z0 += dj * cell;
+  simPass.uniforms.uSim.value.set(SIM.x0, SIM.z0, SIM.size, 0);
+  waterMat.uniforms.uSim.value.set(SIM.x0, SIM.z0, SIM.size, 1 / SIM.N);
+  SH.uSimS.value.set(SIM.x0, SIM.z0, SIM.size, 1 / SIM.N);
+  simWindowMask();
+  waterMat.uniforms.tRipple.value = simA.texture; SH.tRippleS.value = simA.texture;
+}
+// 阴影范围跟随视点（±48 米，按 8 米网格吸附，避免阴影边缘每帧抖动）
+const SHF = { x: 1e9, z: 1e9 };
+function cuihuShadowFollow() {
+  cuihuFocus(_cf);
+  const g = 8, x = Math.round(lerp(camera.position.x, _cf.x, 0.5) / g) * g, z = Math.round(lerp(camera.position.z, _cf.z, 0.5) / g) * g;
+  if (x === SHF.x && z === SHF.z) return;
+  SHF.x = x; SHF.z = z;
+  sun.target.position.set(x, 0, z); sun.target.updateMatrixWorld();
+  sun.position.copy(SH.uSunDir.value).multiplyScalar(150).add(sun.target.position);
+  SHADOW.dirty = true;
+}
+// 近裁剪面随离地高度变化：贴近水面的特写保持 2 厘米，高空俯瞰时放大到 0.5 米（远处 300 米外的深度精度）
+function cuihuNearPlane() {
+  const p = camera.position, hg = p.y - Math.max(WATER_Y, terrainHeight(p.x, p.z));
+  const nr = clamp(hg * 0.04, 0.02, 0.5);
+  if (Math.abs(nr - camera.near) > 0.004) { camera.near = nr; camera.updateProjectionMatrix(); }
+}
+
 /* ------------------------------------------------------------------ POND SHAPE (closed Catmull-Rom spline + SDF) */
-const POND_CTRL = [[0.0, 6.0], [3.1, 4.6], [2.5, 1.2], [3.0, -1.8], [1.8, -3.6], [1.6, -5.6], [-1.2, -6.0], [-1.8, -3.5], [-3.5, -1.0], [-3.4, 3.4]];
+const POND_CTRL = CUIHU.lake;   // 翠湖湖岸（campus_layout.json，场景米）
 const pondCurve = new THREE.CatmullRomCurve3(POND_CTRL.map(([x, z]) => new THREE.Vector3(x, 0, z)), true, 'catmullrom', 0.5);
-const NPOLY = 480;
+const NPOLY = 1400;
 const POLY = pondCurve.getSpacedPoints(NPOLY).slice(0, NPOLY).map((v) => [v.x, v.z]);
 const POLY_CUM = [0];
 for (let i = 0; i < NPOLY; i++) { const a = POLY[i], b = POLY[(i + 1) % NPOLY]; POLY_CUM.push(POLY_CUM[i] + Math.hypot(b[0] - a[0], b[1] - a[1])); }
@@ -656,7 +1113,8 @@ function shoreAt(s) {
   const nx = POLY_CCW ? tz : -tz, nz = POLY_CCW ? -tx : tx;
   return { x: lerp(a[0], b[0], t), z: lerp(a[1], b[1], t), tx, tz, nx, nz, u: s / POLY_LEN };
 }
-function sdfExact(x, z) {
+function sdfExact(x, z) { return Math.max(sdfLakeExact(x, z), -CUIHU.islandSd(x, z)); }   // 湖心岛是陆地
+function sdfLakeExact(x, z) {
   let best = 1e18, inside = false;
   for (let i = 0, j = NPOLY - 1; i < NPOLY; j = i++) {
     const ax = POLY[j][0], az = POLY[j][1], bx = POLY[i][0], bz = POLY[i][1];
@@ -668,10 +1126,17 @@ function sdfExact(x, z) {
   }
   return inside ? -Math.sqrt(best) : Math.sqrt(best);
 }
-const SDF = { x0: -11, z0: -13, cell: 0.1, nx: 221, nz: 261, d: null };
+const SDF = { x0: -46, z0: -122, cell: 0.25, nx: 401, nz: 721, d: null };
+// 先算 2 米粗网格，只在离岸 5 米以内的细格精确计算，其余插值（全湖 0.25 米网格逐格精确计算太慢）
 function buildSDF() {
   SDF.d = new Float32Array(SDF.nx * SDF.nz);
-  for (let j = 0; j < SDF.nz; j++) for (let i = 0; i < SDF.nx; i++) SDF.d[j * SDF.nx + i] = sdfExact(SDF.x0 + i * SDF.cell, SDF.z0 + j * SDF.cell);
+  const cs = 2, cnx = Math.ceil((SDF.nx - 1) * SDF.cell / cs) + 2, cnz = Math.ceil((SDF.nz - 1) * SDF.cell / cs) + 2, cd = new Float32Array(cnx * cnz);
+  for (let j = 0; j < cnz; j++) for (let i = 0; i < cnx; i++) cd[j * cnx + i] = sdfExact(SDF.x0 + i * cs, SDF.z0 + j * cs);
+  for (let j = 0; j < SDF.nz; j++) for (let i = 0; i < SDF.nx; i++) {
+    const x = SDF.x0 + i * SDF.cell, z = SDF.z0 + j * SDF.cell, fx = (x - SDF.x0) / cs, fz = (z - SDF.z0) / cs, ci = Math.min(cnx - 2, Math.floor(fx)), cj = Math.min(cnz - 2, Math.floor(fz)), u = fx - ci, v = fz - cj;
+    const c = lerp(lerp(cd[cj * cnx + ci], cd[cj * cnx + ci + 1], u), lerp(cd[(cj + 1) * cnx + ci], cd[(cj + 1) * cnx + ci + 1], u), v);
+    SDF.d[j * SDF.nx + i] = Math.abs(c) > 5 ? c : sdfExact(x, z);
+  }
 }
 function sdf(x, z) {
   const fx = (x - SDF.x0) / SDF.cell, fz = (z - SDF.z0) / SDF.cell;
@@ -682,19 +1147,10 @@ function sdf(x, z) {
   const i = Math.floor(fx), j = Math.floor(fz), u = fx - i, v = fz - j, n = SDF.nx, d = SDF.d;
   return lerp(lerp(d[j * n + i], d[j * n + i + 1], u), lerp(d[(j + 1) * n + i], d[(j + 1) * n + i + 1], u), v);
 }
-const PAVILION = { x: 0.3, z: -9.2, r: 1.9 };
-const BRIDGE = { z: -3.55, half: 2.75, width: 1.25 };
-function pondDepth(x, z, d) { return 0.3 + 0.9 * Math.pow(smoothstep(0.0, 2.1, d), 0.85) + 0.05 * fbm3(x * 0.8, 0.3, z * 0.8, 3, 5) * smoothstep(0, 0.5, d); }
-function groundHeight(x, z, s) {
-  let h = lerp(0.085, 0.14, smoothstep(0.2, 0.9, s)) + 0.04 * fbm3(x * 0.6, 0, z * 0.6, 3, 9) * smoothstep(0.1, 0.6, s);
-  h += 0.45 * smoothstep(0.9, 5.5, s) * (0.5 + 0.5 * fbm3(x * 0.16, 1, z * 0.16, 3, 21));   // soft garden mounds
-  const r = Math.hypot(x * 0.9, z * 0.75);
-  h += 4.0 * smoothstep(14, 45, r) * (0.55 + 0.45 * fbm3(x * 0.045, 2, z * 0.045, 3, 4)); // distant hills
-  const dp = Math.hypot(x - PAVILION.x, z - PAVILION.z);
-  h = lerp(0.24, h, smoothstep(PAVILION.r + 0.5, PAVILION.r + 2.2, dp));
-  h += wfMound(x, z) * smoothstep(0.1, 0.55, s);                                         // waterfall mound                 // pavilion pad
-  return h;
-}
+const PAVILION = { x: 1e5, z: 1e5, r: 1.9 };   // 翠湖没有亭子
+const BRIDGE = { z: 1e5, half: 2.75, width: 1.25 };   // 翠湖没有桥
+function pondDepth(x, z, d) { return CUIHU.depth(x, z, d); }
+function groundHeight(x, z, s) { return CUIHU.ground(x, z, s); }
 function terrainHeight(x, z) { const s = sdf(x, z); return s < 0 ? -pondDepth(x, z, -s) : groundHeight(x, z, s); }
 
 /* ------------------------------------------------------------------ 6. TERRAIN + BASIN */
@@ -705,7 +1161,7 @@ function axisCoords(inner, ext, step) {
   return a.slice(1).reverse().map((v) => -v).concat(a);
 }
 function buildTerrain() {
-  const xs = axisCoords(8.5, 90, 0.08), zs = axisCoords(12.5, 90, 0.08);
+  const xs = CUIHU.xs(), zs = CUIHU.zs();   // 湖区 0.4 米细网格，外围逐渐放大到 ±800 米
   const NX = xs.length, NZ = zs.length, NV = NX * NZ;
   const pos = new Float32Array(NV * 3), nor = new Float32Array(NV * 3), uv = new Float32Array(NV * 2), col = new Float32Array(NV * 3);
   const S = new Float32Array(NV), Y = new Float32Array(NV);
@@ -796,7 +1252,8 @@ function addMossShells(src, moss, shells = 5, h = 0.011) {
     setLayer(sm, LAYER.SURFACE); scene.add(sm);
   }
 }
-function buildStones() {
+function buildStones() { buildCuihuHardscape(); }
+function buildStonesKoiGarden() {
   const granite = rockMaterial(TEX.granite, { key: 'granite', scale: 1.5, moss: 0.35, rough: 0.78, nrm: 0.9 });
   const boulderMat = rockMaterial(TEX.boulder, { key: 'boulder', scale: 0.75, moss: 0.62, rough: 0.8, nrm: 1.3, tint: 0xb8b2a8 });
   WORLD.granite = granite;
@@ -1052,7 +1509,266 @@ function buildPlantTextures() {
 
 const ground = (x, z) => groundHeight(x, z, sdf(x, z));
 
+// ---- 翠湖植被（替换原日式庭园的 buildVegetation；由 tools/build_pond.py 插入 pond-main.js）
+// 树木位置、种类按官方地图（见 tools/pond_cuihu.js 的 CUIHU.trees）：湖心岛一棵大香樟；西岸蓝花楹与垂柳；东岸垂柳、樱花、圆冠乔木；
+// 北端湖尖蓝花楹与粉花小乔木；翠湖广场树池银杏；南岸 D 形种植床 5 棵黄叶栾树，半圆广场后成排银杏。仍用池塘同一套
+// growTree 递归分枝 + addCard 叶片卡与同一套材质，垂柳登记为可选中、可移植的“原有个体”。
+const GINKGO_FS = 'diffuseColor.rgb = mix(diffuseColor.rgb, vec3(1.0, 0.8, 0.16) * (dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11)) * 2.4 + 0.03), uAutumn);';
 async function buildVegetation() {
+  const V3 = THREE.Vector3, C = CUIHU;
+  const OCC = []; WORLD.occ = OCC; WORLD.trees = []; WORLD.willows = []; WORLD.willowParts = []; WORLD.irisClumps = [];
+  LEAVES.ginkgo = LEAVES.ginkgo || []; LEAVES.jac = LEAVES.jac || [];
+  SAKURA.spawn = [];
+  const col = (a, b, c, d, e, f) => new THREE.Color().setRGB(rr(a, b), rr(c, d), rr(e, f));
+  const gX = (x, z) => (sdf(x + 0.05, z) - sdf(x - 0.05, z)) / 0.1, gZ = (x, z) => (sdf(x, z + 0.05) - sdf(x, z - 0.05)) / 0.1;
+  const crown = (x, z, h, o) => growTree(Object.assign({ base: new V3(x, ground(x, z) - 0.15, z), dir: new V3(rr(-0.06, 0.06), 1, rr(-0.06, 0.06)).normalize(),
+    len: h * 0.42, rad: 0.06 + h * 0.021, depth: 3, children: [6, 3, 3], childStart: [0.42, 0.3, 0.3], spread: [0.85, 0.8, 0.7], upBias: [0.45, 0.32, 0.28],
+    lenDecay: 0.6, radDecay: 0.6, wiggle: [0.06, 0.24, 0.3], gravity: [0, 0.0, -0.03] }, o || {}));
+  const cards = (tips, list, k, spread, size, color) => { for (const t of tips) for (let i = 0; i < k; i++) addCard(list, t.p.clone().add(randDir().multiplyScalar(rr(spread[0], spread[1]))), randDir().add(new V3(0, 0.8, 0)), rr(size[0], size[1]), color()); };
+  let n = 0;
+  for (const T of C.trees) {
+    if (n++ % 6 === 0) await phase2Yield(n < 2 ? '种植湖心岛香樟' : n < 20 ? '种植西岸蓝花楹与垂柳' : n < 40 ? '种植银杏与东岸树木' : '种植南岸栾树与银杏');
+    const { x, z, h, kind } = T; let r = h * 0.38;
+    if (kind === 'camphor' || kind === 'round') {
+      const big = kind === 'camphor';
+      const tips = crown(x, z, h, big ? { children: [7, 3, 3], spread: [1.0, 0.85, 0.75], upBias: [0.3, 0.25, 0.2], len: h * 0.44, rad: 0.12 + h * 0.024 } : {});
+      const tint = big ? [0.78, 1.0, 0.72] : [rr(0.75, 1.0), rr(0.9, 1.08), rr(0.7, 0.92)];
+      cards(tips, LEAVES.green, big ? 8 : 6, [0.2, big ? 1.4 : 1.1], big ? [1.0, 1.45] : [0.9, 1.3], () => new THREE.Color().setRGB(tint[0] * rr(0.88, 1.1), tint[1] * rr(0.9, 1.08), tint[2] * rr(0.88, 1.1)));
+      r = big ? 7.5 : h * 0.42;
+    } else if (kind === 'jacaranda') {
+      // 蓝花楹：伞形开展的树冠，细羽状叶 + 成团的蓝紫色花序
+      const tips = crown(x, z, h, { len: h * 0.4, spread: [1.1, 0.9, 0.8], upBias: [0.2, 0.15, 0.1], children: [5, 3, 3] });
+      cards(tips, LEAVES.green, 3, [0.1, 0.8], [0.7, 1.0], () => col(0.8, 0.95, 0.95, 1.1, 0.7, 0.85));
+      cards(tips, LEAVES.jac, 5, [0.0, 0.9], [0.8, 1.15], () => new THREE.Color(0x8f7be6).multiplyScalar(rr(0.85, 1.15)));
+      r = h * 0.45;
+    } else if (kind === 'blossom' || kind === 'white') {
+      const tips = crown(x, z, h, { len: h * 0.38, spread: [1.0, 0.85, 0.75], upBias: [0.3, 0.2, 0.15] });
+      const fc = kind === 'white' ? 0xfaf3f2 : 0xf3b6cc;
+      cards(tips, LEAVES.green, 2, [0.1, 0.7], [0.6, 0.85], () => col(0.85, 1.0, 0.95, 1.1, 0.75, 0.9));
+      cards(tips, LEAVES.bloom, 6, [0.0, 0.8], [0.7, 1.0], () => new THREE.Color(fc).multiplyScalar(rr(0.92, 1.08)));
+      for (const t of tips) if (rand() < 0.3) SAKURA.spawn.push(t.p.clone());
+      r = h * 0.42;
+    } else if (kind === 'koel') {
+      // 栾树（官方地图上南岸种植床里的 5 棵黄叶树）：圆整开展的树冠，秋季满树金黄
+      const tips = crown(x, z, h, { spread: [0.95, 0.85, 0.75], upBias: [0.35, 0.25, 0.2] });
+      cards(tips, LEAVES.ginkgo, 6, [0.15, 1.0], [0.85, 1.2], () => col(0.85, 1.0, 0.95, 1.08, 0.55, 0.7));
+      r = h * 0.42;
+    } else if (kind === 'ginkgo') {
+      // 银杏：笔直主干，短侧枝，窄圆锥形树冠
+      const gy = ground(x, z);
+      BARK.push(taperTube(new THREE.CatmullRomCurve3([new V3(x, gy - 0.2, z), new V3(x + rr(-0.05, 0.05), gy + h * 0.5, z + rr(-0.05, 0.05)), new V3(x, gy + h * 0.97, z)]), 18, 8, 0.07 + h * 0.012, 0.03, 1));
+      for (let y = 2.2; y < h * 0.85; y += 0.9) for (let k = 0; k < 3; k++) {
+        const a = rand() * 6.28, L = (1 - (y - 1.8) / (h - 1.8)) * 1.8 + 0.3;
+        BARK.push(taperTube(new THREE.CatmullRomCurve3([new V3(x, gy + y, z), new V3(x + Math.cos(a) * L * 0.5, gy + y + L * 0.35, z + Math.sin(a) * L * 0.5), new V3(x + Math.cos(a) * L, gy + y + L * 0.6, z + Math.sin(a) * L)]), 5, 4, 0.035, 0.01, 1));
+      }
+      for (let y = 1.9; y < h; y += 0.32) {
+        const rad = Math.pow(1 - (y - 1.9) / (h - 1.9), 0.85) * 1.95 + 0.25, cnt = Math.round(rad * 4.5 + 2);
+        for (let i = 0; i < cnt; i++) {
+          const a = rand() * 6.28, rd = rad * Math.sqrt(rr(0.25, 1));
+          addCard(LEAVES.ginkgo, new V3(x + Math.cos(a) * rd, gy + y, z + Math.sin(a) * rd), new V3(Math.cos(a), 0.9, Math.sin(a)), rr(0.85, 1.15), col(0.82, 0.98, 0.95, 1.08, 0.5, 0.65));
+        }
+      }
+      r = 2.2;
+    } else if (kind === 'willow') {
+      // 垂柳：与原池塘同一株型，按实际尺寸放大；登记为可移植的原有个体
+      const gy = ground(x, z), nb = BARK.length, nc = LEAVES.sakura.length;
+      const lean = new V3(-gX(x, z), 0, -gZ(x, z)).multiplyScalar(0.3);
+      const tips = growTree({ base: new V3(x, gy - 0.1, z), dir: new V3(lean.x * 0.5, 1, lean.z * 0.5).normalize(), len: h * 0.42, rad: 0.12 + h * 0.014, depth: 4,
+        children: [5, 3, 4, 2], childStart: [0.6, 0.3, 0.2, 0.2], spread: [1.05, 0.9, 0.5, 0.35], upBias: [0.45, 0.35, -0.6, -1.0],
+        lenDecay: 0.86, radDecay: 0.6, wiggle: [0.08, 0.2, 0.12, 0.12], gravity: [0.0, -0.02, -0.28, -0.45] });
+      for (const b of tips.branches) {
+        if (b.lvl < 2) continue;
+        for (let t = 0.1; t <= 1.0; t += 0.06) {
+          const p = b.curve.getPointAt(t), nn = randDir().add(new V3(0, 0.3, 0));
+          addCard(LEAVES.sakura, p.add(randDir().multiplyScalar(0.06)), new V3(nn.x, nn.y * 0.15, nn.z), rr(0.45, 0.65), col(0.85, 1.05, 0.92, 1.08, 0.8, 1.0));
+          if (rand() < 0.08) SAKURA.spawn.push(p.clone());
+        }
+      }
+      WORLD.willows.push([x, z, h]);
+      WORLD.willowParts.push({ x, z, gy, h, bark: BARK.splice(nb), cards: { sakura: LEAVES.sakura.splice(nc) }, seasons: { sakura: 'SRA' } });
+      r = h * 0.45;
+    }
+    OCC.push([x, z, kind === 'willow' ? 0.9 : Math.min(1.6, 0.6 + h * 0.06)]);
+    WORLD.trees.push({ x, z, h, r, kind });
+  }
+
+  await phase2Yield('修剪绿篱与花灌木');
+  // 绿篱（种植床外缘、北端草坪种植床北缘）
+  const hedgeMat = rockMaterial(TEX.hedge, { key: 'hedge', hedge: true, scale: 2.6, nrm: 1.4, rough: 0.72, bloom: 0 });
+  const hg = [];
+  for (const line of C.hedges) for (let i = 0; i < line.length - 1; i++) {
+    const [ax, az] = line[i], [bx, bz] = line[i + 1], L = Math.hypot(bx - ax, bz - az), mx = (ax + bx) / 2, mz = (az + bz) / 2;
+    const g = roundedBox(L + 0.25, 0.8, 0.75, 0.12, i + 3); g.rotateY(-Math.atan2(bz - az, bx - ax)); g.translate(mx, ground(mx, mz) + 0.36, mz); hg.push(g);
+  }
+  if (hg.length) meshOf(hg, hedgeMat, LAYER.ABOVE);
+  // 开花灌木丛 / 湖心岛岸边低矮灌木（修剪成团）
+  const blob = rockGeo(3.3, 4, -0.25), green = [];
+  for (const [px, py, R, bloom] of C.shrubs) {
+    const [x, z] = C.W([px, py]), gy = ground(x, z), rx = R, ry = R * 0.7, rz = R * rr(0.85, 1.05);
+    const geo = blob.clone(); const p = geo.attributes.position;
+    for (let i = 0; i < p.count; i++) p.setXYZ(i, p.getX(i) * rx * 0.82, p.getY(i) * ry * 0.82, p.getZ(i) * rz * 0.82);
+    geo.computeVertexNormals(); geo.translate(x, gy + ry * 0.12, z);
+    if (bloom) { const m = rockMaterial(TEX.hedge, { key: 'hedge', hedge: true, scale: 2.6, nrm: 1.4, rough: 0.72, bloom: 1, bloomColor: bloom }); WORLD.bloomMats.push(m); const mesh = new THREE.Mesh(geo, m); mesh.castShadow = mesh.receiveShadow = true; setLayer(mesh, LAYER.ABOVE); scene.add(mesh); }
+    else green.push(geo);
+    for (let i = 0; i < 70; i++) {
+      const d = randDir(); if (d.y < -0.15) d.y = -d.y * 0.3;
+      const nn = new V3(d.x / rx, d.y / ry, d.z / rz).normalize(), pp = new V3(x + d.x * rx * 0.82, gy + ry * 0.12 + d.y * ry * 0.82, z + d.z * rz * 0.82).addScaledVector(nn, 0.02);
+      addCard(LEAVES.shrub, pp, nn, rr(0.25, 0.36), col(0.85, 1.1, 0.9, 1.1, 0.85, 1.0));
+      if (bloom && i % 2 === 0) addCard(LEAVES.bloom, pp.clone().addScaledVector(nn, 0.03), nn, rr(0.24, 0.34), new THREE.Color(bloom).multiplyScalar(rr(0.9, 1.15)));
+    }
+    OCC.push([x, z, R + 0.2]);
+  }
+  if (green.length) meshOf(green, hedgeMat, LAYER.ABOVE);
+
+  await phase2Yield('种植垂柳、香樟与灌木');
+  // --- Bark (all trees in one mesh)
+  const barkMat = physical({ map: TEX.bark.map, normalMap: TEX.bark.normalMap, normalScale: new THREE.Vector2(1.5, 1.5), roughness: 0.92, color: 0xb8aaa0, envMapIntensity: 0.6 },
+    { key: 'bark', wind: 'world', windWeight: 'clamp((wPos4.y - 1.5) * 0.05, 0.0, 0.35)' });
+  const barkMesh = meshOf(BARK, barkMat, LAYER.ABOVE);
+  barkMesh.customDepthMaterial = patchedDepth({ key: 'barkd', wind: true, windWeight: 'clamp((wPos4.y - 1.5) * 0.05, 0.0, 0.35)' });
+  BARK.length = 0;
+  WORLD.barkKit = { mat: barkMat, depth: barkMesh.customDepthMaterial };
+  {
+    const sm = physical({ map: TEX.sakuraBark.map, normalMap: TEX.sakuraBark.normalMap, normalScale: new THREE.Vector2(1.2, 1.2), roughness: 0.8, envMapIntensity: 0.6 },
+      { key: 'barksak', wind: 'world', windWeight: 'clamp((wPos4.y - 1.5) * 0.05, 0.0, 0.35)' });
+    WORLD.willowBark = { mat: sm, depth: patchedDepth({ key: 'barkd', wind: true, windWeight: 'clamp((wPos4.y - 1.5) * 0.05, 0.0, 0.35)' }) };
+  }
+  await phase2Yield('种植垂柳、香樟与灌木');
+  // --- Leaf-card instanced meshes (alpha-tested, double sided, translucent, wind-swayed)
+  const cardGeo = new THREE.PlaneGeometry(1, 1, 4, 4);
+  { const cp = cardGeo.attributes.position; for (let i = 0; i < cp.count; i++) { const x = cp.getX(i), y = cp.getY(i); cp.setZ(i, 0.2 * (x * x + y * y) - 0.05 * y); } cardGeo.computeVertexNormals(); }
+  const leafSets = [['maple', TEX.mapleLeaves, 0.45, 0x8a2a2a], ['pine', TEX.pineNeedles, 0.22, 0x5a7040], ['green', TEX.greenLeaves, 0.35, 0x86a050],
+    ['conifer', TEX.conifer, 0.18, 0x4a6040], ['shrub', TEX.shrubLeaves, 0.25, 0x6a8a40], ['bloom', TEX.bloomLeaves, 0.4, 0xffc0d0], ['sakura', TEX.sakura, 0.95, 0xffd0dc],
+    ['hydrangea', TEX.hydrangea, 0.55, 0xd0d8ff], ['bigleaf', TEX.bigleaf, 0.4, 0x90b060], ['camellia', TEX.camellia, 0.25, 0x406030], ['kikyo', TEX.kikyo, 0.5, 0xb0a0f0],
+    ['ginkgo', TEX.greenLeaves, 0.4, 0xd8c060], ['jac', TEX.bloomLeaves, 0.45, 0xb0a0f0]];
+  WORLD.leafMats = [];
+  WORLD.leafKit = { cardGeo, sets: {} };
+  for (const [name, tex, transl] of leafSets) {
+    const list = LEAVES[name] || [];
+    const ww = 'clamp((wPos4.y - 0.2) * 0.12, 0.0, 1.3)';
+    const mat = physical({ map: tex, alphaTest: 0.45, alphaToCoverage: P.quality === 'High', side: THREE.DoubleSide, roughness: 0.62, envMapIntensity: 0.55 },
+      { key: 'leaf' + (name === 'ginkgo' ? 'g' : ''), leaf: true, wind: 'world', windWeight: ww, uniforms: { uTransl: { value: transl }, uDecid: { value: { maple: 0.6, green: 1, bigleaf: 1, shrub: 0.35 }[name] || 0 } },
+        fsMap: 'diffuseColor.a *= smoothstep(0.2, 0.45, abs(dot(normalize(vNormal), normalize(vViewPosition))));' + (name === 'ginkgo' ? GINKGO_FS : '') });
+    WORLD.leafMats.push(mat);
+    const seasons = { maple: 'SRA', green: 'SRA', sakura: 'SRA', bloom: 'SR', hydrangea: 'SRA', bigleaf: 'SRA', kikyo: 'SR', ginkgo: 'SRA', jac: 'SRA' }[name] || 'SRAW';
+    const depth = patchedDepth({ key: 'leafd', wind: true, windWeight: ww }, tex, 0.45);
+    WORLD.leafKit.sets[name] = { mat, depth, seasons };
+    WORLD.leafMesh[name] = { material: mat, customDepthMaterial: depth };
+    if (!list.length) continue;
+    const im = new THREE.InstancedMesh(cardGeo, mat, list.length);
+    list.forEach((e, i) => { im.setMatrixAt(i, e.m); im.setColorAt(i, e.c); });
+    im.instanceMatrix.needsUpdate = true; if (im.instanceColor) im.instanceColor.needsUpdate = true;
+    seasonal(im, seasons);
+    im.castShadow = true; im.receiveShadow = true;
+    im.customDepthMaterial = depth;
+    im.computeBoundingSphere(); ecoThin(im);
+    setLayer(im, LAYER.ABOVE); scene.add(im);
+    list.length = 0;
+  }
+  WORLD.willowTrees = (WORLD.willowParts || []).map((part) => {
+    part.barkKit = WORLD.willowBark;
+    const g = PondEdit.treeFromParts(part); g.userData.seedTree = 'willow'; scene.add(g); return g;
+  });
+
+  await phase2Yield('种植芦苇与草坪');
+  // --- 芦苇（北端湖尖、东岸局部的水岸交界处）与近处草坪草丛
+  const blade = (h, w, bend, segs = 6) => {
+    const pos = [], uv = [], idx = [];
+    for (let i = 0; i <= segs; i++) {
+      const t = i / segs, y = h * t * (1 - 0.15 * t * t), x = bend * t * t, wd = w * Math.pow(1 - t, 0.7) + 0.002;
+      pos.push(x, y, -wd / 2, x, y, wd / 2); uv.push(0, t, 1, t);
+    }
+    for (let i = 0; i < segs; i++) { const a = i * 2; idx.push(a, a + 2, a + 1, a + 1, a + 2, a + 3); }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals();
+    return g;
+  };
+  const M = new THREE.Matrix4(), Qb = new THREE.Quaternion(), Eb = new THREE.Euler(), Sb = new THREE.Vector3(), Pb = new THREE.Vector3();
+  const bladeMat = (tex, key, H) => {
+    const ww = `pow(clamp(position.y / ${H.toFixed(2)}, 0.0, 1.0), 1.6)`;
+    return [physical({ map: tex, side: THREE.DoubleSide, roughness: 0.6, sheen: 0.4, sheenRoughness: 0.5, sheenColor: new THREE.Color(0xb0c070), envMapIntensity: 0.6 },
+      { key, leaf: true, decid: 0.7, wind: 'local', windWeight: ww, uniforms: { uTransl: { value: 0.35 } } }), patchedDepth({ key: key + 'd', wind: true, windWeight: ww })];
+  };
+  const reedM = [], reedC = [];
+  WORLD.grass = [];
+  for (const [rx0, rz0] of C.reeds) {
+    // 吸附到最近的岸线（水岸交界处）
+    let bx = rx0, bz = rz0;
+    for (let k = 0; k < 8; k++) { const s = sdf(bx, bz); bx -= gX(bx, bz) * s * 0.9; bz -= gZ(bx, bz) * s * 0.9; }
+    WORLD.grass.push([bx, bz]);
+    for (let i = 0; i < 260; i++) {
+      const a = rand() * 6.28, r = Math.sqrt(rand()) * 2.2, x = bx + Math.cos(a) * r, z = bz + Math.sin(a) * r, sd = sdf(x, z);
+      if (sd < -0.9 || sd > 0.8) continue;
+      Pb.set(x, Math.min(terrainHeight(x, z), WATER_Y - 0.05) - 0.02, z); Eb.set(rr(-0.12, 0.12), a + rr(-0.4, 0.4), rr(-0.12, 0.12)); Qb.setFromEuler(Eb);
+      Sb.set(1, rr(0.85, 1.3), 1); reedM.push(M.compose(Pb, Qb, Sb).clone()); reedC.push(col(0.9, 1.05, 0.9, 1.05, 0.75, 0.9));
+    }
+  }
+  {
+    const [m, dm] = bladeMat(TEX.blade, 'reedc', 1.6);
+    const im = new THREE.InstancedMesh(blade(1.6, 0.022, 0.35), m, Math.max(1, reedM.length));
+    reedM.forEach((mm, i) => { im.setMatrixAt(i, mm); im.setColorAt(i, reedC[i]); }); im.count = reedM.length;
+    im.castShadow = im.receiveShadow = true; im.customDepthMaterial = dm; im.computeBoundingSphere(); ecoThin(im); setLayer(im, LAYER.BOTH); scene.add(im);
+  }
+  {
+    const parts = [];
+    for (let b = 0; b < 7; b++) { const g = blade(rr(0.045, 0.1), rr(0.003, 0.005), rr(0.005, 0.03), 3); g.rotateY(rand() * Math.PI * 2); g.translate(rr(-0.02, 0.02), 0, rr(-0.02, 0.02)); parts.push(g); }
+    const tuft = mergeGeos(parts);
+    const [tm] = bladeMat(TEX.blade, 'tuft', 0.1);
+    const mats = [], cols = [];
+    const zones = [[0, 14, 34, 22], [-6, -106, 30, 16], [-24, -10, 10, 40], [30, -10, 12, 50]];   // 南岸、北端湖尖、西岸、东岸近水草坡
+    let guard = 0;
+    while (mats.length < 4200 && guard++ < 60000) {
+      const Z = zones[guard % zones.length], x = Z[0] + rr(-Z[2], Z[2]), z = Z[1] + rr(-Z[3], Z[3]), sd = sdf(x, z);
+      if (sd < 0.35 || sd > 9) continue;
+      if (C.inPoly(C.prom, x, z) || C.inPoly(C.plaza, x, z) || C.paths.some((p) => near(p.pts, x, z) < p.w / 2 + 0.2)) continue;
+      if (fbm3(x * 0.8, 1, z * 0.8, 2, 44) < -0.05 && rand() < 0.7) continue;
+      Pb.set(x, ground(x, z) - 0.005, z); Eb.set(rr(-0.1, 0.1), rand() * 6.28, rr(-0.1, 0.1)); Qb.setFromEuler(Eb); const sc = rr(0.7, 1.4); Sb.set(sc, sc * rr(0.8, 1.3), sc);
+      mats.push(M.compose(Pb, Qb, Sb).clone()); cols.push(new THREE.Color().setRGB(rr(0.62, 0.85), rr(0.72, 0.95), rr(0.5, 0.7)));
+    }
+    const im = new THREE.InstancedMesh(tuft, tm, Math.max(1, mats.length));
+    mats.forEach((mm, i) => { im.setMatrixAt(i, mm); im.setColorAt(i, cols[i]); }); im.count = mats.length;
+    im.receiveShadow = true; im.computeBoundingSphere(); ecoThin(im); setLayer(im, LAYER.ABOVE); scene.add(im);
+  }
+  function near(pts, x, z) {
+    let b = 1e9;
+    for (let i = 0; i < pts.length - 1; i++) { const [ax, az] = pts[i], [bx, bz] = pts[i + 1], ex = bx - ax, ez = bz - az, t = clamp(((x - ax) * ex + (z - az) * ez) / (ex * ex + ez * ez || 1), 0, 1); b = Math.min(b, Math.hypot(x - ax - ex * t, z - az - ez * t)); }
+    return b;
+  }
+  await buildPondLife();
+}
+// 睡莲片：官方地图上 4～5 片松散的睡莲（岛南、岛东、西南岸、东南湖湾、种植床北），实例化浮叶 + 少量白 / 粉花
+function cuihuLilyPatches(padMat, lilyMat, stamenMat) {
+  const geos = [0, 1, 2].map((k) => padGeo(0.22, 11 + k * 7.3, false));
+  const lists = [[], [], []], flowers = [];
+  const M = new THREE.Matrix4(), Qp = new THREE.Quaternion(), Sp = new THREE.Vector3(), Pp = new THREE.Vector3(), Y = new THREE.Vector3(0, 1, 0);
+  for (const patch of CUIHU.lilyPatches) {
+    let n = 0, guard = 0;
+    while (n < patch.n && guard++ < patch.n * 12) {
+      const a = rand() * 6.28, d = patch.r * Math.sqrt(rand()) * (0.6 + 0.4 * (0.5 + 0.5 * Math.sin(a * 3 + patch.r))), x = patch.c[0] + Math.cos(a) * d, z = patch.c[1] + Math.sin(a) * d;
+      if (sdf(x, z) > -0.45) continue;
+      const r = rr(0.13, 0.3), s = r / 0.22;
+      Pp.set(x, WATER_Y, z); Qp.setFromAxisAngle(Y, rand() * 6.28); Sp.set(s, 1, s);
+      lists[n % 3].push(M.compose(Pp, Qp, Sp).clone());
+      if (rand() < 0.08) { const fs = rr(0.85, 1.15); Pp.set(x + r * 0.3, WATER_Y + 0.006, z - r * 0.2); Qp.setFromAxisAngle(Y, rand() * 6.28); Sp.set(fs, fs, fs); flowers.push(M.compose(Pp, Qp, Sp).clone()); }
+      n++;
+    }
+  }
+  const out = [];
+  lists.forEach((L, i) => {
+    if (!L.length) return;
+    const im = new THREE.InstancedMesh(geos[i], padMat, L.length); L.forEach((m, k) => im.setMatrixAt(k, m));
+    im.castShadow = false; im.receiveShadow = true; im.computeBoundingSphere(); setLayer(im, LAYER.SURFACE); scene.add(im); seasonal(im, 'SRA'); out.push(im);
+  });
+  if (flowers.length) {
+    const fg = waterLilyGeo(1, 0.85), sg = stamenGeo(1);
+    for (const [g, m] of [[fg, lilyMat], [sg, stamenMat]]) {
+      const im = new THREE.InstancedMesh(g, m, flowers.length); flowers.forEach((mm, k) => im.setMatrixAt(k, mm));
+      im.castShadow = true; im.computeBoundingSphere(); setLayer(im, LAYER.ABOVE); scene.add(im); seasonal(im, 'SR');
+    }
+  }
+  WORLD.lilyPatches = CUIHU.lilyPatches.map((p) => p.c);
+  return out;
+}
+async function buildVegetationKoiGarden() {
   const V3 = THREE.Vector3;
   await phase2Yield('种植垂柳、香樟与灌木');
   // --- Red-leaf Japanese maple leaning over the left shore
@@ -2271,9 +2987,10 @@ async function buildPondLife() {
     WORLD.lilies.push(lily);
     if (kind === 'frog') WORLD.frogPad = lily;
   });
+  cuihuLilyPatches(padMat, lilyMat, stamenMat);
   await phase2Yield('种下睡莲与荷花');
   // Emergent sacred-lotus leaves (peltate, cupped, above the water on stalks) and a lotus flower
-  const LOT = [[-2.75, 0.3, 0.2, 0.34], [-3.0, -0.25, 0.16, 0.24], [-2.5, -0.6, 0.23, 0.42], [-2.95, 0.75, 0.13, 0.18]];
+  const LOT = [];   // 翠湖只有睡莲，没有荷花
   WORLD.lotusSpots = [];
   if (window.CAMPUS_POND.lotusExtra) {           // 图书馆·荷花池：成片荷叶（避开青蛙所在睡莲与锦鲤主游区中心）
     let guard = 0;
@@ -2299,7 +3016,7 @@ async function buildPondLife() {
     WORLD.lotus.push({ leaf, base: leaf.rotation.clone(), ph: rand() * 6, h });
     if (i >= 4) WORLD.lotusSpots.push([x, z, h]);
   });
-  buildSacredLotus(stemMat);
+  { const add0 = scene.add; scene.add = function () { return this; }; try { buildSacredLotus(stemMat); } finally { scene.add = add0; } }   // 只建荷花生成器（编辑器用），不放进翠湖
   await phase2Yield('种下睡莲与荷花');
   // Fallen maple leaves and petals drifting on the surface
   {
@@ -2601,7 +3318,7 @@ function updateFrog(t, dt) {
 // surfaces to breathe, then climbs back out and basks again (dry shell -> wet and glossy -> slowly dries).
 const TURTLE = { root: null, rocks: [], state: 'bask', timer: 14, pos: new THREE.Vector3(), yaw: 0, pitch: 0, roll: 0, speed: 0, wet: 0.2,
   gait: 0, stroke: 0, ext: 1, headYaw: 0, headPitch: 0, lookT: 0, lookYaw: 0, lookPitch: 0.2, wp: new THREE.Vector3(), swimT: 0, breathed: false };
-const TURT_ROCK = { x: 1.45, z: 1.75 };
+const TURT_ROCK = { x: 5.4, z: 10.3 };   // 南岸种植床北缘的浅水（翠湖）
 const TURT_PIV = { head: [0.083, 0.024, 0], fl: [0.066, 0.019, 0.05], hl: [-0.066, 0.018, 0.047], tail: [-0.098, 0.017, 0] };
 
 function turtleEyeTexture() {
@@ -2950,7 +3667,7 @@ function turtleLegPose(L, mode, ph, amt) {
 }
 function turtleWaypoint() {
   for (let g = 0; g < 60; g++) {
-    const x = rr(-2.6, 2.5), z = rr(-4.8, 4.8), sd = sdf(x, z);
+    const x = rr(-6, 8), z = rr(-3, 9), sd = sdf(x, z);
     if (sd > -0.6 || Math.hypot(x - TURT_ROCK.x, z - TURT_ROCK.z) < 0.7 || Math.hypot(x - TURTLE.pos.x, z - TURTLE.pos.z) < 1.0) continue;
     const floor = pondDepth(x, z, -sd);
     TURTLE.wp.set(x, -Math.min(rr(0.22, 0.5), floor - 0.12), z); return;
@@ -3376,7 +4093,7 @@ function dragonflyWingTex(hind, amber) {
 function buildDragonflies() {
   // perches: iris bud tips (sway with the wind), sunny coping stones, the turtle's rock
   for (const b of IRIS.buds || []) DRAGON.perches.push({ p: b.p.clone().addScaledVector(b.t, 0.092), stalk: true, yawFree: true });
-  for (let s = 0.05; s < 0.7; s += 0.035) { const sh = shoreAt(s * POLY_LEN); DRAGON.perches.push({ p: new THREE.Vector3(sh.x + sh.nx * 0.12, 0.181, sh.z + sh.nz * 0.12), stone: true, yaw: Math.atan2(sh.nz, -sh.nx) }); }
+  for (let s = 0; s < 1; s += 0.003) { const sh = shoreAt(s * POLY_LEN); if (Math.hypot(sh.x, sh.z) > 30) continue; DRAGON.perches.push({ p: new THREE.Vector3(sh.x + sh.nx * 0.12, 0.181, sh.z + sh.nz * 0.12), stone: true, yaw: Math.atan2(sh.nz, -sh.nx) }); }
   if (TURTLE.B) DRAGON.perches.push({ p: TURTLE.B.clone().add(new THREE.Vector3(0.1, 0.012, -0.12)), stone: true, rock: true });
   const geo = surfaceNets(dragonflySDF(), [-0.039, -0.0105, -0.0062], [0.0135, 0.0062, 0.0062], 0.00022);
   const eyeGeo = new THREE.SphereGeometry(0.0031, 20, 14);
@@ -3654,7 +4371,8 @@ function updateWaterfall(t, dt) {
 const LANTERNS = [];
 const LAMPS = { lights: [], heads: [] };
 // 校园庭院灯（深灰金属灯杆 + 乳白灯罩，夜晚亮起并照亮周围）与木质长椅，替代原日式石灯笼
-function buildLanterns() {
+function buildLanterns() { buildCuihuLamps(); }
+function buildLanternsKoiGarden() {
   const metal = physical({ color: 0x2a2f33, roughness: 0.45, metalness: 0.7, envMapIntensity: 0.8 }, { key: 'lampmetal' });
   const glow = new THREE.MeshBasicMaterial({ color: 0xffd9a0 });
   const spots = (window.CAMPUS_POND.lampSpots || [[-4.3, -3.3], [3.65, -6.9], [3.2, 5.6], [-3.6, 5.2]]).filter(([x, z]) => sdf(x, z) > 0.5);
@@ -3996,8 +4714,8 @@ function shaderPass(fs, uniforms, defines = {}) {
 }
 
 // Ripple simulation domain (square so ripples stay circular); pond mask encodes the SDF in [-2, 2] m
-const SIM = { N: window.CAMPUS_POND.simN, size: 13.4, x0: 0, z0: 0 };
-SIM.x0 = -0.2 - SIM.size / 2; SIM.z0 = -0.02 - SIM.size / 2;
+const SIM = { N: window.CAMPUS_POND.simN, size: 30, x0: 0, z0: 0 };
+SIM.x0 = -SIM.size / 2; SIM.z0 = -SIM.size / 2;
 const WAVES = [new THREE.Vector4(), new THREE.Vector4(), new THREE.Vector4(), new THREE.Vector4()];
 const DROPS = [];            // pending {x, z, r, s}
 let water, waterMat, simA, simB, simPass, maskTex;
@@ -4039,6 +4757,7 @@ void main(){
   }
   float sd = texture2D(tMask, vUv).r * 4.0 - 2.0;
   if (sd > 0.0) info.rg = vec2(0.0);
+  vec2 eb = min(vUv, 1.0 - vUv); info.rg *= smoothstep(0.0, 0.05, min(eb.x, eb.y));   // 窗口边缘吸收（窗口跟随视点平移）
   gl_FragColor = info;
 }`;
 
@@ -4105,6 +4824,8 @@ uniform sampler2D tRefrDepth;
 uniform sampler2D tNormal;
 uniform sampler2D tRipple;
 uniform sampler2D tMask;
+uniform sampler2D tLakeMask;
+uniform vec4 uLakeR;
 uniform samplerCube tSky;
 uniform mat4 uReflMatrix;
 uniform mat4 uProj;
@@ -4136,7 +4857,7 @@ vec3 sunGGX(vec3 N, vec3 V, vec3 L, float rough){
 
 void main(){
   // Clip to the pond outline (mask = signed distance, metres)
-  float sdM = texture2D(tMask, vSimUv).r * 4.0 - 2.0;
+  float sdM = texture2D(tLakeMask, (vWPos.xz - uLakeR.xy) * uLakeR.zw).r * 4.0 - 2.0;
   if (sdM > 0.28) discard;
 
   float dist = length(vViewPos);
@@ -4327,7 +5048,7 @@ function buildWater() {
   let minX = 1e9, maxX = -1e9, minZ = 1e9, maxZ = -1e9;
   for (const [x, z] of POLY) { minX = Math.min(minX, x); maxX = Math.max(maxX, x); minZ = Math.min(minZ, z); maxZ = Math.max(maxZ, z); }
   const m = 0.4, W = maxX - minX + 2 * m, D = maxZ - minZ + 2 * m;
-  const geo = new THREE.PlaneGeometry(W, D, 256, 256); geo.rotateX(-Math.PI / 2);
+  const geo = new THREE.PlaneGeometry(W, D, Math.ceil(W / 0.25), Math.ceil(D / 0.25)); geo.rotateX(-Math.PI / 2);
   waterMat = new THREE.ShaderMaterial({
     name: 'Water', vertexShader: WATER_VS, fragmentShader: WATER_FS, side: THREE.DoubleSide,
     uniforms: {
@@ -4336,7 +5057,7 @@ function buildWater() {
       uInvRes: { value: new THREE.Vector2() }, uWind: SH.uWindDir, uGustW: { value: 0.5 }, uSunDir: SH.uSunDir, uSunColor: SH.uSunColor,
       uAbsorb: SH.uAbsorb, uScatter: SH.uScatter, uInscatter: SH.uInscatter, uFoamColor: { value: new THREE.Color() },
       tRefl: { value: null }, tRefr: { value: null }, tRefrDepth: { value: null }, tNormal: { value: TEX.waterNormal },
-      tRipple: { value: simA.texture }, tMask: { value: maskTex }, tSky: { value: cubeRT.texture },
+      tRipple: { value: simA.texture }, tMask: { value: maskTex }, tLakeMask: { value: buildLakeMask() }, uLakeR: { value: LAKE_R }, tSky: { value: cubeRT.texture },
       uReflMatrix: { value: new THREE.Matrix4() }, uProj: { value: new THREE.Matrix4() },
       uWaves: { value: WAVES }, uSteep: { value: 0.8 }, uRain: SH.uRain, uIce: SH.uIce, uSnowCover: SH.uSnowCover, uFogDensity: SH.uFogDensity, uFogColor: SH.uFogColor, uSim: { value: new THREE.Vector4(SIM.x0, SIM.z0, SIM.size, 1 / N) },
     },
@@ -4351,6 +5072,7 @@ function buildWater() {
 function addDrop(x, z, r, s) { if (DROPS.length < 16) DROPS.push({ x, z, r, s }); }
 let simTime = 0;
 function stepRipples(dt) {
+  simFollow();
   simTime += dt;
   let steps = 0;
   while (simTime > 1 / 60 && steps < 3) {
@@ -4989,7 +5711,7 @@ function buildKoi() {
 
   for (let i = 0; i < KOI_N; i++) {
     let x, z, guard = 0;
-    do { x = rr(-2.8, 2.6); z = rr(-5, 5); } while (sdf(x, z) > -0.7 && guard++ < 200);
+    do { x = rr(-7, 7); z = rr(-6, 7); } while (sdf(x, z) > -0.7 && guard++ < 200);
     const [, cls] = KOI_ROSTER_DEF[i], sr = KOI_SIZE_RANGE[cls], size = rr(sr[0], sr[1]);
     const prefDepth = cls === 'S' ? rr(0.12, 0.5) : cls === 'L' ? rr(0.35, 0.9) : rr(0.15, 0.85);   // youngsters keep to the shallows
     KOI.fish.push({
@@ -5035,6 +5757,7 @@ function updateFish(dt, t) {
     f.wander += rr(-1, 1) * dt * (2.0 + fe * 6); f.wander *= 0.995;
     let dx = fx + Math.cos(f.heading + f.wander) * 0.8, dz = fz - Math.sin(f.heading + f.wander) * 0.8;
     dx += sx * 2.4; dz += sz * 2.4;
+    { const H = CUIHU.KOI_HOME, hx = f.p.x - H.x, hz = f.p.z - H.z, hd = Math.hypot(hx, hz) + 1e-4; if (hd > H.r && fe < 0.3) { const k = Math.min(1.6, (hd - H.r) * 0.12); dx -= hx / hd * k; dz -= hz / hd * k; } }   // 翠湖很大：锦鲤在主要活动区附近巡游
     if (nn && fe < 0.5) { dx += (ax / nn) * 0.4 + (cx / nn) * 0.22; dz += (az / nn) * 0.4 + (cz / nn) * 0.22; }
     if (STATE.under && i % 3 === 0 && fe < 0.2) {                 // curious koi come to inspect a submerged camera
       const cdx = camera.position.x - f.p.x, cdz = camera.position.z - f.p.z, cd = Math.hypot(cdx, cdz) + 1e-3;
@@ -5571,32 +6294,37 @@ function onCameraMode() {
 }
 
 /* ------------------------------------------------------------------ 校园版：自由镜头 + 全场景巡游电影镜头（由 tools/build_pond.py 插入 pond-main.js）
+ * 翠湖水景按真实尺寸重建（湖长约 145 米），镜头范围随之放大：
  * 自由镜头：共用 ../js/free-camera.js（观察点 + 球坐标，左键旋转、右键 / Shift+左键平移、滚轮朝光标缩放、WASD/方向键移动、
- *   Q/E 升降、双击地面 / 水面飞过去聚焦）；限位为场景范围（垂柳、竹林、小亭、花境都在内）、不低于地面 / 水面、不进小亭屋顶和桥洞、
- *   最远 18 米（看不到世界边缘）。电影镜头、清单飞行、抚摸 / 喂鱼特写、编辑俯瞰改动相机后，自由镜头从当前画面接管，不跳变。
- * 电影镜头：绕池塘一圈依次经过 全景 → 岸边垂柳 → 石拱桥（荷花池版为满池荷叶）→ 小亭 → 竹林 → 垂柳 → 假山跌水 → 荷花 → 锦鲤 → 花境，
- *   连续平滑飞行（不再黑场切镜），路径预先按地形、水面、树木、小亭、石桥做避让后重新平滑。 */
-const POND_BOUNDS = { minX: -13, maxX: 13, minZ: -15.5, maxZ: 10.5, maxY: 7 };
-const POND_CAMBOX = { minX: -24, maxX: 24, minZ: -27, maxZ: 23, maxY: 18 };
+ *   Q/E 升降、双击地面 / 水面飞过去聚焦）；观察点限在翠湖、翠湖广场、南岸半圆广场、两岸与周边宿舍范围内，最远 220 米；
+ *   相机不低于水面 / 地面，不穿进建筑（建筑范围内最低高度 = 屋顶以上）和树干。电影镜头、清单飞行、抚摸 / 喂鱼特写、编辑俯瞰
+ *   改动相机后，自由镜头从当前画面接管，不跳变。
+ * 电影镜头：从东南高空（与官方鸟瞰图同一方向）开始，依次经过 南岸半圆广场 → 银杏与栾树 → 西岸蓝花楹 → 湖心岛 → 翠湖广场 →
+ *   置石与石盘 → 东岸垂柳与 C 区宿舍 → 睡莲 → 锦鲤，连续平滑飞行；路径按地形、水面、树冠、建筑屋顶避让后重新平滑。 */
+const POND_BOUNDS = { minX: -60, maxX: 75, minZ: -150, maxZ: 70, maxY: 60 };
+const POND_CAMBOX = { minX: -140, maxX: 170, minZ: -240, maxZ: 150, maxY: 180 };
 let FREECAM = null;
-// 相机最低高度：水面以上 0.12 米、地面以上 0.3 米；石桥桥面上方、小亭屋顶上方不钻进去
+// 相机最低高度：水面以上 0.12 米、地面以上 0.3 米；建筑范围内不低于屋顶 + 1 米；树干附近不低于树顶（不穿树干）
 function pondCamFloor(x, z) {
   const s = sdf(x, z);
   let f = s < 0 ? WATER_Y + 0.12 : terrainHeight(x, z) + 0.3;
-  if (window.CAMPUS_POND.bridge && Math.abs(z - BRIDGE.z) < BRIDGE.width / 2 + 0.35 && Math.abs(x) < BRIDGE.half + 0.2) f = Math.max(f, 1.2);
-  const dp = Math.hypot(x - PAVILION.x, z - PAVILION.z);
-  if (dp < PAVILION.r + 0.5) f = Math.max(f, 3.9);
+  const bt = cuihuBuildingTop(x, z, 1.5);
+  if (bt + 1.0 > f) f = bt + 1.0;
+  for (const t of WORLD.trees || []) {
+    const dx = x - t.x, dz = z - t.z;
+    if (dx * dx + dz * dz < 0.81) f = Math.max(f, CUIHU.G + t.h + 0.5);
+  }
   return f;
 }
-// 观察点最低高度：地面 / 池底（相机自己不低于水面；从水下视角接管时观察点可以在水下）
+// 观察点最低高度：地面 / 湖底（相机自己不低于水面；从水下视角接管时观察点可以在水下）
 function pondTargetFloor(x, z) { return terrainHeight(x, z) + (sdf(x, z) < 0 ? 0.05 : 0); }
 // 视线检查用的地形高度（水面是透明的，不挡）
 function pondLosGround(x, z) { const s = sdf(x, z); return s < 0 ? -1e9 : terrainHeight(x, z) + 0.02; }
 // 光线与水面 / 地形求交（水面优先）：先等距放大步长行进，再二分细化
 function pondPick(rc, out) {
   const o = rc.ray.origin, d = rc.ray.direction;
-  if (o.y < WATER_Y) {                                   // 相机在水下（清单的“水下”视角）：与池底 / 地形求交
-    for (let t = 0.03, t0 = 0; t < 40; t0 = t, t += 0.03 + t * 0.03) {
+  if (o.y < WATER_Y) {                                   // 相机在水下（清单的“水下”视角）：与湖底 / 地形求交
+    for (let t = 0.03, t0 = 0; t < 60; t0 = t, t += 0.03 + t * 0.03) {
       const x = o.x + d.x * t, y = o.y + d.y * t, z = o.z + d.z * t;
       if (y < terrainHeight(x, z) || y > WATER_Y) return out.set(x, y, z);
     }
@@ -5605,7 +6333,7 @@ function pondPick(rc, out) {
   let tW = Infinity;
   if (d.y < -1e-6 && o.y > WATER_Y) { const t = (WATER_Y - o.y) / d.y, x = o.x + d.x * t, z = o.z + d.z * t; if (sdf(x, z) < 0) tW = t; }
   let t0 = 0, t = 0.05;
-  const tMax = Math.min(tW, 120);
+  const tMax = Math.min(tW, 600);
   while (t < tMax) {
     const x = o.x + d.x * t, y = o.y + d.y * t, z = o.z + d.z * t;
     if (y < pondLosGround(x, z) - 0.02 && sdf(x, z) >= 0) {
@@ -5620,12 +6348,12 @@ function pondPick(rc, out) {
 function setupFreeCam() {
   if (FREECAM || !window.FreeCam) return;
   FREECAM = FreeCam.create({
-    THREE, camera, dom: canvas, target: new THREE.Vector3(0, 0, -1),
+    THREE, camera, dom: canvas, target: cuihuV(372, 1420, 0),
     bounds: POND_BOUNDS, camBounds: POND_CAMBOX,
-    minDistance: 0.5, maxDistance: 18, minPolar: 0.06, maxPolar: 1.53,
+    minDistance: 0.5, maxDistance: 220, minPolar: 0.06, maxPolar: 1.53,
     floor: pondCamFloor, targetFloor: pondTargetFloor, losGround: pondLosGround, pick: pondPick,
-    deriveTarget: true, deriveMax: 18, defaultFocus: 4, focusDistance: 3.5,
-    moveSpeed: (r) => clamp(r * 0.55, 0.8, 7), verticalSpeed: 0.5,
+    deriveTarget: true, deriveMax: 120, defaultFocus: 6, focusDistance: 8,
+    moveSpeed: (r) => clamp(r * 0.55, 0.8, 30), verticalSpeed: 0.5,
     enabled: () => P.cameraMode === 'Manual' && !P.holdCamera && TWEEN.t >= 1 && !(FEED.active && FEED.shot) && !STROKE.active,
     keyFilter: () => P.cameraMode === 'Manual',
     onStart: () => { const cap = document.getElementById('caption'); if (cap) cap.style.opacity = '0'; },
@@ -5634,45 +6362,37 @@ function setupFreeCam() {
 }
 
 // ---------------------------------------------------------------- 电影镜头：全场景巡游
-const TOUR = { pos: null, look: null, caps: [], N: 0, seg: 10, t: 0, blend: 1, resume: false, samples: null, capShown: '' };
+const TOUR = { pos: null, look: null, caps: [], N: 0, seg: 12, t: 0, blend: 1, resume: false, samples: null, capShown: '' };
 const _tp = new THREE.Vector3(), _tl = new THREE.Vector3();
 function buildTour() {
-  const V = (x, y, z) => new THREE.Vector3(x, y, z), CP = window.CAMPUS_POND;
-  const W = WORLD.willows || [];
-  const nearWillow = (x, z) => W.reduce((b, w) => (Math.hypot(w[0] - x, w[1] - z) < Math.hypot(b[0] - x, b[1] - z) ? w : b), W[0] || [x, z, 4.5]);
-  const wE = nearWillow(5.3, 2.6), wW = nearWillow(-6.9, -1.0);
+  const V = cuihuV, CP = window.CAMPUS_POND;
   const spots = [
-    { cap: CP.zoneName || '池塘全景', p: V(0.5, 8.0, 12.5), l: V(0, 0, -2.2) },
-    { cap: '岸边垂柳', p: V(wE[0] + 2.4, 1.5, wE[1] + 3.0), l: V(wE[0], 2.0, wE[1]) },
-    CP.bridge ? { cap: '石拱桥', p: V(1.5, 1.3, -0.3), l: V(-0.2, 0.75, BRIDGE.z) } : { cap: '满池荷叶', p: V(3.2, 1.7, 0.4), l: V(-0.6, 0, -2.0) },
-    { cap: '小亭', p: V(PAVILION.x + 4.0, 2.4, PAVILION.z + 3.3), l: V(PAVILION.x, 1.7, PAVILION.z) },
-    { cap: '竹林', p: V(-3.2, 2.3, -7.4), l: V(-9.2, 2.6, -10.6) },
-    { cap: '垂柳依依', p: V(wW[0] + 2.9, 1.3, wW[1] - 2.6), l: V(wW[0], 2.0, wW[1]) },
+    { cap: CP.zoneName || '翠湖水景', p: V(512, 1712, 62), l: V(372, 1420, 0) },        // 东南高空，与官方鸟瞰图同一方向
+    { cap: '南岸半圆广场', p: V(380, 1694, 11), l: V(366, 1590, 2) },
+    { cap: '银杏与栾树', p: V(314, 1612, 4.5), l: V(360, 1574, 4) },
+    { cap: '西岸蓝花楹', p: V(318, 1470, 3.6), l: V(286, 1410, 5) },
+    { cap: '湖心岛', p: V(345, 1440, 3.2), l: V(384, 1440, 5) },
+    { cap: '翠湖广场', p: V(335, 1272, 7), l: V(334, 1110, 4) },
+    { cap: '置石与石盘', p: V(352, 1246, 2.6), l: V(326, 1222, 1.2) },
+    { cap: '东岸垂柳与 C 区宿舍', p: V(392, 1350, 5), l: V(478, 1384, 9) },
+    { cap: '睡莲', p: V(400, 1488, 2.2), l: V(382, 1482, 0) },
+    { cap: '锦鲤', p: new THREE.Vector3(1.6, 1.1, 8.8), l: new THREE.Vector3(0.2, -0.3, 1.5) },
   ];
-  if (WF.site) { const wp = wfWorld(1.45, 0.55, 0.62), wl = wfWorld(-0.45, 0, 0.35); wp.add(V(wp.x - wl.x, 0.5, wp.z - wl.z).multiplyScalar(0.6)); spots.push({ cap: '假山跌水', p: wp, l: wl }); }
-  spots.push(
-    { cap: CP.lotusExtra ? '荷叶田田' : '荷花', p: V(-1.3, 0.8, 1.1), l: V(-2.62, 0.35, -0.15) },
-    { cap: '锦鲤', p: V(1.2, 0.8, 3.4), l: V(0.2, -0.2, 0.6) },
-    { cap: '花境与驳岸', p: V(-2.4, 1.6, 7.4), l: V(-0.5, 0.3, 3.0) },
-  );
   TOUR.N = spots.length; TOUR.caps = spots.map((s) => s.cap);
   const rawP = new THREE.CatmullRomCurve3(spots.map((s) => s.p), true, 'centripetal');
   TOUR.look = new THREE.CatmullRomCurve3(spots.map((s) => s.l), true, 'centripetal');
-  // 避让：地面 / 水面 / 小亭 / 石桥（pondCamFloor）+ 树木（垂柳按树冠、其余按占位圆 WORLD.occ），再重新平滑
+  // 避让：地面 / 水面 / 建筑屋顶 / 树干（pondCamFloor）+ 树冠（WORLD.trees，按树冠半径与树高），再重新平滑
   const obst = [];
-  for (const w of W) obst.push([w[0], w[1], 2.8, w[2] + 0.5]);                       // 垂柳：枝条垂到地面，按树冠半径避让
-  for (const c of (WORLD.occ || [])) if (c[2] >= 0.5) obst.push([c[0], c[1], c[2] + 0.45, 4.5]);
-  obst.push([PAVILION.x, PAVILION.z, PAVILION.r + 1.0, 4.3]);                          // 小亭：从旁边绕过，不从屋顶上跳过
-  const K = 8, M = TOUR.N * K, pts = [];
+  for (const t of WORLD.trees || []) obst.push([t.x, t.z, t.r + 0.8, CUIHU.G + t.h + 0.6]);
+  const K = 10, M = TOUR.N * K, pts = [];
   for (let i = 0; i < M; i++) pts.push(rawP.getPoint(i / M, new THREE.Vector3()));
   const moved = new Uint8Array(M);
-  // 避让：路径穿过某个障碍圆（且低于树冠 / 屋顶）的一段连续采样点，整段推到同一侧的圆周外（按这段弦中点所在一侧），
-  // 不会出现相邻两点被推到圆的两边造成的跳变；之后邻点平均平滑，循环几遍
+  // 路径穿过某个障碍圆（且低于树冠）的一段连续采样点，整段推到同一侧的圆周外，之后邻点平均平滑，循环几遍
   const avoid = () => {
     for (const [ox, oz, r, top] of obst) {
       const inside = (p) => p.y < top && Math.hypot(p.x - ox, p.z - oz) < r;
       for (let i0 = 0; i0 < M; i0++) {
-        if (!inside(pts[i0]) || inside(pts[(i0 + M - 1) % M])) continue;            // 一段的起点
+        if (!inside(pts[i0]) || inside(pts[(i0 + M - 1) % M])) continue;
         let n = 0; while (n < M && inside(pts[(i0 + n) % M])) n++;
         const a = pts[(i0 + M - 1) % M], b = pts[(i0 + n) % M];
         let sx = (a.x + b.x) / 2 - ox, sz = (a.z + b.z) / 2 - oz, sl = Math.hypot(sx, sz);
@@ -5680,7 +6400,7 @@ function buildTour() {
         sx /= sl; sz /= sl;
         for (let k = 0; k < n; k++) {
           const p = pts[(i0 + k) % M];
-          const w = Math.sin(Math.PI * (k + 1) / (n + 1)) * r;                       // 两端少推、中间多推，保持连续
+          const w = Math.sin(Math.PI * (k + 1) / (n + 1)) * r;
           let dx = p.x - ox + sx * w, dz = p.z - oz + sz * w; const d = Math.hypot(dx, dz) || 1;
           p.x = ox + dx / d * (r + 0.05); p.z = oz + dz / d * (r + 0.05); moved[(i0 + k) % M] = 1;
         }
@@ -5692,7 +6412,7 @@ function buildTour() {
   for (let pass = 0; pass < 6; pass++) {
     const q = pts.map((p) => p.clone());
     for (let i = 0; i < M; i++) {
-      if (i % K === 0 && !moved[i]) continue;                                       // 景点机位固定（平滑会让整圈向内收缩）
+      if (i % K === 0 && !moved[i]) continue;                                       // 景点机位固定
       const a = q[(i + M - 1) % M], b = q[(i + 1) % M]; pts[i].set((a.x + q[i].x * 2 + b.x) / 4, (a.y + q[i].y * 2 + b.y) / 4, (a.z + q[i].z * 2 + b.z) / 4);
     }
     avoid();
@@ -5865,31 +6585,31 @@ function updateFollowTurtle(dt) {
 }
 // One-click close-up views (switch to free-fly and glide there)
 const VIEWS = {
-  '垂柳': () => { const w = (WORLD.willows || [[-6.9, -1.0, 5]])[1] || WORLD.willows[0], g = terrainHeight(w[0], w[1]); return [new THREE.Vector3(w[0] + 2.6, g + 1.5, w[1] - 2.2), new THREE.Vector3(w[0], g + w[2] * 0.45, w[1])]; },
-  '鸢尾（花菖蒲）': () => { const c = (WORLD.irisClumps || [{ x: -2, z: 4 }])[0]; return [new THREE.Vector3(c.x - c.nx * 0.9, 0.55, c.z - c.nz * 0.9), new THREE.Vector3(c.x, 0.35, c.z)]; },
-  '芒草': () => { const c = (WORLD.grass || [[3, 4]])[0]; const g = terrainHeight(c[0], c[1]); return [new THREE.Vector3(c[0] - 1.0, g + 0.9, c[1] + 1.0), new THREE.Vector3(c[0], g + 0.4, c[1])]; },
-  '水杉': () => [new THREE.Vector3(-3.5, 2.2, -9.5), new THREE.Vector3(-7, 6.5, -17.5)],
-  '黑松': () => [new THREE.Vector3(2.8, 2.0, 1.4), new THREE.Vector3(5.3, 3.4, -1.3)],
-  '杜鹃': () => [new THREE.Vector3(2.4, 1.0, 2.6), new THREE.Vector3(4.2, 0.4, 1.5)],
-  '石拱桥': () => [new THREE.Vector3(0.9, 1.05, -1.4), new THREE.Vector3(0.0, 0.7, -3.55)],
-  '六角亭': () => [new THREE.Vector3(2.6, 2.0, -4.2), new THREE.Vector3(PAVILION.x, 1.8, PAVILION.z)],
-  '庭院灯与长椅': () => { const b = (WORLD.benches || [[-4, -3]])[0], g = terrainHeight(b[0], b[1]); return [new THREE.Vector3(b[0] + 1.6, g + 1.2, b[1] + 1.6), new THREE.Vector3(b[0], g + 0.6, b[1])]; },
+  '翠湖全景': () => [cuihuV(512, 1712, 62), cuihuV(372, 1420, 0)],
+  '湖心岛': () => [cuihuV(348, 1486, 4.5), cuihuV(384, 1440, 4.5)],
+  '湖心岛香樟': () => [cuihuV(344, 1470, 7), cuihuV(383, 1440, 8)],
+  '翠湖广场': () => [cuihuV(332, 1232, 9), cuihuV(332, 1080, 3)],
+  '置石与石盘': () => [cuihuV(350, 1242, 2.4), cuihuV(330, 1221, 1.3)],
+  '南岸半圆广场': () => [cuihuV(366, 1702, 10), cuihuV(366, 1600, 2)],
+  'C 区宿舍': () => [cuihuV(392, 1400, 6), cuihuV(510, 1380, 14)],
+  '教师公寓': () => [cuihuV(370, 1620, 7), cuihuV(450, 1745, 8)],
+  '垂柳': () => { const w = (WORLD.willows || [])[1] || [0, 0, 8], g = terrainHeight(w[0], w[1]), gx = (sdf(w[0] + 0.1, w[1]) - sdf(w[0] - 0.1, w[1])) / 0.2, gz = (sdf(w[0], w[1] + 0.1) - sdf(w[0], w[1] - 0.1)) / 0.2;
+    return [new THREE.Vector3(w[0] - gx * 9 + gz * 3, 2.6, w[1] - gz * 9 - gx * 3), new THREE.Vector3(w[0], g + w[2] * 0.45, w[1])]; },
+  '蓝花楹': () => { const t = (WORLD.trees || []).find((q) => q.kind === 'jacaranda') ? WORLD.trees.filter((q) => q.kind === 'jacaranda')[3] : { x: -32, z: -44, h: 9 };
+    return [new THREE.Vector3(t.x + 14, 3.2, t.z + 5), new THREE.Vector3(t.x, CUIHU.G + t.h * 0.6, t.z)]; },
+  '银杏': () => [cuihuV(338, 1098, 3.2), cuihuV(344, 1040, 5)],
+  '栾树': () => [cuihuV(368, 1522, 3.2), cuihuV(368, 1574, 4.2)],
+  '樱花': () => { const t = (WORLD.trees || []).filter((q) => q.kind === 'blossom' && q.x > 10)[1] || { x: 24, z: -50, h: 6.5 };
+    return [new THREE.Vector3(t.x - 10, 2.8, t.z - 3), new THREE.Vector3(t.x, CUIHU.G + t.h * 0.55, t.z)]; },
+  '芦苇': () => { const c = (WORLD.grass || [[-14, -100]])[0], g = terrainHeight(c[0], c[1]); return [new THREE.Vector3(c[0] + 3, g + 1.6, c[1] + 4), new THREE.Vector3(c[0], g + 0.7, c[1])]; },
+  '杜鹃': () => [cuihuV(352, 1632, 2.4), cuihuV(342, 1598, 0.8)],
   '青蛙': () => { const p = new THREE.Vector3(); FROG.root.getWorldPosition(p); const y = FROG.baseYaw + 0.35; return [new THREE.Vector3(p.x + Math.cos(y) * 0.2, p.y + 0.07, p.z - Math.sin(y) * 0.2), new THREE.Vector3(p.x, p.y + 0.035, p.z)]; },
   '蜻蜓': () => { const D = DRAGON.list.find((d) => d.state === 'perch') || DRAGON.list[0], p = D.p, y = D.yaw + 2.2;
     return [new THREE.Vector3(p.x + Math.cos(y) * 0.13, p.y + 0.06, p.z - Math.sin(y) * 0.13), p.clone()]; },
-  '竹林': () => [new THREE.Vector3(-5.6, 1.5, -11.2), new THREE.Vector3(-9.2, 2.8, -10.6)],
-  '紫藤架': () => { const [x, z] = WORLD.botany.arbor || [7.2, 0.6], g = ground(x, z); return [new THREE.Vector3(x - 2.2, g + 1.35, z + 1.6), new THREE.Vector3(x, g + 1.9, z)]; },
-  '绣球': () => { const [x, z] = WORLD.botany.hyd[0] || [4, 4], g = ground(x, z); return [new THREE.Vector3(x + 1.1, g + 1.0, z + 1.1), new THREE.Vector3(x, g + 0.55, z)]; },
-  '石蒜': () => { const [x, z] = WORLD.botany.lily[0] || [0, 6], g = ground(x, z); return [new THREE.Vector3(x + 0.6, g + 0.55, z + 0.6), new THREE.Vector3(x, g + 0.4, z)]; },
-  '牡丹': () => { const [x, z] = WORLD.botany.peony[0] || [3, 5], g = ground(x, z); return [new THREE.Vector3(x + 0.9, g + 0.8, z + 0.9), new THREE.Vector3(x, g + 0.45, z)]; },
-  '山茶': () => { const [x, z] = WORLD.botany.cam[0] || [5, 5], g = ground(x, z); return [new THREE.Vector3(x + 1.6, g + 1.2, z + 1.6), new THREE.Vector3(x, g + 0.7, z)]; },
   '睡莲': () => [new THREE.Vector3(-1.45, 0.3, 2.25), new THREE.Vector3(-1.85, 0.0, 1.5)],
-  '桥面': () => [new THREE.Vector3(0.9, 1.05, -2.85), new THREE.Vector3(0.3, 0.7, -3.55)],
-  '驳岸石与苔藓': () => [new THREE.Vector3(-3.0, 0.55, 2.7), new THREE.Vector3(-3.5, 0.05, 2.0)],
-  '荷花': () => [new THREE.Vector3(-2.0, 0.55, 0.5), new THREE.Vector3(-2.65, 0.4, -0.1)],
+  '睡莲片（岛南）': () => [cuihuV(396, 1500, 2.6), cuihuV(381, 1484, 0)],
   '水下': () => [new THREE.Vector3(0.4, -0.55, 1.2), new THREE.Vector3(-0.3, -0.6, -0.5)],
   '睡莲根茎（水下）': () => [new THREE.Vector3(-0.3, -0.42, 3.05), new THREE.Vector3(-1.05, -0.78, 3.95)],
-  '假山跌水': () => [wfWorld(1.45, 0.55, 0.62), wfWorld(-0.45, 0, 0.35)],
 };
 const TWEEN = { t: 1, from: new THREE.Vector3(), to: new THREE.Vector3(), q0: new THREE.Quaternion(), q1: new THREE.Quaternion() };
 function goToView(name) {
@@ -7085,7 +7805,7 @@ function applyWeather() {
   const nf = window.CAMPUS_SUN ? CAMPUS_SUN.night : 0, fc = pondNightFog(c.fogCol, nf);
   skyUniforms.uOvercast.value = c.overcast; skyUniforms.uOvercastCol.value.setRGB(fc[0] / c.skyScale, fc[1] / c.skyScale, fc[2] / c.skyScale);
   updateSun(); updateWaves();
-  SH.uSnowCover.value = c.cover; SH.uWet.value = c.wet; SH.uAutumn.value = c.autumn; SH.uFogDensity.value = c.fog; SH.uFogColor.value.setRGB(...fc);
+  SH.uSnowCover.value = c.cover; SH.uWet.value = c.wet; SH.uAutumn.value = c.autumn; SH.uFogDensity.value = c.fog * 0.5; SH.uFogColor.value.setRGB(...fc);
   SH.uRain.value = c.rain; SH.uIce.value = c.ice;
   if (compositePass) compositePass.uniforms.uGrade.value.set(...c.grade);
   for (const k of ['time', 'wind', 'expo']) if (GUI_CTRL[k]) GUI_CTRL[k].updateDisplay();
@@ -7455,6 +8175,7 @@ function frame() {
   updatePerf(rawDt);
   updateWind(t);
   updateCamera(cdt, t);
+  cuihuNearPlane();
   camera.updateMatrixWorld();
   updateWaterState(t, dt);
   updateParticles();
@@ -7480,6 +8201,7 @@ function frame() {
   if (envDirty && envTimer <= 0) { updateEnv(); envTimer = 0.2; }
 
   // 1) shadows: rendered once per frame through a camera that sees every layer
+  cuihuShadowFollow();
   SHADOW.frame++;
   if (SHADOW.dirty || (window.CAMPUS_POND.eco ? SHADOW.frame % 60 === 0 : SHADOW.frame % (P.quality === 'High' ? 2 : 3) === 0)) {
     SHADOW.dirty = false;
@@ -7670,7 +8392,7 @@ window.PondEco = { setEcoDetail, get on() { return ECO.on; }, makeTargets, setQu
 const PONDT = (window.__pondT = window.__pondT || []);
 const pmark = (m) => PONDT.push([performance.now(), m]);
 pmark('main-script-eval');
-const PHASE2 = { done: false, n: 0, total: 37, stage: null, chip: null, label: '' };
+const PHASE2 = { done: false, n: 0, total: 27, stage: null, chip: null, label: '' };
 const ALLCAM = () => { const c = camera.clone(); c.layers.enableAll(); return c; };
 // 着色器预编译：支持 KHR_parallel_shader_compile 时由驱动在后台并行编译、不阻塞主线程
 async function compileAsyncSafe(obj) {
@@ -7709,7 +8431,7 @@ async function buildPhase2() {
   stageBegin();
   try {
     await phase2Yield('植物纹理'); buildPlantTextures();
-    await phase2Yield('种植垂柳、香樟与灌木'); await buildVegetation();
+    await phase2Yield('种植湖心岛香樟'); await buildVegetation();
     await phase2Yield('乌龟'); buildTurtle();
     await phase2Yield('水下根系'); buildUnderwaterLife();
     await phase2Yield('萤火虫'); buildFireflies();
@@ -7735,27 +8457,21 @@ async function buildPhase2() {
 async function init() {
   try {
     pmark('init');
-    await progress(0.04, '勾勒池岸轮廓');
+    await progress(0.04, '勾勒翠湖湖岸与湖心岛');
     buildSDF();
-    setupWaterfallSite();
     await buildTextures();
     SH.tCaustics.value = TEX.caustics;
     SH.uCausticNorm.value = 1 / (TEX.causticMean * TEX.causticMean);
     pmark('textures-done');
-    await progress(0.6, '塑造地形与池底');
+    await progress(0.6, '塑造草坡与湖底');
     buildTerrain();
-    await progress(0.66, '砌筑驳岸石');
+    await progress(0.66, '铺设广场、步道，搭建湖畔建筑');
     buildStones();
     woodMaterials();
-    await progress(0.72, '搭建石桥与小亭');
-    if (window.CAMPUS_POND.bridge) buildBridge();
-    buildPavilion();
     await progress(0.78, '注水、放养锦鲤');
     buildWater();
-    buildWaterfall();
     buildLanterns();          // 庭院灯（点光源）必须在首帧前：之后再加光源会让全部材质重新编译
     buildPrecip();
-    buildMountains();
     if (typeof buildKoi === 'function') buildKoi();
     setEcoDetail(ECO.on);
     buildHand();

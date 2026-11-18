@@ -977,6 +977,123 @@ core += '\n' + open(os.path.join(ROOT, 'tools', 'pond_texcache.js'), encoding='u
 open(CORE, 'w', encoding='utf-8').write(core)
 print('OK', len(core), 'bytes ->', CORE)
 
+# ---------------------------------------------------------------- 翠湖水景：按官方校园地图重建（tools/pond_cuihu.js、tools/pond_cuihu_veg.js）
+# 原场景是 7 × 12 米的日式锦鲤庭园（石拱桥、六角亭、假山跌水、石灯笼、竹篱、紫藤、红枫、远山），与官方地图上的翠湖不符。
+# 现在：湖岸、湖心岛、翠湖广场、南岸半圆广场与周边建筑直接取自 campus_layout.json（与校园全景同一份数据），按 0.4 米/像素的真实尺寸建模；
+# 去掉桥、亭、跌水、石灯笼、竹林、紫藤架、花境；湖岸改为自然草坡；种植、铺装、置石、路灯按官方地图布置；水面只有睡莲。
+# 锦鲤、青蛙、乌龟、蜻蜓、水下根系等小尺度生态仍在原点附近（南岸种植床北面的湖面）活动，原有的生成算法、材质与动画不变。
+import json as _json
+_L = _json.load(open(os.path.join(ROOT, 'src', 'main', 'webapp', 'campus3d', 'data', 'campus_layout.json'), encoding='utf-8'))
+_w = next(w for w in _L['water'] if w['id'] == 'cuihu')
+_pl = {p['id']: p for p in _L['plazas']}
+_B_IDS = ['C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9', 'C10', 'jiaoshi', 'juyou', 'B5', 'B6', 'jiaoxue3']
+_data = {'lake': _w['poly'], 'island': _w['island'], 'plaza': _pl['cuihu_plaza']['poly'], 'promenade': _pl['cuihu_promenade']['poly'],
+         'buildings': [{k: b[k] for k in ('id', 'name', 'poly', 'h', 'style')} for b in _L['buildings'] if b['id'] in _B_IDS]}
+assert len(_data['buildings']) == len(_B_IDS)
+CUIHU_JS = open(os.path.join(ROOT, 'tools', 'pond_cuihu.js'), encoding='utf-8').read().replace('__CUIHU_DATA__', _json.dumps(_data, ensure_ascii=False, separators=(',', ':')))
+VEG_JS = open(os.path.join(ROOT, 'tools', 'pond_cuihu_veg.js'), encoding='utf-8').read()
+rep("/* ------------------------------------------------------------------ POND SHAPE (closed Catmull-Rom spline + SDF) */",
+    CUIHU_JS.rstrip() + "\n\n/* ------------------------------------------------------------------ POND SHAPE (closed Catmull-Rom spline + SDF) */")
+# 湖岸：campus_layout.json 的翠湖多边形（闭合 Catmull-Rom 平滑，1400 段）；有向距离 = max(湖, −湖心岛)
+resub(r"const POND_CTRL = \[\[0\.0, 6\.0\].*?\]\];\n", "const POND_CTRL = CUIHU.lake;   // 翠湖湖岸（campus_layout.json，场景米）\n")
+rep("const NPOLY = 480;", "const NPOLY = 1400;")
+rep("function sdfExact(x, z) {\n  let best = 1e18, inside = false;", "function sdfExact(x, z) { return Math.max(sdfLakeExact(x, z), -CUIHU.islandSd(x, z)); }   // 湖心岛是陆地\nfunction sdfLakeExact(x, z) {\n  let best = 1e18, inside = false;")
+rep("""const SDF = { x0: -11, z0: -13, cell: 0.1, nx: 221, nz: 261, d: null };
+function buildSDF() {
+  SDF.d = new Float32Array(SDF.nx * SDF.nz);
+  for (let j = 0; j < SDF.nz; j++) for (let i = 0; i < SDF.nx; i++) SDF.d[j * SDF.nx + i] = sdfExact(SDF.x0 + i * SDF.cell, SDF.z0 + j * SDF.cell);
+}""", """const SDF = { x0: -46, z0: -122, cell: 0.25, nx: 401, nz: 721, d: null };
+// 先算 2 米粗网格，只在离岸 5 米以内的细格精确计算，其余插值（全湖 0.25 米网格逐格精确计算太慢）
+function buildSDF() {
+  SDF.d = new Float32Array(SDF.nx * SDF.nz);
+  const cs = 2, cnx = Math.ceil((SDF.nx - 1) * SDF.cell / cs) + 2, cnz = Math.ceil((SDF.nz - 1) * SDF.cell / cs) + 2, cd = new Float32Array(cnx * cnz);
+  for (let j = 0; j < cnz; j++) for (let i = 0; i < cnx; i++) cd[j * cnx + i] = sdfExact(SDF.x0 + i * cs, SDF.z0 + j * cs);
+  for (let j = 0; j < SDF.nz; j++) for (let i = 0; i < SDF.nx; i++) {
+    const x = SDF.x0 + i * SDF.cell, z = SDF.z0 + j * SDF.cell, fx = (x - SDF.x0) / cs, fz = (z - SDF.z0) / cs, ci = Math.min(cnx - 2, Math.floor(fx)), cj = Math.min(cnz - 2, Math.floor(fz)), u = fx - ci, v = fz - cj;
+    const c = lerp(lerp(cd[cj * cnx + ci], cd[cj * cnx + ci + 1], u), lerp(cd[(cj + 1) * cnx + ci], cd[(cj + 1) * cnx + ci + 1], u), v);
+    SDF.d[j * SDF.nx + i] = Math.abs(c) > 5 ? c : sdfExact(x, z);
+  }
+}""")
+# 没有小亭、石桥：常量移到场景外（相关的避让判断自然失效）
+rep("const PAVILION = { x: 0.3, z: -9.2, r: 1.9 };", "const PAVILION = { x: 1e5, z: 1e5, r: 1.9 };   // 翠湖没有亭子")
+rep("const BRIDGE = { z: -3.55, half: 2.75, width: 1.25 };", "const BRIDGE = { z: 1e5, half: 2.75, width: 1.25 };   // 翠湖没有桥")
+# 湖底与草坡：自然草坡入水（无压顶石），岸上平地 0.30 米，湖心岛、南北种植床略高
+resub(r"function pondDepth\(x, z, d\) \{.*?\n\}\nfunction terrainHeight", "function pondDepth(x, z, d) { return CUIHU.depth(x, z, d); }\nfunction groundHeight(x, z, s) { return CUIHU.ground(x, z, s); }\nfunction terrainHeight")
+rep("  const xs = axisCoords(8.5, 90, 0.08), zs = axisCoords(12.5, 90, 0.08);", "  const xs = CUIHU.xs(), zs = CUIHU.zs();   // 湖区 0.4 米细网格，外围逐渐放大到 ±800 米")
+# 硬质景观 / 路灯 / 植被：替换为翠湖版（原函数改名保留，不再调用）
+rep("function buildStones() {\n", "function buildStones() { buildCuihuHardscape(); }\nfunction buildStonesKoiGarden() {\n")
+rep("function buildLanterns() {\n", "function buildLanterns() { buildCuihuLamps(); }\nfunction buildLanternsKoiGarden() {\n")
+rep("\nasync function buildVegetation() {\n", "\n" + VEG_JS.rstrip() + "\nasync function buildVegetationKoiGarden() {\n")
+# 睡莲：原有 16 片精细浮叶（青蛙那片在内）留在原点附近，另按官方地图加 5 片实例化睡莲；没有荷花（保留荷花生成器给编辑器用）
+rep("  await phase2Yield('种下睡莲与荷花');\n  // Emergent sacred-lotus", "  cuihuLilyPatches(padMat, lilyMat, stamenMat);\n  await phase2Yield('种下睡莲与荷花');\n  // Emergent sacred-lotus")
+rep("  const LOT = [[-2.75, 0.3, 0.2, 0.34], [-3.0, -0.25, 0.16, 0.24], [-2.5, -0.6, 0.23, 0.42], [-2.95, 0.75, 0.13, 0.18]];", "  const LOT = [];   // 翠湖只有睡莲，没有荷花")
+rep("  buildSacredLotus(stemMat);\n", "  { const add0 = scene.add; scene.add = function () { return this; }; try { buildSacredLotus(stemMat); } finally { scene.add = add0; } }   // 只建荷花生成器（编辑器用），不放进翠湖\n")
+# 锦鲤：在原点附近（南岸种植床北面）成群活动，游远了会慢慢回来
+rep("    do { x = rr(-2.8, 2.6); z = rr(-5, 5); } while (sdf(x, z) > -0.7 && guard++ < 200);", "    do { x = rr(-7, 7); z = rr(-6, 7); } while (sdf(x, z) > -0.7 && guard++ < 200);")
+rep("    dx += sx * 2.4; dz += sz * 2.4;\n", "    dx += sx * 2.4; dz += sz * 2.4;\n    { const H = CUIHU.KOI_HOME, hx = f.p.x - H.x, hz = f.p.z - H.z, hd = Math.hypot(hx, hz) + 1e-4; if (hd > H.r && fe < 0.3) { const k = Math.min(1.6, (hd - H.r) * 0.12); dx -= hx / hd * k; dz -= hz / hd * k; } }   // 翠湖很大：锦鲤在主要活动区附近巡游\n")
+# 乌龟：晒背石放在南岸种植床北缘的浅水里
+rep("const TURT_ROCK = { x: 1.45, z: 1.75 };", "const TURT_ROCK = { x: 5.4, z: 10.3 };   // 南岸种植床北缘的浅水（翠湖）")
+rep("    const x = rr(-2.6, 2.5), z = rr(-4.8, 4.8), sd = sdf(x, z);", "    const x = rr(-6, 8), z = rr(-3, 9), sd = sdf(x, z);")
+# 蜻蜓：停栖点取原点附近 30 米内的岸边
+rep("  for (let s = 0.05; s < 0.7; s += 0.035) { const sh = shoreAt(s * POLY_LEN); DRAGON.perches.push(",
+    "  for (let s = 0; s < 1; s += 0.003) { const sh = shoreAt(s * POLY_LEN); if (Math.hypot(sh.x, sh.z) > 30) continue; DRAGON.perches.push(")
+# 水面：全湖遮罩裁出湖岸；涟漪模拟窗口 30 米、跟随视点；网格加密到约 0.25 米
+rep("const SIM = { N: window.CAMPUS_POND.simN, size: 13.4, x0: 0, z0: 0 };\nSIM.x0 = -0.2 - SIM.size / 2; SIM.z0 = -0.02 - SIM.size / 2;",
+    "const SIM = { N: window.CAMPUS_POND.simN, size: 30, x0: 0, z0: 0 };\nSIM.x0 = -SIM.size / 2; SIM.z0 = -SIM.size / 2;")
+rep("  if (sd > 0.0) info.rg = vec2(0.0);\n  gl_FragColor = info;", "  if (sd > 0.0) info.rg = vec2(0.0);\n  vec2 eb = min(vUv, 1.0 - vUv); info.rg *= smoothstep(0.0, 0.05, min(eb.x, eb.y));   // 窗口边缘吸收（窗口跟随视点平移）\n  gl_FragColor = info;")
+rep("uniform sampler2D tRipple;\nuniform sampler2D tMask;\nuniform samplerCube tSky;", "uniform sampler2D tRipple;\nuniform sampler2D tMask;\nuniform sampler2D tLakeMask;\nuniform vec4 uLakeR;\nuniform samplerCube tSky;")
+rep("  float sdM = texture2D(tMask, vSimUv).r * 4.0 - 2.0;", "  float sdM = texture2D(tLakeMask, (vWPos.xz - uLakeR.xy) * uLakeR.zw).r * 4.0 - 2.0;")
+rep("  const geo = new THREE.PlaneGeometry(W, D, 256, 256); geo.rotateX(-Math.PI / 2);", "  const geo = new THREE.PlaneGeometry(W, D, Math.ceil(W / 0.25), Math.ceil(D / 0.25)); geo.rotateX(-Math.PI / 2);")
+rep("      tRipple: { value: simA.texture }, tMask: { value: maskTex }, tSky: { value: cubeRT.texture },", "      tRipple: { value: simA.texture }, tMask: { value: maskTex }, tLakeMask: { value: buildLakeMask() }, uLakeR: { value: LAKE_R }, tSky: { value: cubeRT.texture },")
+rep("function stepRipples(dt) {\n", "function stepRipples(dt) {\n  simFollow();\n")
+# 相机远裁剪面、天空盒、阴影范围按真实尺寸放大；近裁剪面随高度变化；雾浓度减半（几百米的场景）
+rep("const camera = new THREE.PerspectiveCamera(52, innerWidth / innerHeight, 0.02, 260);", "const camera = new THREE.PerspectiveCamera(52, innerWidth / innerHeight, 0.02, 1500);")
+rep("sky.scale.setScalar(900);", "sky.scale.setScalar(2400);")
+rep("s2.scale.setScalar(900);", "s2.scale.setScalar(2400);")
+rep("  const c = sun.shadow.camera; c.left = -13; c.right = 13; c.top = 13; c.bottom = -13; c.near = 1; c.far = 90;", "  const c = sun.shadow.camera; c.left = -48; c.right = 48; c.top = 48; c.bottom = -48; c.near = 1; c.far = 330;")
+rep("  sun.position.copy(d).multiplyScalar(45).add(sun.target.position);", "  sun.position.copy(d).multiplyScalar(150).add(sun.target.position);")
+rep("sun.target.position.set(0, 0, -1.5);", "sun.target.position.set(0, 0, 0);")
+rep("SH.uFogDensity.value = c.fog;", "SH.uFogDensity.value = c.fog * 0.5;")
+rep("  updateCamera(cdt, t);\n  camera.updateMatrixWorld();", "  updateCamera(cdt, t);\n  cuihuNearPlane();\n  camera.updateMatrixWorld();")
+rep("  SHADOW.frame++;\n", "  cuihuShadowFollow();\n  SHADOW.frame++;\n")
+rep("camera.position.set(-0.6, 0.4, 5.3);", "camera.position.copy(cuihuV(512, 1712, 62));")
+# 镜头清单：按翠湖的景点与物种
+resub(r"const VIEWS = \{\n.*?\n\};\nconst TWEEN", r"""const VIEWS = {
+  '翠湖全景': () => [cuihuV(512, 1712, 62), cuihuV(372, 1420, 0)],
+  '湖心岛': () => [cuihuV(348, 1486, 4.5), cuihuV(384, 1440, 4.5)],
+  '湖心岛香樟': () => [cuihuV(344, 1470, 7), cuihuV(383, 1440, 8)],
+  '翠湖广场': () => [cuihuV(332, 1232, 9), cuihuV(332, 1080, 3)],
+  '置石与石盘': () => [cuihuV(350, 1242, 2.4), cuihuV(330, 1221, 1.3)],
+  '南岸半圆广场': () => [cuihuV(366, 1702, 10), cuihuV(366, 1600, 2)],
+  'C 区宿舍': () => [cuihuV(392, 1400, 6), cuihuV(510, 1380, 14)],
+  '教师公寓': () => [cuihuV(370, 1620, 7), cuihuV(450, 1745, 8)],
+  '垂柳': () => { const w = (WORLD.willows || [])[1] || [0, 0, 8], g = terrainHeight(w[0], w[1]), gx = (sdf(w[0] + 0.1, w[1]) - sdf(w[0] - 0.1, w[1])) / 0.2, gz = (sdf(w[0], w[1] + 0.1) - sdf(w[0], w[1] - 0.1)) / 0.2;
+    return [new THREE.Vector3(w[0] - gx * 9 + gz * 3, 2.6, w[1] - gz * 9 - gx * 3), new THREE.Vector3(w[0], g + w[2] * 0.45, w[1])]; },
+  '蓝花楹': () => { const t = (WORLD.trees || []).find((q) => q.kind === 'jacaranda') ? WORLD.trees.filter((q) => q.kind === 'jacaranda')[3] : { x: -32, z: -44, h: 9 };
+    return [new THREE.Vector3(t.x + 14, 3.2, t.z + 5), new THREE.Vector3(t.x, CUIHU.G + t.h * 0.6, t.z)]; },
+  '银杏': () => [cuihuV(338, 1098, 3.2), cuihuV(344, 1040, 5)],
+  '栾树': () => [cuihuV(368, 1522, 3.2), cuihuV(368, 1574, 4.2)],
+  '樱花': () => { const t = (WORLD.trees || []).filter((q) => q.kind === 'blossom' && q.x > 10)[1] || { x: 24, z: -50, h: 6.5 };
+    return [new THREE.Vector3(t.x - 10, 2.8, t.z - 3), new THREE.Vector3(t.x, CUIHU.G + t.h * 0.55, t.z)]; },
+  '芦苇': () => { const c = (WORLD.grass || [[-14, -100]])[0], g = terrainHeight(c[0], c[1]); return [new THREE.Vector3(c[0] + 3, g + 1.6, c[1] + 4), new THREE.Vector3(c[0], g + 0.7, c[1])]; },
+  '杜鹃': () => [cuihuV(352, 1632, 2.4), cuihuV(342, 1598, 0.8)],
+  '青蛙': () => { const p = new THREE.Vector3(); FROG.root.getWorldPosition(p); const y = FROG.baseYaw + 0.35; return [new THREE.Vector3(p.x + Math.cos(y) * 0.2, p.y + 0.07, p.z - Math.sin(y) * 0.2), new THREE.Vector3(p.x, p.y + 0.035, p.z)]; },
+  '蜻蜓': () => { const D = DRAGON.list.find((d) => d.state === 'perch') || DRAGON.list[0], p = D.p, y = D.yaw + 2.2;
+    return [new THREE.Vector3(p.x + Math.cos(y) * 0.13, p.y + 0.06, p.z - Math.sin(y) * 0.13), p.clone()]; },
+  '睡莲': () => [new THREE.Vector3(-1.45, 0.3, 2.25), new THREE.Vector3(-1.85, 0.0, 1.5)],
+  '睡莲片（岛南）': () => [cuihuV(396, 1500, 2.6), cuihuV(381, 1484, 0)],
+  '水下': () => [new THREE.Vector3(0.4, -0.55, 1.2), new THREE.Vector3(-0.3, -0.6, -0.5)],
+  '睡莲根茎（水下）': () => [new THREE.Vector3(-0.3, -0.42, 3.05), new THREE.Vector3(-1.05, -0.78, 3.95)],
+};
+const TWEEN""")
+# 标题与说明
+rep('<div id="loader"><h1 id="loadtitle">校园池塘 · 板块细节</h1>', '<div id="loader"><h1 id="loadtitle">翠湖水景 · 板块细节</h1>')
+rep('<title>校园池塘 · 板块细节 - 智慧校园虚拟生态</title>', '<title>翠湖水景 · 板块细节 - 智慧校园虚拟生态</title>')
+_m = re.search(r"\nasync function buildPondLife\(\) \{\n(.*?)\n\}\n", s, re.S)
+_ntree = CUIHU_JS.count("T('") + 8
+PHASE2_TOTAL_CUIHU = (VEG_JS.count('phase2Yield(') - 1) + -(-_ntree // 6) + _m.group(1).count('phase2Yield(') + 9
+rep("const PHASE2 = { done: false, n: 0, total: %d," % PHASE2_TOTAL, "const PHASE2 = { done: false, n: 0, total: %d," % PHASE2_TOTAL_CUIHU)
+
 # ---------------------------------------------------------------- 自由镜头 + 全场景巡游（tools/pond_camera.js，共用 ../js/free-camera.js）
 # 自由镜头原来是“原地转头 + 方向键平移”的飞行镜头，鼠标只能转向、滚轮只调速度；改为观察点 + 环绕的自由镜头：
 # 左键旋转、右键 / Shift+左键平移观察点、滚轮朝光标缩放、WASD / 方向键移动、Q / E 升降、双击聚焦，限位在场景范围内且不低于地面 / 水面。

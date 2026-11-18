@@ -39,7 +39,7 @@
     const wait = document.getElementById("se-wait");
     if (zoneCfg && zoneCfg.editable === false) { if (wait) wait.remove(); return; }
     const V3 = THREE.Vector3, rnd = (a, b) => a + (b - a) * Math.random();
-    const inGarden = (x, z) => Math.abs(x) < 8.6 && z > -11.5 && z < 8.6;
+    const inGarden = (x, z) => x > -48 && x < 52 && z > -128 && z < 62;   // 翠湖、翠湖广场与两岸（场景米）
     const nearBridge = (x, z, r) => window.CAMPUS_POND.bridge && Math.abs(z - BRIDGE.z) < 0.9 + r && Math.abs(x) < BRIDGE.half + 0.6;
     const nearPavilion = (x, z, r) => Math.hypot(x - PAVILION.x, z - PAVILION.z) < PAVILION.r + 0.5 + r;
     const isWaterEntry = (e) => !!(e && e.water);
@@ -377,7 +377,7 @@
       const h = (q) => q.y - Math.max(terrainHeight(q.x, q.z), WATER_Y);
       let t0 = 0, step = 0.08;
       p.copy(o); if (h(p) < 0) return null;
-      for (let t = step; t < 80; t += step) {
+      for (let t = step; t < 400; t += step) {
         p.copy(o).addScaledVector(dv, t);
         if (h(p) <= 0) {
           let a = t0, b = t;
@@ -385,7 +385,7 @@
           p.copy(o).addScaledVector(dv, b);
           return { x: p.x, y: Math.max(terrainHeight(p.x, p.z), WATER_Y), z: p.z, water: terrainHeight(p.x, p.z) < WATER_Y };
         }
-        t0 = t; step = Math.min(0.5, step * 1.06);
+        t0 = t; step = Math.min(1.0, step * 1.06);
       }
       return null;
     }
@@ -413,7 +413,7 @@
         onToggle: (on) => {
           document.body.classList.toggle("se-editing", on);
           if (on) {
-            VIEWS["管理动植物 · 俯瞰"] = () => [new V3(0.6, 6.8, 9.8), new V3(-0.2, 0, -0.8)];
+            VIEWS["管理动植物 · 俯瞰"] = () => [new V3(1.5, 16, 24), new V3(0, 0, 0)];   // 南岸种植床北面的锦鲤 / 睡莲区
             if (P.holdCamera) setHold(false);
             goToView("管理动植物 · 俯瞰");
           }
