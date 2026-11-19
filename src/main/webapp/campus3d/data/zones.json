@@ -13,9 +13,9 @@
       "area_code": "MY-ECO-CUIHU",
       "detail_scene": "pond/pond.html",
       "editable": true,
-      "catalog": ["lotus", "waterlily", "iris", "thalia", "reed", "willow", "camphor", "osmanthus", "koi", "frog", "turtle", "dragonfly"],
-      "intro": "校园西部的翠湖与翠湖广场，湖心小岛上植有垂柳与香樟，岸边是 C 区宿舍。这里是校园最大的水体，承担雨水调蓄，也是水鸟、锦鲤和蜻蜓的栖息地。",
-      "highlights": ["垂柳", "香樟", "睡莲", "水鸟栖息"]
+      "catalog": ["waterlily", "iris", "thalia", "reed", "willow", "camphor", "osmanthus", "koi", "frog", "turtle", "dragonfly"],
+      "intro": "校园西部南北狭长的翠湖：北端湖尖连着翠湖广场，草坪上立着景石和镂空圆石盘；湖中一座青草小岛，岛上一棵大树；南岸 D 形种植床里 5 棵栾树秋季金黄，外面环着半圆形广场和成排银杏。西岸一排紫花蓝花楹，东岸垂柳依依，背后是 C 区宿舍。水面只有睡莲，没有荷花，是锦鲤、青蛙和蜻蜓的栖息地，也承担校园雨水调蓄。",
+      "highlights": ["湖心岛大树", "南岸栾树", "西岸蓝花楹", "睡莲"]
     },
     {
       "id": "central_lawn",
