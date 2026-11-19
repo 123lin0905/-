@@ -125,7 +125,7 @@ MAX_ANISO = Math.min(8, renderer.capabilities.getMaxAnisotropy());
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(52, innerWidth / innerHeight, 0.02, 1500);   // close near plane for macro shots
-camera.position.copy(cuihuV(512, 1712, 62));
+camera.position.set(-30.4, 75, 110);   // 翠湖西南南方向高空（平面图 (290, 1790)）；此处 CUIHU 尚未定义，不能用 cuihuV()
 
 // One global clip plane is always bound (a no-op in the main pass) so programs never recompile between passes.
 const CLIP_NONE = new THREE.Plane(new THREE.Vector3(0, 1, 0), 1e4);
@@ -6585,7 +6585,7 @@ function updateFollowTurtle(dt) {
 }
 // One-click close-up views (switch to free-fly and glide there)
 const VIEWS = {
-  '翠湖全景': () => [cuihuV(512, 1712, 62), cuihuV(372, 1420, 0)],
+  '翠湖全景': () => [cuihuV(290, 1790, 75), cuihuV(380, 1420, 0)],   // 与官方鸟瞰图相同的西南南方向斜俯视
   '湖心岛': () => [cuihuV(348, 1486, 4.5), cuihuV(384, 1440, 4.5)],
   '湖心岛香樟': () => [cuihuV(344, 1470, 7), cuihuV(383, 1440, 8)],
   '翠湖广场': () => [cuihuV(332, 1232, 9), cuihuV(332, 1080, 3)],

@@ -1056,10 +1056,10 @@ rep("sun.target.position.set(0, 0, -1.5);", "sun.target.position.set(0, 0, 0);")
 rep("SH.uFogDensity.value = c.fog;", "SH.uFogDensity.value = c.fog * 0.5;")
 rep("  updateCamera(cdt, t);\n  camera.updateMatrixWorld();", "  updateCamera(cdt, t);\n  cuihuNearPlane();\n  camera.updateMatrixWorld();")
 rep("  SHADOW.frame++;\n", "  cuihuShadowFollow();\n  SHADOW.frame++;\n")
-rep("camera.position.set(-0.6, 0.4, 5.3);", "camera.position.copy(cuihuV(512, 1712, 62));")
+rep("camera.position.set(-0.6, 0.4, 5.3);", "camera.position.set(-30.4, 75, 110);   // 翠湖西南南方向高空（平面图 (290, 1790)）；此处 CUIHU 尚未定义，不能用 cuihuV()")
 # 镜头清单：按翠湖的景点与物种
 resub(r"const VIEWS = \{\n.*?\n\};\nconst TWEEN", r"""const VIEWS = {
-  '翠湖全景': () => [cuihuV(512, 1712, 62), cuihuV(372, 1420, 0)],
+  '翠湖全景': () => [cuihuV(290, 1790, 75), cuihuV(380, 1420, 0)],   // 与官方鸟瞰图相同的西南南方向斜俯视
   '湖心岛': () => [cuihuV(348, 1486, 4.5), cuihuV(384, 1440, 4.5)],
   '湖心岛香樟': () => [cuihuV(344, 1470, 7), cuihuV(383, 1440, 8)],
   '翠湖广场': () => [cuihuV(332, 1232, 9), cuihuV(332, 1080, 3)],
