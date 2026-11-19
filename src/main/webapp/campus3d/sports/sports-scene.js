@@ -39,11 +39,23 @@
   const basketAng = (angOf(BASKET[0], BASKET[1]) + angOf(BASKET[3], BASKET[2])) / 2;
   const PLATFORM_Y = 3.0;
 
+  // 局部多边形（带洞）：池岸铺装要把水面挖空，否则 0.2 米高的铺装会盖住水面
+  function polyHoleL(B, f, outer, holes, y, mat, uvScale) {
+    const shape = new THREE.Shape(); outer.forEach(([u, v], i) => (i ? shape.lineTo(u, v) : shape.moveTo(u, v)));
+    holes.forEach((h) => { const p = new THREE.Path(); h.forEach(([u, v], i) => (i ? p.lineTo(u, v) : p.moveTo(u, v))); shape.holes.push(p); });
+    const g = new THREE.ShapeGeometry(shape, 16).toNonIndexed(), pos = g.attributes.position, uv = g.attributes.uv, k = uvScale || 1;
+    for (let i = 0; i < pos.count; i++) { const u = pos.getX(i), v = pos.getY(i); uv.setXY(i, u / k, v / k); const [x, z] = f.w(u, v); pos.setXYZ(i, x, y, z); }
+    B.fixWinding(g); g.computeVertexNormals();
+    return B.pooled(g, mat);
+  }
+
   function heightAt(x, z) { return ZB.inPoly(ZB.P(x, z), BASKET) ? PLATFORM_Y : 0; }
 
   function build(K) {
     const B = K.B, M = B.M, look = K.look;
     const water = look.waterMaterial({ key: "pool", color: 0x2f8796, scale: 0.12 });
+    // 叠放的薄面层用多边形偏移分层（远景下 1~2 厘米高差会深度冲突）：底层 0 · 场地 1 · 罚球区 2 · 标线 3
+    B.decal(M.pitch, 1);
 
     // ---------- 道路 ----------
     B.ribbon(ERHUAN, 42, 0.04, M.asphalt, false, "road");
@@ -84,8 +96,10 @@
       const trackPoly = TRACK;
       B.flat(trackPoly, M.track, 0.08, "court");
       const R0 = 36.5, L0 = 84.39, LANE = 1.22, N = 8;
-      // 内场草坪（半圆区也是草）
-      B.polyL(f, B.ovalL(0, 0, L0, R0 - 0.05, 40), 0.1, M.pitch, 10.5);
+      // 内场草坪：官网导览图为矩形天然草足球场（两端半圆区是红色塑胶），草坪矩形 109 × 73 米并裁到跑道内沿以内
+      { const HU = 54.5, lim = (u) => { const d = Math.max(0, Math.abs(u) - L0 / 2); return Math.min(R0 - 0.05, Math.sqrt(Math.max(0, (R0 - 0.05) ** 2 - d * d))); };
+        const top = [], bot = []; for (let i = 0; i <= 24; i++) { const u = -HU + (2 * HU * i) / 24; top.push([u, -lim(u)]); bot.push([u, lim(u)]); }
+        B.polyL(f, top.concat(bot.reverse()), 0.1, M.pitch, 10.5); }
       // 跑道线：内沿路缘 + 9 条分道线
       B.lineL(f, B.ovalL(0, 0, L0, R0, 48), 0.12, 0.13, M.white, true);
       for (let i = 1; i <= N; i++) B.lineL(f, B.ovalL(0, 0, L0, R0 + i * LANE, 48), 0.05, 0.12, M.paint, true);
@@ -142,15 +156,17 @@
       const c = B.centroid(BASKET), f = B.frame(c, basketAng);
       // 局部尺寸：u ±33，v ±28
       const CW = 20, CH = 12, GU = 1.6, GV = 3.2, y = PLATFORM_Y + 0.02;
-      const red = B.courtMat(0xa8473b), green = B.courtMat(0x2f7a55);
+      // 官网导览图：红色球场面层，三分区与中圈为绿色
+      const red = B.decal(B.courtMat(0xa8473b), 1), green = B.decal(B.courtMat(0x2f7a55), 2);
       for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) {
         const cu = i * (CW + GU), cv = j * (CH + GV);
-        B.polyL(f, B.rectL(cu - CW / 2, cv - CH / 2, cu + CW / 2, cv + CH / 2), y, green, 4);
+        B.polyL(f, B.rectL(cu - CW / 2, cv - CH / 2, cu + CW / 2, cv + CH / 2), y, red, 4);
+        B.polyL(f, B.arcL(cu, cv, 1.8, 0, 6.28, 20), y + 0.01, green, 4);
         for (const s of [-1, 1]) {
           const bu = cu + s * CW / 2;
           // 红色三分区（半圆 + 罚球区）
           const arc = B.arcL(bu, cv, 6.0, s > 0 ? Math.PI / 2 : -Math.PI / 2, s > 0 ? Math.PI * 1.5 : Math.PI / 2, 24).map(([u, v]) => [u, Math.max(cv - CH / 2 + 0.3, Math.min(cv + CH / 2 - 0.3, v))]);
-          B.polyL(f, [[bu, cv - CH / 2 + 0.3]].concat(arc).concat([[bu, cv + CH / 2 - 0.3]]), y + 0.01, red, 4);
+          B.polyL(f, [[bu, cv - CH / 2 + 0.3]].concat(arc).concat([[bu, cv + CH / 2 - 0.3]]), y + 0.01, green, 4);
           B.lineL(f, arc, 0.06, y + 0.03, M.paint);
           B.lineL(f, [[bu, cv - 2.45], [bu - s * 5.8, cv - 2.45], [bu - s * 5.8, cv + 2.45], [bu, cv + 2.45]], 0.06, y + 0.03, M.paint);
           B.lineL(f, B.arcL(bu - s * 5.8, cv, 1.8, s > 0 ? Math.PI / 2 : -Math.PI / 2, s > 0 ? Math.PI * 1.5 : Math.PI / 2, 12), 0.06, y + 0.03, M.paint);
@@ -173,9 +189,15 @@
     {
       const f = B.frame([404, 390], poolAng), y = 0.2;
       // 池岸铺装（凸起 0.2 米）
-      B.polyL(f, [[-6, -12], [58, -12], [58, 27], [14, 27], [14, 41], [-6, 41]], y, M.slabs, 4.8);
-      B.mark({ kind: "poly", poly: B.polyPx(f, [[-6, -12], [58, -12], [58, 27], [14, 27], [14, 41], [-6, 41]]), cls: "paved" });
+      const deck = [[-6, -12], [58, -12], [58, 27], [14, 27], [14, 41], [-6, 41]];
       const poolPts = [[0, 0], [50, 0], [50, 21], [9, 21], [9, 36], [0, 36]];
+      polyHoleL(B, f, deck, [poolPts], y, M.slabs, 4.8);
+      B.mark({ kind: "poly", poly: B.polyPx(f, deck), cls: "paved" });
+      // 池壁与池底：水面略低于池岸，池壁用白色瓷砖色
+      { const ring = poolPts.map(([u, v]) => f.w(u, v)), pos = [];
+        for (let i = 0; i < ring.length; i++) { const a = ring[i], b = ring[(i + 1) % ring.length]; pos.push(a[0], y, a[1], b[0], y, b[1], b[0], -1.6, b[1], a[0], y, a[1], b[0], -1.6, b[1], a[0], -1.6, a[1]); }
+        const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute("uv", new THREE.Float32BufferAttribute(new Float32Array(pos.length / 3 * 2), 2)); g.computeVertexNormals();
+        const wallMat = new THREE.MeshStandardMaterial({ color: 0x9fd3dc, roughness: 0.4, side: THREE.DoubleSide }); B.addMesh(g, wallMat, false, true); }
       B.polyL(f, poolPts, 0.12, water, 1);
       B.mark({ kind: "poly", poly: B.polyPx(f, poolPts), cls: "water" });
       B.lineL(f, poolPts, 0.5, y + 0.02, M.granite, true);
@@ -227,7 +249,7 @@
     // ---------- 网球场 4 片（2×2）+ 排球场 3 片 ----------
     {
       const f = B.frame([182, 415], tennisAng), y = 0.06;
-      const surround = B.courtMat(0x3d7a57), blue = B.courtMat(0x4d6c86), orange = B.courtMat(0xd27536);
+      const surround = B.courtMat(0x3d7a57), blue = B.decal(B.courtMat(0x4d6c86), 1), orange = B.decal(B.courtMat(0xd27536), 1);
       B.polyL(f, B.rectL(0, 0, 68, 34), y, surround, 5);
       B.mark({ kind: "poly", poly: B.polyPx(f, B.rectL(0, 0, 68, 34)), cls: "court" });
       for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) {
@@ -301,12 +323,13 @@
       courts: [TRACK], plazas: [], trees: treeSpots(),
       catLawn: [[600, 500], [780, 470], [800, 540], [610, 590]], catHome: [690, 535],
     },
-    overview: { t: [W([700, 400])[0], 0, W([700, 400])[1]], d: 430, polar: 0.92, az: 0.55 },
+    // 官网导览图为自南偏西（SSW）看向北的斜轴测：镜头方位约 -0.25 弧度（偏西），俯角约 30°（平面 y 向压缩约一半）
+    overview: { t: [W([720, 380])[0], 0, W([720, 380])[1]], d: 470, polar: 1.02, az: -0.25 },
     views: {
-      track: { t: [W(trackC)[0], 0, W(trackC)[1]], d: 170, polar: 0.95, az: 0.5 },
-      basket: { t: [W([662, 400])[0], 3, W([662, 400])[1]], d: 85, polar: 0.92, az: 0.45 },
-      pool: { t: [W([455, 430])[0], 0, W([455, 430])[1]], d: 80, polar: 0.95, az: 0.55 },
-      tennis: { t: [W([265, 480])[0], 0, W([265, 480])[1]], d: 85, polar: 0.9, az: 0.55 },
+      track: { t: [W(trackC)[0], 0, W(trackC)[1]], d: 170, polar: 0.95, az: -0.25 },
+      basket: { t: [W([662, 400])[0], 3, W([662, 400])[1]], d: 85, polar: 0.92, az: -0.25 },
+      pool: { t: [W([455, 430])[0], 0, W([455, 430])[1]], d: 80, polar: 0.95, az: -0.25 },
+      tennis: { t: [W([265, 480])[0], 0, W([265, 480])[1]], d: 85, polar: 0.9, az: -0.25 },
       edit: { t: [W([690, 535])[0], 0, W([690, 535])[1]], d: 60, polar: 0.55, az: 0.3 },
     },
     viewButtons: [{ id: "track", label: "🏃 田径场" }, { id: "basket", label: "🏀 篮球场" }, { id: "pool", label: "🏊 游泳池" }, { id: "tennis", label: "🎾 网球场" }],
@@ -334,12 +357,12 @@
       catalog: ["camphor", "ginkgo", "metasequoia", "osmanthus", "cherry", "azalea", "hedge", "cat", "magpie", "sparrow", "butterfly"],
       seeds: {
         camphor: [[640, 540], [720, 520], [300, 625]],
-        ginkgo: [[548, 380], [553, 420], [557, 460]],
-        metasequoia: [[880, 560], [960, 543], [1040, 525]],
+        ginkgo: [[600, 520], [640, 512], [680, 503]],
+        metasequoia: [[886, 588], [966, 571], [1046, 553]],
         osmanthus: [[600, 595], [660, 575]],
         azalea: [[612, 560], [630, 556], [700, 545], [745, 535]],
         cat: [[680, 540]],
-        magpie: [[1000, 350], [700, 555]],
+        magpie: [[1000, 200], [700, 555]],
         sparrow: [[452, 476], [458, 478], [610, 548]],
         butterfly: [[690, 530], [735, 528]],
       },

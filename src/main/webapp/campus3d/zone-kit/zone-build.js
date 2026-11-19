@@ -350,7 +350,7 @@
     // 局部多边形（UV = 局部坐标 / uvScale，便于割草条纹、球场纹理沿场地方向）
     function polyL(f, pts, y, mat, uvScale) {
       const shape = new THREE.Shape(); pts.forEach(([u, v], i) => (i ? shape.lineTo(u, v) : shape.moveTo(u, v)));
-      const g = new THREE.ShapeGeometry(shape, 16);
+      const g = new THREE.ShapeGeometry(shape, 16).toNonIndexed();   // fixWinding 按三顶点一组交换，必须先去索引，否则翻转时面片错乱
       const p = g.attributes.position, uv = g.attributes.uv, k = uvScale || 1;
       for (let i = 0; i < p.count; i++) { const u = p.getX(i), v = p.getY(i); uv.setXY(i, u / k, v / k); const [x, z] = f.w(u, v); p.setXYZ(i, x, y, z); }
       g.computeVertexNormals(); fixWinding(g); g.computeVertexNormals();
@@ -521,11 +521,12 @@
     // 铁丝网围栏：半透明网片（alphaTest 网格贴图）+ 立柱
     const fenceTex = (() => {
       const c = makeCanvas(64, 64), g = c.getContext("2d"); g.clearRect(0, 0, 64, 64);
-      g.strokeStyle = "rgba(60,80,70,1)"; g.lineWidth = 3;
+      g.strokeStyle = "rgba(120,150,130,1)"; g.lineWidth = 2;
       for (let k = -64; k < 128; k += 16) { g.beginPath(); g.moveTo(k, 0); g.lineTo(k + 64, 64); g.stroke(); g.beginPath(); g.moveTo(k + 64, 0); g.lineTo(k, 64); g.stroke(); }
       const t = canvasTex(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
     })();
-    const fenceMat = patch(new THREE.MeshStandardMaterial({ map: fenceTex, color: 0x4d6b5a, alphaTest: 0.35, side: THREE.DoubleSide, roughness: 0.6, metalness: 0.4 }), { key: "fence", noWeather: true });
+    // 半透明混合：只用 alphaTest 时远处 mip 平均后的 alpha 仍高于阈值，铁丝网会变成一堵不透明的黑墙
+    const fenceMat = patch(new THREE.MeshStandardMaterial({ map: fenceTex, color: 0x7a9a86, transparent: true, opacity: 0.8, depthWrite: false, alphaTest: 0.04, side: THREE.DoubleSide, roughness: 0.6, metalness: 0.3 }), { key: "fence", noWeather: true });
     function fence(ptsW, h, closed, y0) {
       y0 = y0 || 0;
       const P2 = ptsW.slice(); if (closed) P2.push(P2[0]);
@@ -588,7 +589,7 @@
       for (let i = 0; i < ptsW.length - 1; i++) {
         const [ax, az] = ptsW[i], [bx, bz] = ptsW[i + 1], len = Math.hypot(bx - ax, bz - az);
         const g = roundedBox(len, h, w, Math.min(0.25, w * 0.3), i + 3);
-        { const uv = g.attributes.uv, p = g.attributes.position; for (let k = 0; k < uv.count; k++) uv.setXY(k, p.getX(k) + p.getZ(k), p.getY(k)); }
+        { const p = g.attributes.position, uv = new Float32Array(p.count * 2); for (let k = 0; k < p.count; k++) { uv[k * 2] = p.getX(k) + p.getZ(k); uv[k * 2 + 1] = p.getY(k); } g.setAttribute("uv", new THREE.BufferAttribute(uv, 2)); }   // roundedBox 焊接后没有 uv
         g.rotateY(-Math.atan2(bz - az, bx - ax)); g.translate((ax + bx) / 2, h / 2, (az + bz) / 2);
         solid(g, M.hedge);
       }
