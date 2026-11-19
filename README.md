@@ -72,13 +72,13 @@ src/main/java/Servlet/WeatherServlet.java   /api/weather 天气代理（10 分�
 | 场景来源 | 基于开源项目 [Koi Pond Garden](https://github.com/souranyp-stack/koi-pond-garden)（Sourany Phomhome，**MIT License**，许可全文见 `campus3d/pond/LICENSE-koi-pond-garden.txt`）改造。原作是单文件 three.js r160 场景，全部程序化生成：锦鲤、涟漪模拟 + Gerstner 水面、反射/折射、焦散、荷花睡莲、青蛙、乌龟、蜻蜓、四种天气。 |
 | 校园化改造 | 界面全中文；樱花改为垂柳、红枫改为香樟（绿叶），日式石灯笼改为校园庭院灯 + 木质长椅，木桥改为青石拱桥，六角亭改为红柱灰瓦中式小亭，去掉日式竹筒“鹿威し”敲击声；保留锦鲤、荷花、睡莲、青蛙、蜻蜓、乌龟、鸢尾（花菖蒲）、芒草、竹林等。 |
 | 界面 | 左上角板块名、简介（读取 `zones.json`）、实时天气与北京时间；右侧“池塘生态”面板列出本池动植物（中文名 + 一句介绍，读取 `campus3d/data/pond_species.json`），点击清单项镜头飞到对应物种（锦鲤/乌龟为跟随镜头）。 |
-| 两个板块共用 | 同一场景用 `?zone=` 区分：`cuihu_water`（翠湖水景：石拱桥、20 条锦鲤）与 `library_lotus`（图书馆·荷花池：无桥、成片荷叶与荷花、只放养 8 条锦鲤、庭院灯布局不同）。 |
+| 翠湖水景（按官方地图重建） | 本场景现在只表现 `cuihu_water`，依据学校官方手绘鸟瞰图：南北长约 140 米的一湖（北端窄、南端两个湖湾）、一座青草湖心岛（岛上一棵大阔叶树，场景用香樟表现，无桥相连）、南岸 D 形种植床（5 棵黄叶栾树 + 绿篱 + 开花灌木）与半圆形广场、成排银杏、北端湖尖的景石与镂空圆石盘、西岸紫花蓝花楹、东岸垂柳与樱花，周边是 C 区宿舍、教师公寓等建筑；水面只有睡莲，没有荷花、石桥、小亭、跌水、石灯笼、竹林、紫藤、红枫。湖岸、湖心岛、广场、建筑轮廓与校园全景共用 `campus_layout.json`，按 0.4 米/像素真实尺寸建模（`tools/pond_cuihu.js`、`tools/pond_cuihu_veg.js`，由 `build_pond.py` 插入）。锦鲤、青蛙、乌龟、蜻蜓等小尺度生态集中在南岸种植床北面的湖面（场景原点）。`?zone=library_lotus` 打开本页时也按翠湖显示，荷花池需另建场景。 |
 | 天气 / 季节 / 昼夜 | 与主页同一套逻辑（复用 `campus3d/js/eco-weather.js`）：`/api/weather` → 浏览器直连 Open-Meteo → 虚拟天气；季节按北京时间月份；太阳高度角按北京时间与校区经纬度计算（低于 -2° 为夜晚）。映射到原场景的天气预设：雨/毛毛雨/雷阵雨 → 雨，雪 → 冬雪，秋季晴/多云 → 秋，冬季无雪 → 冬日（落叶树枯枝），其余 → 晴，再叠加多云/阴/雾的云量与雾。夜晚：天空换成星空与月亮、月光照明、庭院灯亮起（点光源）、非冬季岸边出现萤火虫，蜻蜓停飞。 |
 | 演示 | 按 **Y** 打开演示面板（电影镜头下 **W** 也可以；天气/季节/时间/流速/场景预设 晴·雨·秋·冬雪·夜晚），**T** 轮换天气，**H** 打开高级渲染参数，**I** 操作说明；也支持 URL 参数 `weather`、`season`、`hour`、`demo=1`、`quality=low|high`。 |
 | 镜头 | 底部按钮 / **C** 在 **电影镜头**（全场景连续巡游）与 **自由镜头**（旋转 / 平移 / 缩放 / 键盘移动 / 双击聚焦）之间切换，见下文“自由镜头与电影镜头”。自由镜头下 W / E 用于移动和升降，喂锦鲤请点“喂锦鲤”按钮（电影镜头下仍可按 E）。 |
 | 性能 | 与全景共用“清晰 / 流畅 / 省电”画质档（见下文“画质档与省电模式”）。清晰：像素比 `min(dpr, 2)`、SSAO / 体积光 / 景深；流畅：像素比 `min(dpr, 1.25)`、关闭这些特效；省电：像素比 1 × 0.85、512 静态阴影、关闭后期与 MSAA、草 / 叶片卡与锦鲤减半、30 fps 上限。水面涟漪模拟网格 256²（手机、流畅或省电档 128²）。核显 / 高 DPR 笔记本首次默认省电；其余按实测帧率只降不升（分辨率 1 → 0.8 → 流畅 → 省电），提示带 **“恢复清晰”** 按钮。 |
 | 抚摸锦鲤（G） | 抚摸点一定在水里（离岸 sdf < -0.3 米，不合格时沿池岸找最近的合格岸点；荷花池版避开荷叶密集处），镜头蹲在岸上俯看；锦鲤到位判定距离 0.3 米，最多等 6 秒，超时把最近的锦鲤平滑引到手边；特写期间两侧面板隐藏。 |
-| 资料来源 | 学校官网“绵阳校区 · 校园风采”页（https://tfswufe.edu.cn/zjxy/myyq/xyfc.htm）只有照片、没有文字说明，照片中可见水边垂柳与带遮阳伞的亲水平台，场景的垂柳据此设计；其余物种按四川绵阳常见水生 / 湿地动植物设计，面板中标注“示意”。 |
+| 资料来源 | 翠湖的布局、种植与设施按学校官方手绘鸟瞰图（绵阳校区导览图）；树种由画面形态与颜色判断，面板中标注“示意”的为推断。学校官网“绵阳校区 · 校园风采”页（https://tfswufe.edu.cn/zjxy/myyq/xyfc.htm）的照片中可见水边垂柳。 |
 
 ```
 src/main/webapp/campus3d/pond/pond.html               池塘细节场景（改造自 koi-pond.html，文件头注明来源与 MIT 许可）
@@ -89,6 +89,7 @@ src/main/webapp/campus3d/data/pond_species.json       “池塘生态”清单�
 src/main/webapp/campus3d/lib/three-r160.min.js        three.js r160 UMD（全景与细节场景共用，MIT）
 tools/build_pond.py                                   由上游 koi-pond.html 生成 pond.html 与 js/pond-style-core.js 的脚本（见下文）
 tools/pond_camera.js                                  池塘的自由镜头接入与全场景巡游电影镜头（由 build_pond.py 插入 pond-main.js）
+tools/pond_cuihu.js、tools/pond_cuihu_veg.js          翠湖湖岸 / 湖心岛 / 铺装 / 建筑 / 种植数据与植被生成（由 build_pond.py 插入 pond-main.js）
 src/main/webapp/campus3d/js/free-camera.js            自由镜头（三个场景共用）
 src/main/webapp/campus3d/lib/dat.gui-0.7.9.min.js     dat.gui 0.7.9（Apache-2.0，文件头保留许可声明）
 ```
