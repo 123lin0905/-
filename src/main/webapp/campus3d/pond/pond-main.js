@@ -6367,7 +6367,7 @@ const _tp = new THREE.Vector3(), _tl = new THREE.Vector3();
 function buildTour() {
   const V = cuihuV, CP = window.CAMPUS_POND;
   const spots = [
-    { cap: CP.zoneName || '翠湖水景', p: V(512, 1712, 62), l: V(372, 1420, 0) },        // 东南高空，与官方鸟瞰图同一方向
+    { cap: CP.zoneName || '翠湖水景', p: V(290, 1790, 75), l: V(380, 1420, 0) },        // 西南南方向高空斜俯视，与官方鸟瞰图同一方向
     { cap: '南岸半圆广场', p: V(380, 1694, 11), l: V(366, 1590, 2) },
     { cap: '银杏与栾树', p: V(314, 1612, 4.5), l: V(360, 1574, 4) },
     { cap: '西岸蓝花楹', p: V(318, 1470, 3.6), l: V(286, 1410, 5) },
