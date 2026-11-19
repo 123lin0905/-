@@ -167,7 +167,7 @@
     M.metal = std("zmetal", { color: 0x9aa2a8, roughness: 0.35, metalness: 0.85, envMapIntensity: 1.0 }, { noWeather: true });
     M.darkMetal = std("zdmetal", { color: 0x2c3034, roughness: 0.45, metalness: 0.7, envMapIntensity: 0.9 }, { noWeather: true });
     M.white = std("zwhite", { color: 0xe8e6e0, roughness: 0.6, envMapIntensity: 0.7 });
-    M.blueRoof = std("zblueroof", { map: rep(TEX.roof.map, 0.5), normalMap: rep(TEX.roof.normalMap, 0.5), color: 0x8fb6ff, roughness: 0.55, envMapIntensity: 0.8 });
+    M.blueRoof = std("zblueroof", { normalMap: rep(TEX.roof.normalMap, 0.5), color: 0x6f9fe0, roughness: 0.55, envMapIntensity: 0.8 });   // 官方地图：浅蓝色屋面（不叠深色瓦片贴图）
     M.wood = std("zwood", { map: rep(TEX.wood.map, 0.8), normalMap: rep(TEX.wood.normalMap, 0.8), roughness: 0.7, envMapIntensity: 0.5 });
     M.soil = std("zsoil", { map: rep(TEX.gravel.map, 0.6), color: 0x8a6a4c, roughness: 0.95, envMapIntensity: 0.4 });
     // 玻璃幕墙：铝框分格（竖梃 1.5 米、横档 1.1 米）+ 夜间室内灯光（窗格随机亮灭）

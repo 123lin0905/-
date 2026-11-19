@@ -46,12 +46,17 @@ float wxh(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float wxn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(wxh(i), wxh(i + vec2(1, 0)), f.x), mix(wxh(i + vec2(0, 1)), wxh(i + vec2(1, 1)), f.x), f.y); }
 `;
   // 公告板（远处树木 impostor）：绕竖轴朝向相机；阴影 pass 里 cameraPosition 是光源相机，正好朝向太阳投出完整树影
-  const BILLBOARD = /* glsl */`
+  // 相机很高（俯视、总览）时，公告板的竖轴向相机倾斜（最多约 80%），避免正上方看下去只剩一条细线；阴影 pass 不倾斜
+  const BILLBOARD = (tilt) => /* glsl */`
       vec3 bbC = instanceMatrix[3].xyz;
       float bbSx = length(instanceMatrix[0].xyz), bbSy = length(instanceMatrix[1].xyz);
       vec3 bbTo = cameraPosition - bbC; bbTo.y = 0.0; bbTo = length(bbTo) > 1e-3 ? normalize(bbTo) : vec3(0.0, 0.0, 1.0);
       vec3 bbR = normalize(cross(vec3(0.0, 1.0, 0.0), bbTo));
-      vec4 wPos4 = vec4(bbC + bbR * transformed.x * bbSx + vec3(0.0, transformed.y * bbSy, 0.0) + bbTo * transformed.z * bbSx, 1.0);
+      vec3 bbUp = vec3(0.0, 1.0, 0.0);
+      ${tilt ? `{ vec3 bbD = normalize(cameraPosition - bbC); float bbK = smoothstep(0.45, 0.97, bbD.y) * 0.82;
+        bbUp = normalize(vec3(0.0, 1.0, 0.0) - bbD * bbD.y * bbK); }` : ""}
+      vec3 bbFw = normalize(cross(bbR, bbUp));
+      vec4 wPos4 = vec4(bbC + bbR * transformed.x * bbSx + bbUp * transformed.y * bbSy + bbFw * transformed.z * bbSx, 1.0);
       wPos4 = modelMatrix * wPos4;`;
   // 叶片卡在远处取到低级 mipmap 时 alpha 被平均稀释，alphaTest 会把叶子整片丢掉（全景距离远，比池塘严重得多）：
   // 按 mip 级别放大 alpha，保持覆盖率（Ben Golus 的 alpha-to-coverage 技巧）
@@ -63,7 +68,7 @@ float wxn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
 #endif
 `;
   const PROJECT = (o) => /* glsl */`
-      ${o.billboard ? BILLBOARD : `
+      ${o.billboard ? BILLBOARD(!o.billboardDepth) : `
       vec4 wPos4 = vec4(transformed, 1.0);
       #ifdef USE_INSTANCING
         wPos4 = instanceMatrix * wPos4;

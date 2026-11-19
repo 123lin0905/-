@@ -404,11 +404,11 @@
         sp.bloomOn = !sp.leafOff && ((sp.blossom === "spring" && season === "spring") || (sp.blossom === "summer" && season === "summer"));
         if (!sp.ready) continue;
         // 银杏：秋季整树金黄（池塘的秋色着色是红橙斑驳，这里直接换叶色）
-        if (sp.gold) sp.leafMat.color.setRGB(season === "autumn" ? 2.1 : 1, season === "autumn" ? 1.55 : 1, season === "autumn" ? 0.18 : 1);
+        if (sp.gold) sp.leafMat.color.setRGB(season === "autumn" ? 3.6 : 1, season === "autumn" ? 1.65 : 1, season === "autumn" ? 0.08 : 1);   // 叶片贴图偏绿（g > r），r 要放大得多才是金黄
         if (sp.impMat) {
           sp.impMat.map = sp.leafOff ? sp.imp.bare : sp.bloomOn && sp.imp.bloom ? sp.imp.bloom : sp.imp.leafy;
           sp.impMat.color.copy(sp.gold ? sp.leafMat.color : new THREE.Color(1, 1, 1));
-          if (sp.gold && season === "autumn") sp.impMat.color.setRGB(1.6, 1.25, 0.35);
+          if (sp.gold && season === "autumn") sp.impMat.color.setRGB(2.2, 1.35, 0.2);
           sp.impMat.needsUpdate = true;
         }
       }

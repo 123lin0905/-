@@ -144,6 +144,9 @@
       const xc = cl(x, X0, X1), zc = cl(z, Z0, Z1);
       const [px, py] = toPlan(xc, zc);
       let h = LAY.height ? LAY.height(px, py) : 0;
+      // 板块外延：离开边界后 15–60 米内平缓降到远景地面高度（farY + 0.3），与外圈大地面接上，不出现陡坎
+      const dOut = Math.hypot(x - xc, z - zc);
+      if (dOut > 0) h += ((LAY.farY != null ? LAY.farY : -0.6) + 0.3 - h) * ss(15, 60, dOut);
       for (const w of waters) {
         const p = [px, py], inside = inPoly(p, w.poly), d = polyDist(p, w.poly, true) * PX;
         if (inside) h = Math.min(h, w.level - 0.25 - w.depth * ss(0, 5, d));
@@ -337,7 +340,7 @@
       scene.add(mesh);
       Z.terrain = mesh;
       // 更远处：一圈低矮的大地面（被雾吞没），避免看到世界边缘
-      const far = new THREE.Mesh(new THREE.RingGeometry(Math.max(WM, DM) * 0.5 + MARGIN * 0.6, 2500, 48, 1).rotateX(-Math.PI / 2),
+      const far = new THREE.Mesh(new THREE.RingGeometry(Math.min(WM, DM) * 0.5 + MARGIN * 0.6, 2500, 64, 1).rotateX(-Math.PI / 2),
         look.patch(new THREE.MeshStandardMaterial({ color: LAY.ground && LAY.ground.outside || "#5f8a33", roughness: 1, envMapIntensity: 0.4 }), { key: "zfar" }));
       far.position.set((X0 + X1) / 2, (LAY.farY != null ? LAY.farY : -0.6), (Z0 + Z1) / 2);
       far.receiveShadow = false;
@@ -358,6 +361,9 @@
 
     // ---------------- 树木 ----------------
     // 林带：在多边形里按最小间距随机布点（避开道路、园路、花境、水、建筑、开阔草坪），树种按比例混种
+    const TREE_KEYS = { camphor: 1, ginkgo: 1, osmanthus: 1, cherry: 1, crapemyrtle: 1, willow: 1, metasequoia: 1 };
+    const seedTrees = [];
+    for (const k in LAY.seeds || {}) if (TREE_KEYS[k]) for (const s of LAY.seeds[k]) seedTrees.push(s);
     function sampleBelt(belt, out, rnd) {
       const poly = belt.poly;
       let minx = Infinity, miny = Infinity, maxx = -Infinity, maxy = -Infinity;
@@ -379,6 +385,7 @@
         if (Z.waterAt(x, z) || Z.waterDist(x, z) < 1.5) continue;
         if (pts.some((q) => Math.hypot(q[0] - p[0], q[1] - p[1]) < sp * (0.75 + 0.25 * rnd()))) continue;
         if (out.some((q) => Math.hypot(q.px - p[0], q.py - p[1]) < sp * 0.7)) continue;
+        if (seedTrees.some((q) => Math.hypot(q[0] - p[0], q[1] - p[1]) < Math.max(sp * 0.8, 8))) continue;   // 给场景原有的可编辑树留出位置
         pts.push(p);
       }
       const mix = belt.mix, keys = Object.keys(mix), tot = keys.reduce((a, k) => a + mix[k], 0);
@@ -416,14 +423,15 @@
       for (const b of LAY.belts || []) sampleBelt(b, list, rnd);
       // 场景外延一圈（只做远景公告板气氛）
       if (LAY.ring !== false) {
-        const per = 2 * (WM + DM), n = Math.floor(per / 9);
+        // 官方地图上板块四周都是成片的树：外延 6–60 米内按约 5.5 米一株的周长密度撒两圈（远景公告板，代价很小）
+        const per = 2 * (WM + DM), n = Math.floor(per / (LAY.ringSpacing || 5.5)), RD = LAY.ringDepth || 54;
         for (let i = 0; i < n; i++) {
-          const t = (i + rnd() * 0.6) / n * per;
+          const t = (i + rnd() * 0.6) / n * per, off = 6 + rnd() * RD;
           let x, z;
-          if (t < WM) { x = X0 + t; z = Z0 - 6 - rnd() * 40; } else if (t < WM + DM) { x = X1 + 6 + rnd() * 40; z = Z0 + t - WM; }
-          else if (t < 2 * WM + DM) { x = X1 - (t - WM - DM); z = Z1 + 6 + rnd() * 40; } else { x = X0 - 6 - rnd() * 40; z = Z1 - (t - 2 * WM - DM); }
+          if (t < WM) { x = X0 + t; z = Z0 - off; } else if (t < WM + DM) { x = X1 + off; z = Z0 + t - WM; }
+          else if (t < 2 * WM + DM) { x = X1 - (t - WM - DM); z = Z1 + off; } else { x = X0 - off; z = Z1 - (t - 2 * WM - DM); }
           const r = rnd();
-          list.push({ key: r < 0.5 ? "camphor" : r < 0.7 ? "ginkgo" : r < 0.85 ? "osmanthus" : "metasequoia", x, z, y: heightAt(x, z) - 0.05, s: 0.85 + rnd() * 0.4, rot: rnd() * 6.28 });
+          list.push({ key: (LAY.ringMix || ["camphor", "camphor", "camphor", "ginkgo", "osmanthus", "cherry"])[Math.floor(r * (LAY.ringMix || [1, 2, 3, 4, 5, 6]).length)], x, z, y: heightAt(x, z) - 0.05, s: 0.85 + rnd() * 0.4, rot: rnd() * 6.28 });
         }
       }
       Z.flora.addBackground(list);
