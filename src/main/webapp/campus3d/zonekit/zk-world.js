@@ -413,7 +413,7 @@ float zkRough = 0.9; vec3 zkW0; vec3 zkW1; vec3 zkW2;
     }
     function finishGround() {
       bakeClasses();
-      const tx = cvs.map((c) => { const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.NoColorSpace; t.minFilter = THREE.LinearFilter; t.magFilter = THREE.LinearFilter; t.generateMipmaps = false; t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping; return t; });
+      const tx = cvs.map((c) => { const t = new THREE.CanvasTexture(c); t.flipY = false; t.colorSpace = THREE.NoColorSpace; t.minFilter = THREE.LinearFilter; t.magFilter = THREE.LinearFilter; t.generateMipmaps = false; t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping; return t; });
       groundU.tSp0.value = tx[0]; groundU.tSp1.value = tx[1]; groundU.tSp2.value = tx[2];
       // 近处地面：区域 + 外扩 600 米；外圈只有草地（着色器在区域外退回草地）
       const g = new THREE.PlaneGeometry(gx1 - gx0 + 1200, gz1 - gz0 + 1200, 1, 1).rotateX(-Math.PI / 2);
