@@ -8269,50 +8269,51 @@ const PondEdit = (() => {
   const col = (a, b, c, d, e, f) => new THREE.Color().setRGB(rr(a, b), rr(c, d), rr(e, f));
 
   // ---------------- 树：垂柳 / 香樟 / 桂花 ----------------
+  // 翠湖场景按真实尺寸（米）建模：新种的树默认高度与湖边原有树木一致（垂柳 8–9 米、香樟 9–11 米、桂花 3–4 米），叶片卡同比放大
   function makeWillow(x, z, h) {
-    h = h || rr(4.2, 5.0);
+    h = h || rr(8.0, 9.0);
     const gy = ground(x, z);
     const part = capture(() => {
       const lean = new V3(-gradX(x, z), 0, -gradZ(x, z)).multiplyScalar(0.28);
-      const tips = growTree({ base: new V3(x, gy - 0.1, z), dir: new V3(lean.x * 0.5, 1, lean.z * 0.5).normalize(), len: h * 0.42, rad: 0.12 + h * 0.012, depth: 4,
+      const tips = growTree({ base: new V3(x, gy - 0.1, z), dir: new V3(lean.x * 0.5, 1, lean.z * 0.5).normalize(), len: h * 0.42, rad: 0.12 + h * 0.014, depth: 4,
         children: [5, 3, 4, 2], childStart: [0.6, 0.3, 0.2, 0.2], spread: [1.05, 0.9, 0.5, 0.35], upBias: [0.45, 0.35, -0.6, -1.0],
         lenDecay: 0.86, radDecay: 0.6, wiggle: [0.08, 0.2, 0.12, 0.12], gravity: [0.0, -0.02, -0.28, -0.45] });
       for (const b of tips.branches) {
         if (b.lvl < 2) continue;
-        for (let t = 0.1; t <= 1.0; t += 0.075) {
+        for (let t = 0.1; t <= 1.0; t += 0.06) {
           const p = b.curve.getPointAt(t), n = randDir().add(new V3(0, 0.3, 0));
-          addCard(LEAVES.sakura, p.add(randDir().multiplyScalar(0.05)), new V3(n.x, n.y * 0.15, n.z), rr(0.34, 0.5), col(0.85, 1.05, 0.92, 1.08, 0.8, 1.0));
+          addCard(LEAVES.sakura, p.add(randDir().multiplyScalar(0.06)), new V3(n.x, n.y * 0.15, n.z), rr(0.45, 0.65), col(0.85, 1.05, 0.92, 1.08, 0.8, 1.0));
         }
       }
     });
     return treeFromParts(Object.assign(part, { x, z, gy, h, barkKit: WORLD.willowBark, seasons: { sakura: 'SRA' } }));
   }
   function makeCamphor(x, z, h) {           // 香樟：粗壮主干、圆整树冠、常绿
-    h = h || rr(3.2, 4.2);
+    h = h || rr(9.0, 11.0);
     const gy = ground(x, z);
     const part = capture(() => {
-      const tips = growTree({ base: new V3(x, gy - 0.1, z), dir: new V3(rr(-0.08, 0.08), 1, rr(-0.08, 0.08)).normalize(), len: h * 0.42, rad: 0.07 + h * 0.02, depth: 3,
+      const tips = growTree({ base: new V3(x, gy - 0.15, z), dir: new V3(rr(-0.08, 0.08), 1, rr(-0.08, 0.08)).normalize(), len: h * 0.42, rad: 0.06 + h * 0.021, depth: 3,
         children: [6, 3, 3], childStart: [0.4, 0.3, 0.3], spread: [0.9, 0.8, 0.7], upBias: [0.45, 0.3, 0.25], lenDecay: 0.58, radDecay: 0.6,
         wiggle: [0.08, 0.25, 0.3], gravity: [0, 0.0, -0.03] });
       const tint = [rr(0.8, 1.0), rr(0.95, 1.1), rr(0.75, 0.9)];
       for (const t of tips) for (let i = 0; i < 6; i++) {
-        addCard(LEAVES.green, t.p.clone().add(randDir().multiplyScalar(rr(0.15, 0.7))), randDir().add(new V3(0, 0.8, 0)), rr(0.6, 0.9),
+        addCard(LEAVES.green, t.p.clone().add(randDir().multiplyScalar(rr(0.2, 1.1))), randDir().add(new V3(0, 0.8, 0)), rr(0.9, 1.3),
           new THREE.Color().setRGB(tint[0] * rr(0.9, 1.1), tint[1] * rr(0.9, 1.1), tint[2] * rr(0.9, 1.1)));
       }
     });
     return treeFromParts(Object.assign(part, { x, z, gy, h, seasons: { green: 'SRAW' } }));
   }
   function makeOsmanthus(x, z, h) {         // 桂花：低矮常绿小乔木，秋季满树金黄小花
-    h = h || rr(1.8, 2.4);
+    h = h || rr(3.0, 4.0);
     const gy = ground(x, z);
     const part = capture(() => {
       const tips = growTree({ base: new V3(x, gy - 0.05, z), dir: new V3(rr(-0.1, 0.1), 1, rr(-0.1, 0.1)).normalize(), len: h * 0.38, rad: 0.035 + h * 0.012, depth: 3,
         children: [5, 3, 3], childStart: [0.3, 0.3, 0.3], spread: [0.95, 0.85, 0.7], upBias: [0.4, 0.3, 0.25], lenDecay: 0.62, radDecay: 0.6,
         wiggle: [0.1, 0.25, 0.3], gravity: [0, -0.01, -0.02] });
       for (const t of tips) for (let i = 0; i < 7; i++) {
-        const p = t.p.clone().add(randDir().multiplyScalar(rr(0.08, 0.42)));
-        addCard(LEAVES.shrub, p, randDir().add(new V3(0, 0.6, 0)), rr(0.3, 0.42), col(0.62, 0.8, 0.78, 0.95, 0.55, 0.72));   // 细密深绿小叶（山茶叶片卡带红花，不适合桂花）
-        if (i % 2 === 0) addCard(LEAVES.bloom, p.clone().add(randDir().multiplyScalar(0.06)), randDir().add(new V3(0, 0.5, 0)), rr(0.14, 0.22), new THREE.Color(0xf6c544).multiplyScalar(rr(0.95, 1.15)));
+        const p = t.p.clone().add(randDir().multiplyScalar(rr(0.12, 0.65)));
+        addCard(LEAVES.shrub, p, randDir().add(new V3(0, 0.6, 0)), rr(0.45, 0.65), col(0.62, 0.8, 0.78, 0.95, 0.55, 0.72));   // 细密深绿小叶（山茶叶片卡带红花，不适合桂花）
+        if (i % 2 === 0) addCard(LEAVES.bloom, p.clone().add(randDir().multiplyScalar(0.08)), randDir().add(new V3(0, 0.5, 0)), rr(0.2, 0.32), new THREE.Color(0xf6c544).multiplyScalar(rr(0.95, 1.15)));
       }
     });
     return treeFromParts(Object.assign(part, { x, z, gy, h, seasons: { shrub: 'SRAW', bloom: 'A' } }));
