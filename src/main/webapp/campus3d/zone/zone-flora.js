@@ -14,31 +14,34 @@
   const THREE = global.THREE, V3 = THREE.Vector3;
 
   const SPECIES = [
-    { id: "camphor", name: "香樟", h: 12, decid: 0.12, evergreen: true, leaf: "green", tint: [0.72, 0.88, 0.62], transl: 0.3, seed: 101, bark: "bark",
+    { id: "camphor", name: "香樟", h: 12, crown: "broadleaf", decid: 0.12, evergreen: true, leaf: "green", tint: [0.72, 0.88, 0.62], transl: 0.3, seed: 101, bark: "bark",
       grow: (h) => ({ len: h * 0.42, rad: 0.06 + h * 0.024, depth: 3, children: [6, 3, 3], childStart: [0.35, 0.3, 0.3], spread: [0.9, 0.85, 0.7], upBias: [0.38, 0.3, 0.25],
         lenDecay: 0.6, radDecay: 0.6, wiggle: [0.08, 0.25, 0.3], gravity: [0, 0.0, -0.03] }), cards: { per: 6, spread: [0.4, 1.7], size: [1.7, 2.4], up: 0.8 } },
-    { id: "osmanthus", name: "桂花", h: 6, decid: 0, evergreen: true, leaf: "shrub", tint: [0.68, 0.84, 0.6], transl: 0.25, seed: 202, bark: "bark",
+    { id: "osmanthus", name: "桂花", h: 6, crown: "broadleaf", decid: 0, evergreen: true, leaf: "shrub", tint: [0.68, 0.84, 0.6], transl: 0.25, seed: 202, bark: "bark",
       grow: (h) => ({ len: h * 0.34, rad: 0.05 + h * 0.02, depth: 3, children: [5, 3, 3], childStart: [0.3, 0.3, 0.3], spread: [1.0, 0.9, 0.8], upBias: [0.3, 0.2, 0.15],
         lenDecay: 0.66, radDecay: 0.62, wiggle: [0.1, 0.25, 0.3], gravity: [0, -0.02, -0.03] }), cards: { per: 7, spread: [0.2, 0.9], size: [1.0, 1.4], up: 0.7 } },
-    { id: "ginkgo", name: "银杏", h: 13, decid: 0, evergreen: false, leaf: "green", tint: [0.98, 1.06, 0.62], transl: 0.4, seed: 303, bark: "bark", gold: true,
+    { id: "ginkgo", name: "银杏", h: 13, crown: "ginkgo", decid: 0, evergreen: false, leaf: "green", tint: [0.98, 1.06, 0.62], transl: 0.4, seed: 303, bark: "bark", gold: true,
       grow: (h) => ({ len: h * 0.5, rad: 0.06 + h * 0.02, depth: 3, children: [7, 3, 2], childStart: [0.3, 0.3, 0.3], spread: [0.6, 0.65, 0.6], upBias: [0.65, 0.5, 0.4],
         lenDecay: 0.55, radDecay: 0.6, wiggle: [0.06, 0.2, 0.25], gravity: [0, 0.02, 0.0] }), cards: { per: 6, spread: [0.3, 1.3], size: [1.4, 2.0], up: 0.9 } },
     { id: "metasequoia", name: "水杉", h: 18, decid: 1, evergreen: false, leaf: "conifer", tint: [1.15, 1.3, 1.05], transl: 0.18, seed: 404, bark: "bark", conifer: true },
     { id: "willow", name: "垂柳", h: 9, decid: 0.4, evergreen: false, leaf: "willow", tint: [0.9, 1.05, 0.82], transl: 0.6, seed: 505, bark: "bark", weeping: true,
       grow: (h) => ({ len: h * 0.42, rad: 0.12 + h * 0.016, depth: 4, children: [5, 3, 4, 2], childStart: [0.6, 0.3, 0.2, 0.2], spread: [1.05, 0.9, 0.5, 0.35],
         upBias: [0.45, 0.35, -0.6, -1.0], lenDecay: 0.86, radDecay: 0.6, wiggle: [0.08, 0.2, 0.12, 0.12], gravity: [0.0, -0.02, -0.28, -0.45] }) },
-    { id: "cherry", name: "樱花", h: 7, decid: 1, evergreen: false, leaf: "green", blossom: "spring", bloomTex: "blossom", tint: [0.88, 1.0, 0.72], transl: 0.5, seed: 606, bark: "sakuraBark",
+    { id: "cherry", name: "樱花", h: 7, crown: "small", decid: 1, evergreen: false, leaf: "green", blossom: "spring", bloomTex: "blossom", tint: [0.88, 1.0, 0.72], transl: 0.5, seed: 606, bark: "sakuraBark",
       grow: (h) => ({ len: h * 0.36, rad: 0.1 + h * 0.016, depth: 4, children: [5, 3, 3, 2], childStart: [0.55, 0.3, 0.3, 0.3], spread: [1.05, 0.85, 0.75, 0.6],
         upBias: [0.3, 0.18, 0.12, 0.1], lenDecay: 0.66, radDecay: 0.62, wiggle: [0.1, 0.25, 0.3, 0.35], gravity: [0.0, -0.03, -0.05, -0.06] }), cards: { per: 4, spread: [0.15, 0.6], size: [0.9, 1.25], up: 1.2 } },
     // 紫薇：多干小乔木，夏季满树粉紫色圆锥花序（白色五瓣花卡按实例着色）
-    { id: "crapemyrtle", name: "紫薇", h: 4.6, decid: 1, evergreen: false, leaf: "shrub", blossom: "summer", bloomTex: "bloom", bloomTint: [0.92, 0.55, 0.86], tint: [0.7, 0.86, 0.6], transl: 0.35, seed: 707, bark: "sakuraBark",
+    { id: "crapemyrtle", name: "紫薇", h: 4.6, crown: "small", decid: 1, evergreen: false, leaf: "shrub", blossom: "summer", bloomTex: "bloom", bloomTint: [0.92, 0.55, 0.86], tint: [0.7, 0.86, 0.6], transl: 0.35, seed: 707, bark: "sakuraBark",
       grow: (h) => ({ len: h * 0.42, rad: 0.05 + h * 0.012, depth: 3, children: [4, 3, 3], childStart: [0.35, 0.35, 0.3], spread: [0.75, 0.8, 0.7], upBias: [0.55, 0.35, 0.3],
         lenDecay: 0.62, radDecay: 0.62, wiggle: [0.12, 0.25, 0.3], gravity: [0, -0.02, -0.03] }), cards: { per: 6, spread: [0.15, 0.8], size: [0.8, 1.1], up: 0.9 } },
   ];
+  // 池塘画质层（pond-look.js）：另加红枫（鸡爪槭）与竹丛两个树种原型（不进编辑器物种目录，供布局点缀 / 以后扩展）
+  if (global.PondLook) for (const e of global.PondLook.EXTRA_SPECIES) SPECIES.push(Object.assign({}, e));
   const SP = {}; SPECIES.forEach((s, i) => { s.index = i; SP[s.id] = s; });
 
-  function cardGeo(e) {
-    const g = new THREE.PlaneGeometry(1, 1, 1, 1);
+  const CUP = global.PondLook ? global.PondLook.cuppedCard(2) : null;   // 池塘同款带弧度叶片卡（细叶冠用）
+  function cardGeo(e, cup) {
+    const g = cup === true && CUP ? CUP.clone() : new THREE.PlaneGeometry(1, 1, 1, 1);   // 注意：Array.map 会把下标传进来，只认 true
     g.applyMatrix4(e.m);
     const n = g.attributes.position.count, c = new Float32Array(n * 3);
     for (let i = 0; i < n; i++) { c[i * 3] = e.c.r; c[i * 3 + 1] = e.c.g; c[i * 3 + 2] = e.c.b; }
@@ -46,10 +49,11 @@
     return g;
   }
   // 原型树（同 eco-life.js：growTree / addCard；树皮分段按级别重新生成，近看比全景细一级）
-  function buildPrototype(sp) {
+  function buildPrototype(sp, fine) {
     rng = mulberry32(sp.seed);
     const cards = [], bark = [], bloom = [];
     const tint = () => new THREE.Color().setRGB(sp.tint[0] * rr(0.85, 1.12), sp.tint[1] * rr(0.9, 1.1), sp.tint[2] * rr(0.85, 1.12));
+    if (sp.bamboo) return global.PondLook.bambooPrototype(sp, addCard, rr, rand);
     if (sp.conifer) {
       const h = sp.h;
       bark.push(taperTube(new THREE.CatmullRomCurve3([new V3(0, -0.3, 0), new V3(0.12, h * 0.5, 0), new V3(0, h * 0.97, 0)]), 14, 9, 0.42, 0.05, 0.5));
@@ -79,6 +83,14 @@
           addCard(cards, p.add(randDir().multiplyScalar(0.08)), new V3(n.x, n.y * 0.15, n.z), rr(0.75, 1.05), tint());
         }
       }
+    } else if (fine && global.PondLook) {
+      // 池塘近景树做法：同一副枝干，叶片卡数量约 ×2.4、尺寸约 ×0.6，外层更密，带弧度
+      const F = global.PondLook.fineCards(sp, tips, rand, rr, randDir, tint);
+      for (const c of F.cards) addCard(cards, c.p, c.n, c.size, c.c);
+      for (const b of F.bloom) {
+        const bt = sp.bloomTint ? new THREE.Color().setRGB(sp.bloomTint[0] * rr(0.9, 1.05), sp.bloomTint[1] * rr(0.85, 1.1), sp.bloomTint[2] * rr(0.9, 1.05)) : new THREE.Color(1, 1, 1);
+        addCard(bloom, b.p, b.n, b.size, bt);
+      }
     } else {
       const C = sp.cards;
       for (const t of tips) {
@@ -101,18 +113,23 @@
     const quality = () => look.quality;
     const LEAF_TEX = {
       green: TEX.greenLeaves, shrub: TEX.shrubLeaves, conifer: TEX.conifer, willow: TEX.sakura,   // TEX.sakura 在校园版里是垂柳叶卡
-      blossom: leafCard("sakura"), bloom: TEX.bloomLeaves,
+      blossom: leafCard("sakura"), bloom: TEX.bloomLeaves, maple: TEX.mapleLeaves, bamboo: TEX.bambooLeaves,
     };
+    const PLK = global.PondLook || null;
+    let DET = PLK ? PLK.detail(quality()) : { fineTrees: false, a2c: false };
+    const leafMats = [];
     const WINDD = "clamp((wPos4.y - 3.0) * 0.02, 0.0, 0.25)", WINDL = "clamp((wPos4.y - 1.5) * 0.06, 0.0, 1.2)";
     const barkMats = {};
     function barkMaterial(kind) {
       if (barkMats[kind]) return barkMats[kind];
-      const set = TEX[kind] || TEX.bark;
+      const set = kind === "bamboo" && PLK ? PLK.bambooCulmSet() : TEX[kind] || TEX.bark;
       return (barkMats[kind] = patch(new THREE.MeshStandardMaterial({ map: set.map, normalMap: set.normalMap, normalScale: new THREE.Vector2(1.4, 1.4), roughness: 0.92, color: kind === "bark" ? 0xb8aaa0 : 0xffffff, envMapIntensity: 0.6 }),
         { key: "bark", wind: true, windWeight: WINDD }));
     }
     function leafMaterial(o, texKey) {
-      return patch(new THREE.MeshStandardMaterial({ map: LEAF_TEX[texKey], alphaTest: 0.45, side: THREE.DoubleSide, roughness: 0.62, envMapIntensity: 0.55, vertexColors: true }),
+      const lm = new THREE.MeshStandardMaterial({ map: LEAF_TEX[texKey], alphaTest: 0.45, side: THREE.DoubleSide, roughness: 0.62, envMapIntensity: 0.55, vertexColors: true, alphaToCoverage: !!DET.a2c });
+      leafMats.push(lm);
+      return patch(lm,
         { key: "leaf", leaf: true, transl: o.transl, decid: o.decid, wind: true, windWeight: WINDL, alphaMip: 512,
           fsMap: "diffuseColor.a *= smoothstep(0.2, 0.45, abs(dot(normalize(vNormal), normalize(vViewPosition))));\n" });
     }
@@ -121,7 +138,7 @@
 
     // ---------- impostor（远处公告板） ----------
     const impScene = new THREE.Scene();
-    impScene.add(new THREE.AmbientLight(0xffffff, Math.PI * 0.7));
+    impScene.add(new THREE.AmbientLight(0xffffff, Math.PI * (global.PondLook ? 0.88 : 0.7)));   // 池塘画质层：远景公告板别比近处真实树冠暗一截
     const impSun = new THREE.DirectionalLight(0xffffff, Math.PI * 0.3); impSun.position.set(0.2, 1, 0.3); impScene.add(impSun);
     const impCam = new THREE.OrthographicCamera(-1, 1, 1, -1, -100, 100);
     function renderImpostor(meshes, Wd, Hh) {
@@ -146,9 +163,18 @@
     function ensure(sp) {
       if (sp.ready) return sp;
       const proto = buildPrototype(sp);
-      sp.leafGeo = mergeGeos(proto.cards.map(cardGeo));
+      sp.leafGeo = mergeGeos(proto.cards.map((c) => cardGeo(c)));
+      sp.leafGeoCoarse = sp.leafGeo; sp.bloomGeoCoarse = null;
+      if (PLK && !sp.conifer && !sp.weeping && !sp.bamboo) {
+        const pf = buildPrototype(sp, true);
+        // 清晰档：带弧度的叶片卡（2×2 分段，8 个三角形）；流畅档：同样的细叶冠，平面卡（2 个三角形）
+        sp.leafGeoCup = mergeGeos(pf.cards.map((c) => cardGeo(c, true)));
+        sp.leafGeoFine = mergeGeos(pf.cards.map((c) => cardGeo(c, false)));
+        sp.bloomGeoFine = pf.bloom.length ? mergeGeos(pf.bloom.map((c) => cardGeo(c, false))) : null;
+      }
       sp.barkGeo = mergeGeos(proto.bark);
-      sp.bloomGeo = proto.bloom.length ? mergeGeos(proto.bloom.map(cardGeo)) : null;
+      sp.bloomGeo = proto.bloom.length ? mergeGeos(proto.bloom.map((c) => cardGeo(c))) : null;
+      sp.bloomGeoCoarse = sp.bloomGeo;
       sp.leafGeo.computeBoundingBox();
       const bb = sp.leafGeo.boundingBox;
       sp.W = Math.max(Math.abs(bb.min.x), Math.abs(bb.max.x), Math.abs(bb.min.z), Math.abs(bb.max.z)) * 2 + 0.4;
@@ -163,12 +189,43 @@
       sp.imp = { leafy: renderImpostor([capB, capL], sp.W, sp.H) };
       if (!sp.evergreen) sp.imp.bare = renderImpostor([new THREE.Mesh(sp.barkGeo, sp.barkMat)], sp.W, sp.H);
       if (sp.bloomGeo) sp.imp.bloom = renderImpostor([new THREE.Mesh(sp.barkGeo, sp.barkMat), new THREE.Mesh(sp.leafGeo, sp.leafMat), new THREE.Mesh(sp.bloomGeo, sp.bloomMat)], sp.W, sp.H);
+      // 公告板秋色：池塘的秋色按 1 米方格取色，在一整张公告板上会变成一块块方格 —— 公告板改用平滑噪声取色（pond-look 时）
       sp.impMat = patch(new THREE.MeshStandardMaterial({ map: sp.imp.leafy, alphaTest: 0.5, side: THREE.DoubleSide, roughness: 0.85, envMapIntensity: 0.5 }),
-        { key: "imp", billboard: true, leaf: true, transl: sp.transl * 0.5, decid: sp.decid, alphaMip: 256,
-          fsMap: "diffuseColor.rgb *= 0.62 + 0.38 * smoothstep(0.05, 0.95, vMapUv.y);\n" });
+        { key: PLK ? "imppl" : "imp", billboard: true, leaf: true, transl: sp.transl * 0.5, decid: PLK ? 0 : sp.decid, alphaMip: 256,
+          uniforms: PLK ? { uImpDecid: { value: sp.decid } } : undefined, fsPars: PLK ? "uniform float uImpDecid;\n" : "",
+          fsMap: "diffuseColor.rgb *= 0.62 + 0.38 * smoothstep(0.05, 0.95, vMapUv.y);\n" + (PLK ? `
+if (uAutumn > 0.001 && uImpDecid > 0.0) {
+  float gr = clamp((diffuseColor.g - max(diffuseColor.r, diffuseColor.b)) / max(diffuseColor.g, 0.02) * 3.5, 0.0, 1.0);
+  float n = clamp(wxn(vUwPos.xz * 0.45 + vUwPos.y * 0.37) * 0.75 + wxn(vUwPos.xz * 1.7) * 0.25, 0.0, 1.0);
+  vec3 pal = n < 0.45 ? mix(vec3(0.7, 0.06, 0.03), vec3(0.88, 0.2, 0.04), n / 0.45) : n < 0.8 ? mix(vec3(0.92, 0.34, 0.04), vec3(0.95, 0.5, 0.06), (n - 0.45) / 0.35) : mix(vec3(0.9, 0.66, 0.08), vec3(0.72, 0.5, 0.12), (n - 0.8) / 0.2);
+  float lum = dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11));
+  diffuseColor.rgb = mix(diffuseColor.rgb, pal * (lum * 3.2 + 0.02), uAutumn * uImpDecid * gr);
+}
+` : "") });
       sp.impDepth = depth({ key: "impd", billboard: true, alphaMip: 256 }, sp.imp.leafy, 0.5);
+      useDetail(sp);
       sp.ready = true;
       return sp;
+    }
+
+    // 画质档切换：清晰 / 流畅用池塘细叶冠，省电用原来的大叶片卡；叶片 alpha-to-coverage 只在清晰档（有 MSAA）
+    function useDetail(sp) {
+      const fine = DET.fineTrees && sp.leafGeoFine;
+      sp.leafGeo = fine ? (DET.cupped && sp.leafGeoCup ? sp.leafGeoCup : sp.leafGeoFine) : sp.leafGeoCoarse;
+      if (sp.bloomGeoCoarse) sp.bloomGeo = fine && sp.bloomGeoFine ? sp.bloomGeoFine : sp.bloomGeoCoarse;
+    }
+    function setDetail(q) {
+      if (!PLK) return;
+      DET = PLK.detail(q);
+      for (const m of leafMats) if (m.alphaToCoverage !== !!DET.a2c) { m.alphaToCoverage = !!DET.a2c; m.needsUpdate = true; }
+      for (const sp of SPECIES) {
+        if (!sp.ready) continue;
+        useDetail(sp);
+        const G = groups[sp.id];
+        if (G) { G.nl.geometry = sp.leafGeo; if (G.nbl) G.nbl.geometry = sp.bloomGeo; }
+      }
+      for (const g of singles) { const P = g.userData.parts; P.l.geometry = P.sp.leafGeo; if (P.bl) P.bl.geometry = P.sp.bloomGeo; }
+      lodT = 0;
     }
 
     // ---------- 背景树（实例化 + LOD） ----------
@@ -421,7 +478,7 @@
       lodT -= dt;
       if (lodT <= 0) { lodT = 0.25; updateLOD(cam); }
     }
-    return { SPECIES, SP, ensure, addBackground, buildBackground, makeTree, addFlowers, makeFlowerClump, addShrubs, makeShrubBall, addReeds, makeReed, makeLily, setSeason, update, updateLOD, stats, BG, BED_COLORS };
+    return { setDetail, SPECIES, SP, ensure, addBackground, buildBackground, makeTree, addFlowers, makeFlowerClump, addShrubs, makeShrubBall, addReeds, makeReed, makeLily, setSeason, update, updateLOD, stats, BG, BED_COLORS };
   }
 
   global.ZoneFlora = { create, SPECIES };

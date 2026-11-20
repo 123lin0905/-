@@ -80,7 +80,7 @@
     } catch (e) { loaderMsg("当前浏览器无法创建 WebGL：" + e.message, true); throw e; }
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(50, 1, 0.3, 4000);
-    const look = ZoneLook.create({ renderer, scene, camera, quality: mode0, waterLevel: LAY.waterLevel != null ? LAY.waterLevel : -50, shadowMin: 22, shadowMax: 150, fogBase: LAY.fog || 0.0016 });
+    const look = ZoneLook.create({ renderer, scene, camera, quality: mode0, pondPost: { aoRadius: 0.55, aoIntensity: 1.2, aoStr: 0.68, aoGrow: 0.022, aoMax: 6 }, waterLevel: LAY.waterLevel != null ? LAY.waterLevel : -50, shadowMin: 22, shadowMax: 150, fogBase: LAY.fog || 0.0016 });
     look.U.uWaterY.value = LAY.waterLevel != null ? LAY.waterLevel : -50;
 
     const Z = {
@@ -215,6 +215,7 @@
       progress(80, "铺设花境…");
       await nextFrame();
       plantBeds();
+      if (global.PondLook) Z.grass = global.PondLook.grassField(Z);
       buildLamps();
       buildParticles();
       if (LAY.decorate) LAY.decorate(Z);
@@ -306,9 +307,15 @@
         uBox: { value: new THREE.Vector4(X0, Z0, WM, DM) }, uOutCol: { value: new THREE.Color(LAY.ground && LAY.ground.outside || "#5f8a33") },
         tLawnN: { value: rep(T.lawn.normalMap) },
       };
-      groundMat = look.patch(new THREE.MeshStandardMaterial({ map: tC, roughness: 0.92, envMapIntensity: 0.55 }), {
-        key: "zground", uniforms: uni,
-        fsPars: "uniform sampler2D tMask, tLawn, tStone, tAsph, tSoil, tLawnN; uniform vec3 aLawn, aStone, aAsph, aSoil; uniform vec4 uBox; uniform vec3 uOutCol;\nfloat gStone = 0.0, gAsph = 0.0;\n",
+      // 池塘画质层：草地用池塘草地贴图 / 调色 / 法线细节，材质换成带 sheen 的 MeshPhysical（池塘地面同款）
+      const PLK = global.PondLook || null;
+      if (PLK) Object.assign(uni, PLK.lawnUniforms());
+      const gMat = PLK ? new THREE.MeshPhysicalMaterial({ map: tC, roughness: 0.95, envMapIntensity: 0.55, sheen: 0.4, sheenRoughness: 0.7, sheenColor: new THREE.Color(0x6f8a3a) })
+        : new THREE.MeshStandardMaterial({ map: tC, roughness: 0.92, envMapIntensity: 0.55 });
+      groundMat = look.patch(gMat, {
+        key: PLK ? "zgroundpl" : "zground", uniforms: uni,
+        fsPars: "uniform sampler2D tMask, tLawn, tStone, tAsph, tSoil, tLawnN; uniform vec3 aLawn, aStone, aAsph, aSoil; uniform vec4 uBox; uniform vec3 uOutCol;\nfloat gStone = 0.0, gAsph = 0.0;\n" + (PLK ? PLK.LAWN_PARS : ""),
+        fsNormal: PLK ? PLK.LAWN_NORMAL : undefined,
         fsMap: /* glsl */`
 {
   vec2 bu = (vUwPos.xz - uBox.xy) / uBox.zw;
@@ -326,6 +333,7 @@
   // 修剪草坪的割草条纹（很淡）
   diffuseColor.rgb *= 1.0 + m.r * 0.035 * sign(sin(dot(w, vec2(0.34, 0.94)) * 0.9));
   gStone = m.g; gAsph = m.b;
+  ${PLK ? PLK.LAWN_MAP : ""}
 }
 `,
         fsAfterMaps: "",
@@ -340,8 +348,11 @@
       scene.add(mesh);
       Z.terrain = mesh;
       // 更远处：一圈低矮的大地面（被雾吞没），避免看到世界边缘
-      const far = new THREE.Mesh(new THREE.RingGeometry(Math.min(WM, DM) * 0.5 + MARGIN * 0.6, 2500, 64, 1).rotateX(-Math.PI / 2),
-        look.patch(new THREE.MeshStandardMaterial({ color: LAY.ground && LAY.ground.outside || "#5f8a33", roughness: 1, envMapIntensity: 0.4 }), { key: "zfar" }));
+      // 池塘画质层：外圈大地面直接用地面材质（板块外 = 外圈草色 + 同一套草地着色），不再与地形网格一明一暗
+      const far = new THREE.Mesh(new THREE.RingGeometry(Math.min(WM, DM) * 0.5 + MARGIN * 0.6, 2500, 64, 1).rotateX(-Math.PI / 2), PLK ? groundMat :
+        look.patch(PLK ? new THREE.MeshPhysicalMaterial({ color: LAY.ground && LAY.ground.outside || "#5f8a33", roughness: 1, envMapIntensity: 0.55, sheen: 0.4, sheenRoughness: 0.7, sheenColor: new THREE.Color(0x6f8a3a) })
+          : new THREE.MeshStandardMaterial({ color: LAY.ground && LAY.ground.outside || "#5f8a33", roughness: 1, envMapIntensity: 0.4 }), { key: PLK ? "zfarpl" : "zfar",
+          fsMap: PLK ? "{ vec3 c0 = diffuseColor.rgb; float l = dot(c0, vec3(0.299, 0.587, 0.114)); diffuseColor.rgb = mix(vec3(l), c0, 0.6) * vec3(0.98, 0.92, 0.62) * 0.92 * (0.85 + 0.25 * wxn(vUwPos.xz * 0.02)); }\n" : "" }));
       far.position.set((X0 + X1) / 2, (LAY.farY != null ? LAY.farY : -0.6), (Z0 + Z1) / 2);
       far.receiveShadow = false;
       scene.add(far);
@@ -786,7 +797,7 @@
       $("zs-tour").onclick = () => (tour.on ? stopTour() : startTour());
       $("zs-demo-btn").onclick = () => toggleDemo();
       const gfx = PondQuality.button(); gfx.id = "zs-gfx"; gfx.classList.add("zs-gfx"); document.body.appendChild(gfx);
-      PondQuality.onChange((m) => { look.setQuality(m); });
+      PondQuality.onChange((m) => { look.setQuality(m); if (Z.flora && Z.flora.setDetail) Z.flora.setDetail(m); });
       const demo = el("section", "zs-glass zs-demo"); demo.id = "zs-demo"; demo.hidden = true;
       demo.innerHTML = [
         '<header><b>演示切换面板</b><button class="zs-x" id="zs-demo-close" type="button" aria-label="关闭">×</button></header>',
@@ -870,6 +881,7 @@
       } else if (tour.on) updateTour(dt);
       else controls.update(dt);
       if (Z.flora) Z.flora.update(dt, camera.position);
+      if (Z.grass) Z.grass.update(camera, controls.target);
       updateLamps(dt, state.night);
       updateParticles(clock.t, state.envCache ? state.envCache.rain : 0, state.envCache ? state.envCache.snow : 0);
       for (const f of Z.frameFns) f(dt, clock.t);

@@ -289,6 +289,8 @@ void main(){
   gl_FragColor = vec4(c, 1.0);
 }`, { tColor: { value: null }, tBloom: { value: null }, uExposure: { value: 0.9 }, uBloom: { value: 0.06 }, uVignette: { value: 0.32 }, uGrain: { value: 0.01 },
       uTime: U.uTime, uAspect: { value: 1 }, uGrade: { value: new THREE.Vector3(1.035, 1, 0.955) } });
+    // 池塘画质层（pond-look.js）：清晰档用池塘同款 SSAO + mip 泛光 + 合成 pass 取代上面的简化后期
+    const PL = global.PondLook ? global.PondLook.createPost(renderer, U, opts.pondPost || {}) : null;
     function fsPass(mat, target) { FS_QUAD.material = mat; renderer.setRenderTarget(target); renderer.render(FS_SCENE, FS_CAM); }
     function buildPost(w, h) {
       if (post) { post.main.dispose(); post.a.dispose(); post.b.dispose(); }
@@ -410,7 +412,10 @@ if (uPlanar > 0.5) {
       const key = bw + "x" + bh + "|" + Q.mode;
       if (key === lastBuf && !force) return;
       lastBuf = key;
-      if (Q.mode === "clear") { if (!post || post.w !== bw || post.h !== bh) buildPost(bw, bh); }
+      if (PL) {
+        if (Q.mode === "clear") PL.setSize(bw, bh, { samples: 4, ssao: true });
+        else PL.dispose();
+      } else if (Q.mode === "clear") { if (!post || post.w !== bw || post.h !== bh) buildPost(bw, bh); }
       else if (post) { post.main.dispose(); post.a.dispose(); post.b.dispose(); post = null; }
       if (refl && (Q.mode !== "clear" || refl.width !== Math.max(2, bw >> 1) || refl.height !== Math.max(2, bh >> 1))) { refl.dispose(); refl = null; }
     }
@@ -444,7 +449,9 @@ if (uPlanar > 0.5) {
       U.uSnowCover.value = c.cover; U.uWet.value = c.wet; U.uAutumn.value = c.autumn;
       U.uWind.value = c.wind + Math.min(0.4, (e.windKmh || 8) / 60);
       // 雾：池塘的 fog 是每米密度（池塘约 30 米见方）；全景按 FogExp2 换算，晴天 800 米外约 4%、2 公里外约 21%
-      state.fogDensity = (opts.fogBase || 0.0011) * Math.sqrt(Math.max(c.fog, 0.002) / 0.004);
+      // 池塘画质层：晴 / 秋日晴的薄霾 ×0.7、按 0.2 次方增长（以前 sqrt：秋日鸟瞰远景一片奶白），雨雾天气超过 0.016 后仍按 sqrt 加浓
+      const fx = Math.max(c.fog, 0.002) / 0.004;
+      state.fogDensity = (opts.fogBase || 0.0011) * (PL ? 0.7 * (fx <= 4 ? Math.pow(fx, 0.2) : Math.pow(4, 0.2) * Math.sqrt(fx / 4)) : Math.sqrt(fx));
       scene.fog.density = state.fogDensity;
       scene.fog.color.setRGB(fc[0], fc[1], fc[2]);
       state.night = e.night; state.elev = LIT.elev / DEGR; state.expo = c.expo * LIT.expo * (1 + e.flash * 0.6);
@@ -504,7 +511,9 @@ if (uPlanar > 0.5) {
       reflU.uPlanar.value = 0;
       if (Q.mode === "clear" && waters.length && waterVisible()) { renderReflection(); reflU.uPlanar.value = 1; }
       sky.position.copy(camera.position);
-      if (Q.mode === "clear" && post) {
+      if (Q.mode === "clear" && PL && PL.targets.main) {
+        PL.render(scene, camera, { expo: state.expo, grade: compMat.uniforms.uGrade.value, bloom: 0.06 });
+      } else if (Q.mode === "clear" && post) {
         renderer.setRenderTarget(post.main); renderer.setClearColor(0x000000, 1); renderer.clear();
         renderer.render(scene, camera);
         brightMat.uniforms.tSrc.value = post.main.texture; brightMat.uniforms.uTexel.value.set(1 / post.w, 1 / post.h);
@@ -524,7 +533,7 @@ if (uPlanar > 0.5) {
     setQuality(Q.mode);
     return {
       U, sky, skyU, sun, hemi, state, patch, depth, waterMaterial, waters, noReflect,
-      setEnvironment, render, resize, setQuality, get quality() { return Q.mode; }, updateEnv, WATER_LEVEL,
+      setEnvironment, render, resize, setQuality, get quality() { return Q.mode; }, updateEnv, WATER_LEVEL, pondPost: PL,
     };
   }
 
