@@ -31,8 +31,8 @@ Java Servlet + JSP + three.js 实现的校园绿化系统（西南财经大学�
 | 活的场景 | 与池塘相同的 Preetham 物理天空 + 程序化云层 + 星月夜空；鸟群（Boids 分离/对齐/聚合，扇翅 + 滑翔）在空中盘旋；中心草坪上橘色虎斑猫追蝴蝶（奔跑、扑击、坐下看蝴蝶飞走）；翠湖、荷花池、游泳池为池塘水面的简化版（菲涅尔 + 天空环境光反射 + 平面反射 + 两层涟漪法线 + 雨点涟漪，冬季结冰）；树木用池塘同款程序化树种（香樟、桂花、银杏、水杉、垂柳、樱花）随风摆动，灌木杜鹃与草坪花丛。 |
 | 天气 | 先请求服务器代理 `/api/weather`（`WeatherServlet`，10 分钟缓存），失败再由浏览器直连 Open-Meteo，都失败时使用“虚拟天气”（每 30 分钟按 晴 → 多云 → 小雨 → 雾 循环，冬季小雨换成雪）。天气码映射：晴（阳光、光晕）、多云/阴（云量增多、天空变灰）、雨（粒子雨 + 地面变暗 + 水面波纹加大）、雷阵雨（加闪电）、雪（粒子雪 + 地面泛白）、雾（`scene.fog` 加浓）。**右下角**天气卡片显示温度、天气、风速与数据来源（实时 / 虚拟 / 演示），点击打开演示面板（见下文“天气卡片位置”）。 |
 | 昼夜 | 按北京时间（UTC+8 计算，不依赖电脑时区）和校区经纬度实时计算太阳高度与方位，连续变化天空颜色、日光方向与强度；夜晚路灯（灯头 + 光晕 + 地面光斑）和建筑窗户亮起，星星与月亮出现。 |
-| 季节 | 按北京时间月份：3–5 春（樱花粉/嫩绿树冠 + 花瓣飘落 + 草地小花）、6–8 夏（深绿 + 荷花池荷叶 + 夜间萤火虫）、9–11 秋（银杏黄/枫红树冠 + 落叶）、12–2 冬（灰绿常绿树 + 落叶树只剩枯枝，可下雪）。 |
-| 生态板块 | 7 个可点击板块：翠湖水景、中心草坪、图书馆·荷花池、教学楼绿化带、A 区宿舍生活区、C 区宿舍庭院、运动场周边。悬浮高亮 + 浮动标签；点击后相机飞过去放大，显示板块简介面板和“进入板块细节”按钮：配置了 `detail_scene` 的板块（翠湖水景、图书馆·荷花池）镜头俯冲 + 淡出后进入细节 3D 场景，其余板块提示“建设中”。底部“🎬 巡游”按钮会自动依次飞过各板块，适合大屏无人值守展示。 |
+| 季节 | 按北京时间月份：3–5 春（樱花粉/嫩绿树冠 + 花瓣飘落 + 草地小花）、6–8 夏（深绿 + 中心草坪小池塘睡莲叶 + 夜间萤火虫）、9–11 秋（银杏黄/枫红树冠 + 落叶）、12–2 冬（灰绿常绿树 + 落叶树只剩枯枝，可下雪）。 |
+| 生态板块 | 7 个可点击板块：翠湖水景、中心草坪、图书馆·馆前草坡、教学楼绿化带、A 区宿舍生活区、C 区宿舍庭院、运动场周边。悬浮高亮 + 浮动标签；点击后相机飞过去放大，显示板块简介面板和“进入板块细节”按钮：配置了 `detail_scene` 的板块（翠湖水景、图书馆·荷花池）镜头俯冲 + 淡出后进入细节 3D 场景，其余板块提示“建设中”。底部“🎬 巡游”按钮会自动依次飞过各板块，适合大屏无人值守展示。 |
 | 自由镜头 | 观察点可以移到校园任意位置：左键拖动旋转、右键 / Shift+左键拖动平移、滚轮朝光标缩放、WASD / 方向键移动、Q / E 升降、双击地面或建筑飞过去聚焦；限位在校园范围内、不低于地面、不转到地平线以下。🏠 全景 / 🗺️ 俯视 / 🎬 巡游、板块与建筑点击飞行、小地图（红点 = 观察点，点击跳转）照常可用，详见下文“自由镜头与电影镜头”。 |
 | 性能 | 见下文“画质档与省电模式”与“性能数据”。树木、灌木、路灯、鸟群、荷叶、花丛全部 `InstancedMesh`；同材质的建筑墙面 / 屋面、地面、道路合并成单个网格；远处树木用公告板（impostor）；阴影只罩住观察点附近；雨/雪/花瓣/落叶/萤火虫为 GPU 粒子。 |
 
@@ -65,7 +65,7 @@ src/main/java/Servlet/WeatherServlet.java   /api/weather 天气代理（10 分�
 
 ### 板块细节场景（第二阶段）
 
-在生态主页点击 **翠湖水景** 或 **图书馆·荷花池** → **“进入板块细节 3D 场景 →”**，镜头俯冲到板块上方并淡出，打开池塘细节场景 `campus3d/pond/pond.html?zone=<板块id>`；场景左上角 **“← 返回校园全景”** 回到 `ecohome.jsp?zone=<板块id>&autostart=1`，相机停在该板块（演示面板里手动设定的天气/季节/时间会一起带回去）。
+在生态主页点击 **翠湖水景** → **“进入板块细节 3D 场景 →”**，镜头俯冲到板块上方并淡出，打开池塘细节场景 `campus3d/pond/pond.html?zone=<板块id>`（其余六个板块的细节场景见下文“板块细节场景（七个板块）”）；场景左上角 **“← 返回校园全景”** 回到 `ecohome.jsp?zone=<板块id>&autostart=1`，相机停在该板块（演示面板里手动设定的天气/季节/时间会一起带回去）。
 
 | 项目 | 说明 |
 | --- | --- |
@@ -94,6 +94,53 @@ src/main/webapp/campus3d/js/free-camera.js            自由镜头（三个场�
 src/main/webapp/campus3d/lib/dat.gui-0.7.9.min.js     dat.gui 0.7.9（Apache-2.0，文件头保留许可声明）
 ```
 
+### 板块细节场景（七个板块）
+
+七个生态板块现在都有自己的细节 3D 场景，生态主页（`ecohome.jsp`，静态版 `campus3d/index.html`）选中板块后点 **“进入板块细节 3D 场景 →”** 打开，地址后追加 `?zone=<板块id>&back=<主页路径>`；场景左上角 **“← 返回校园全景”** 回到主页并停在该板块。入口由 `zones.json` 的 `detail_scene` 决定，各板块都已 `editable: true` 并配了 `catalog`（管理员 / 养护员登录后可“✏️ 管理动植物”）。
+
+| 板块 id | 名称 | 细节场景 | 共用代码 | 说明 |
+| --- | --- | --- | --- | --- |
+| `cuihu_water` | 翠湖水景 | `pond/pond.html` | `tools/build_pond.py` 生成 | 按官方鸟瞰图重建的真实尺寸翠湖（见上表）；雾密度按原小池的 0.1 倍，远景与俯视不发白 |
+| `central_lawn` | 中心草坪 | `lawn2/lawn.html` | `zone/` | 真实尺度：大草坪、紫色花带与绿篱、林荫小道，西南角垂柳 / 紫薇环绕的小池塘（睡莲、锦鲤、蜻蜓）。旧版平面图插画风 `lawn/lawn.html` 保留，不再作为入口 |
+| `library_lotus` | 图书馆·馆前草坡 | `library/library.html` | `zone/` | 官方地图上图书馆北侧没有荷花池，是缓坡草地 + 种植土丘与新月花境 + 台地花田、蓝顶小亭、一列银杏；板块 id 保持不变（数据库与区域档案引用它） |
+| `teaching_green` | 教学楼绿化带 | `teaching/teaching.html` | `zonekit/` | 光华广场主轴：两排银杏、北端图书馆一侧的“聚·散”雕塑、樱花与花池、红砖教学楼、浅蓝穹顶学术报告厅 |
+| `dorm_life` | A 区宿舍生活区 | `dorm-a/dorm-a.html` | `zonekit/` | 四栋红砖板楼、南端三座圆形场馆（乒乓球 / 健美操 / 武术）、椭圆形学生食堂与商业翼 |
+| `c_court` | C 区宿舍庭院 | `dorm-c/dorm-c.html` | `zone-kit/` | C1–C7 板式公寓、8 层双内院 C8–C10、灰瓦坡顶教师公寓、彩色坡屋顶幼儿园与小型田径场 |
+| `sports_ring` | 运动场周边 | `sports/sports.html` | `zone-kit/` | 400 米田径场、高台上 9 片篮球场、4 片网球场与 3 片排球场、L 形室外游泳池、体育训练馆与林带 |
+
+坐标约定：`zonekit/`、`zone-kit/` 两套场景直接用全景世界米（`x = (px − 1024) × 0.4`，`z = (py − 999) × 0.4`）；`zone/`（图书馆、中心草坪）用各自布局文件里的原点；翠湖用 `x = (px − 366) × 0.4`，`z = (py − 1515) × 0.4`。编辑器写入 `zone_species.pos_x / pos_z` 的就是这些坐标。各场景原有个体的 `seed_ref`（如 `privet#3`）按场景脚本里 seeds 的顺序编号，**上线后不要调整 seeds 顺序**。
+
+三套共用代码（由各板块分支分别开发，合并时保留为独立目录，互不引用）：
+
+```
+src/main/webapp/campus3d/zone/        中心草坪 lawn2、图书馆 library 共用引擎（zone-engine / zone-build / zone-flora / zone-fauna / zone-look / zone-species）；pond-look.js 是池塘画质层（试点：图书馆、中心草坪）
+src/main/webapp/campus3d/zonekit/     教学楼 teaching、A 区宿舍 dorm-a 共用工具包（zk-app / zk-world / zk-flora / zk-life / zk-species）
+src/main/webapp/campus3d/zone-kit/    C 区宿舍 dorm-c、运动场 sports 共用外壳（zone-kit / zone-build / zone-species）
+docs/zone-patches/<分支>.md           各板块分支的合并说明（数据改动、坐标、已知差距），合并时已按其中内容改好 zones.json / campus_layout.json
+```
+
+合并时一并处理的改动：
+
+- `zonekit/zk-world.js`：地面分类贴图 `t.flipY = false`，否则区域内道路、广场、球场南北镜像。
+- `zone-kit/zone-build.js`：`hedge()` 补建 `uv`（原来直接报错，场景加载失败）；`polyL()` 先 `toNonIndexed()` 再修正绕序（游泳池水面、草坪、球场面层不再消失）；铁丝网改为半透明混合（远景不再变成黑墙）。
+- `zone-kit/zone-species.js`：`canPlace()` 原来把已换算成像素的冠幅余量再传给按米计的 `classAt()`，余量被放大 2.5 倍；现在按米传入，靠墙、靠路处更容易种。
+- `campus_layout.json`：删除 `hehuachi`（官方地图上是草坡），新增中心草坪小池塘 `lawn_pond`；`pool1` + `pool2` 合并为 L 形 `pool`；网球场、排球场外框按 4 片 / 3 片场地校正；雕塑改名“聚·散雕塑”并移到光华广场北端 (1286, 1250)；教师公寓 `h` 13 米、C8–C10 `h` 26 米；`gongcheng` 改名“建筑与工程学院”。改完后已重新运行 `tools/build_pond.py`（翠湖场景嵌入了 C 区建筑轮廓）。
+- `zones.json`：六个板块的 `detail_scene` / `editable` / `catalog` / 简介；`library_lotus` 改名“图书馆·馆前草坡”；`central_lawn` 目录加 `willow`、`waterlily`、`koi`、`dragonfly`、`crapemyrtle`、`reed`；`c_court` 范围多边形向东扩到幼儿园与停车场。
+- `js/eco-life.js`：全景的睡莲叶从荷花池移到 `lawn_pond`（14 片叶 / 5 朵花）；`js/campus-info.js`：`lawn_pond`、`pool` 与雕塑位置的介绍同步更新。
+
+数据库：
+
+- `database/006_zone_dorm_a.sql`：A 区宿舍区域档案 `MY-ECO-DORM-A`，补 `privet`、`hedge` 的养护周期（可重复执行）。
+- `database/007_zone_species_relayout.sql`：翠湖、图书馆、中心草坪换了场景和坐标系，旧 `zone_species` 记录需要迁移：翠湖、图书馆的旧记录坐标无法换算，软删除并清空 `seed_ref`；中心草坪旧原有个体作废，新增个体按 `x = 旧x × 4 + 25`、`z = 旧z × 4 − 22` 换算到新场景，越界的软删除。**只执行一次，执行前先备份 `zone_species`（不要写进 `database-backups/`）**。运动场、C 区、A 区、教学楼原来没有细节场景，没有旧记录。
+- 无后端演示模式的 `localStorage`（如 `pond-species-demo:cuihu_water`）同样是旧坐标，演示前清一下浏览器存储。
+
+已知差距：
+
+- 运动场的足球场草坪：`zones.json` 的 `sports_ring.intro` 仍写“人工草坪”，细节场景写的是“天然草”，导览图上看不出，待实际确认后统一措辞。
+- 全景（`campus-scene.js`）只读 `campus_layout.json`：A 区仍是圆头板楼、没有圆形场馆；幼儿园仍是一个盒子，没有小型田径场；报告厅穹顶仍是灰色金属。
+- 教学楼场景俯视（el ≈ 89°）时远处公告板树会变成细条；C 区庭院受 `EcoLife` 320 株上限限制，比导览图稀疏。
+- 静态服务器下 `/api/weather`、`/api/zones/...` 返回 404，场景自动用虚拟天气与本地演示模式；部署到 Tomcat 后正常。
+
 ### 池塘场景的生成脚本 `tools/build_pond.py`
 
 `pond.html` 不是手写文件，而是由脚本从上游 Koi Pond Garden 的 `koi-pond.html`（提交 `18213ec`，脚本内校验 sha256）逐条替换生成，所有替换都断言命中次数；同时把池塘画风中两边共用的部分（噪声与程序化纹理、叶片卡与递归分枝树、Preetham 天空着色器、色温、天气预设、风动 GLSL、ACES 色调映射等）原样剪出到 `campus3d/js/pond-style-core.js`，全景与池塘逐字共用同一份代码。
@@ -115,7 +162,7 @@ python3 tools/build_pond.py            # 或 python3 tools/build_pond.py <koi-po
 | 光照 / 天气 | `pondSunLight()` 太阳/月光色温与强度、半球光；`pondWeatherPreset()` 把 WMO 天气 + 季节映射到池塘的晴 / 雨 / 秋 / 冬雪预设并叠加多云/阴/雾；夜晚雾色压暗同一公式。北京时间昼夜、季节、天气来源逻辑不变。 |
 | 植被 | 池塘同一套 `growTree` 递归分枝 + `addCard` 叶片卡生成香樟、桂花、银杏、水杉、垂柳、樱花；叶片透光、积雪/湿润/秋色着色补丁与池塘相同；草地用池塘同款程序化草地纹理。 |
 | 建筑与路面 | 程序化红砖 / 白色涂料外墙 + 铝框玻璃窗（法线、粗糙度、夜间窗灯）、灰石勒脚、灰瓦坡屋面；花岗岩条石铺装、广场大石板、沥青路。 |
-| 水面 | 翠湖、荷花池、游泳池为池塘水面的简化版：菲涅尔 + 天空 IBL 反射 + 平面反射（清晰档）+ 两层涟漪法线（池塘同款水面法线贴图）+ 雨点涟漪，冬季结冰；全景尺度不做折射与焦散。 |
+| 水面 | 翠湖、中心草坪小池塘、游泳池为池塘水面的简化版：菲涅尔 + 天空 IBL 反射 + 平面反射（清晰档）+ 两层涟漪法线（池塘同款水面法线贴图）+ 雨点涟漪，冬季结冰；全景尺度不做折射与焦散。 |
 
 飞鸟、小猫扑蝶、天气粒子、板块点击飞行、巡游、演示面板（Y）全部保留。
 
@@ -317,7 +364,9 @@ database/002_zone_species.sql                     迁移脚本
 
 ### 中心草坪板块（平面图风 3D 场景 + 动植物增删）
 
-在生态主页点 **中心草坪** → **“进入板块细节 3D 场景 →”** 打开 `campus3d/lawn/lawn.html?zone=central_lawn`；左上角 **“← 返回校园全景”** 回到 `ecohome.jsp?zone=central_lawn&autostart=1`，相机停在中心草坪板块。
+> 旧版：中心草坪的入口已改为真实尺度的 `lawn2/lawn.html`（见上文“板块细节场景（七个板块）”），本节的平面图风场景 `lawn/lawn.html` 保留，可直接打开。
+
+原来在生态主页点 **中心草坪** → **“进入板块细节 3D 场景 →”** 打开 `campus3d/lawn/lawn.html?zone=central_lawn`；左上角 **“← 返回校园全景”** 回到 `ecohome.jsp?zone=central_lawn&autostart=1`，相机停在中心草坪板块。
 
 | 项目 | 说明 |
 | --- | --- |
@@ -508,6 +557,7 @@ tools/build_lawn_ground.py                       底图生成脚本
 - `database/003_face_login_care.sql`：`face_profile`（account_id、role_code、model、dim、embedding MEDIUMBLOB、frames、thumbnail、created_by、created_at；一人可多条）、`care_log`、`care_period`（含默认周期），`admin_user.maintainer_id` 列，`admin_role` 补 `MAINTAINER`，为 `zones.json` 的生态板块补建 `plant_area` 区域档案。与 `DB/Jdbc.java`、`DB/JdbcAccountStore.java` 一致：接口首次访问时也会 `CREATE TABLE IF NOT EXISTS` / 补列，可重复执行。
 - `database/004_demo_face_login_seed.sql`（可选，仅演示）：两个养护员账号，张师傅负责翠湖水景、图书馆·荷花池，李工负责中心草坪。
 - `database/005_password_hash.sql`：`admin_user.password_hash` 放宽为 `VARCHAR(255)` 以存放 PBKDF2 哈希（接口首次访问时也会自动执行）。
+- `database/006_zone_dorm_a.sql`、`database/007_zone_species_relayout.sql`：板块细节场景重做后的区域档案与 `zone_species` 旧记录迁移，见上文“板块细节场景（七个板块）”。
 - 全新库不需要再像旧版那样先打开某个页面来建表：任一账号 / 人脸 / 养护 / 大屏接口首次访问数据库时，`DBTools.ensureSchema()` 会建好 `plant`、`maintainer`、`plant_area`、`admin_user` 等基础表并写入样例数据。
 
 ### 部署注意：摄像头需要 HTTPS 或 localhost

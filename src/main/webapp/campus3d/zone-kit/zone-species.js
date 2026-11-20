@@ -365,12 +365,12 @@
     function canPlace(e, x, z) {
       const [px, py] = B.P(x, z);
       if (!K.inRegion(px, py)) return { ok: false, reason: "超出本板块场景范围" };
-      const r = e.radius || 0.5, rp = r / B.S;
+      const r = e.radius || 0.5;
       const cls = K.classAt(x, z, 0);
       const what = { building: "建筑里", water: "水里", court: "球场 / 跑道上", road: "道路上", paved: "铺装地面上", out: "范围外", platform: "篮球场高台上" }[cls];
       if (e.type === "plant") {
         if (what) return { ok: false, reason: "不能种在" + what + "，只能种在草地 / 绿化带上" };
-        const near = K.classAt(x, z, rp * 0.55);
+        const near = K.classAt(x, z, r * 0.55);   // K.classAt 的余量单位是米（内部再换算成像素），不能先除以 B.S
         if (near === "building") return { ok: false, reason: "离建筑太近，树冠会碰到墙面" };
         if (near !== "grass") return { ok: false, reason: "离道路 / 铺装太近，往草地里面挪一点" };
         const t = K.nearTree(x, z, Math.max(1.5, r * 0.8));
