@@ -39,7 +39,7 @@
     const wait = document.getElementById("se-wait");
     if (zoneCfg && zoneCfg.editable === false) { if (wait) wait.remove(); return; }
     const V3 = THREE.Vector3, rnd = (a, b) => a + (b - a) * Math.random();
-    const inGarden = (x, z) => x > -48 && x < 52 && z > -128 && z < 62;   // 翠湖、翠湖广场与两岸（场景米）
+    const inGarden = (x, z) => Math.abs(x) < 8.6 && z > -11.5 && z < 8.6;
     const nearBridge = (x, z, r) => window.CAMPUS_POND.bridge && Math.abs(z - BRIDGE.z) < 0.9 + r && Math.abs(x) < BRIDGE.half + 0.6;
     const nearPavilion = (x, z, r) => Math.hypot(x - PAVILION.x, z - PAVILION.z) < PAVILION.r + 0.5 + r;
     const isWaterEntry = (e) => !!(e && e.water);
@@ -299,11 +299,11 @@
         make: () => makeThalia() },
       { key: "reed", name: "芦苇", type: "plant", icon: "🌾", water: false, anim: "shrub", radius: 0.32, hitY: 1.0, rule: "只能种在水岸交界处", desc: "成丛生长于水岸，秋季顶端抽出浅褐色羽状花序",
         make: () => makeReed(), plantDur: 2.4 },
-      { key: "willow", name: "垂柳", type: "plant", icon: "🌳", anim: "tree", radius: 2.2, hitY: 4.2, hitRadius: 2.6, previewH: 3, scaleRange: [0.9, 1.05], rule: "乔木只能种在岸上（离水 1.5 米以上）", desc: "细长柳条低垂水面，春季飞絮",
+      { key: "willow", name: "垂柳", type: "plant", icon: "🌳", anim: "tree", radius: 1.25, hitY: 2.2, hitRadius: 1.3, scaleRange: [0.85, 1.05], rule: "乔木只能种在岸上（离水 0.9 米以上）", desc: "细长柳条低垂水面，春季飞絮",
         make: (ind) => PondEdit.makeWillow(ind.x, ind.z), plantDur: 3.0, moveDur: 3.0 },
-      { key: "camphor", name: "香樟", type: "plant", icon: "🌲", anim: "tree", radius: 2.6, hitY: 5.0, hitRadius: 3.0, previewH: 3, scaleRange: [0.9, 1.05], rule: "乔木只能种在岸上（离水 2 米以上）", desc: "四季常绿，树冠圆整，校园行道树",
+      { key: "camphor", name: "香樟", type: "plant", icon: "🌲", anim: "tree", radius: 1.1, hitY: 2.0, hitRadius: 1.2, scaleRange: [0.85, 1.05], rule: "乔木只能种在岸上（离水 1.1 米以上）", desc: "四季常绿，树冠圆整，校园行道树",
         make: (ind) => PondEdit.makeCamphor(ind.x, ind.z), plantDur: 3.0, moveDur: 3.0 },
-      { key: "osmanthus", name: "桂花", type: "plant", icon: "🌼", anim: "tree", radius: 1.2, hitY: 2.0, hitRadius: 1.5, previewH: 1.6, scaleRange: [0.9, 1.1], rule: "只能种在岸上", desc: "常绿小乔木，秋季满树金黄小花，香气浓郁",
+      { key: "osmanthus", name: "桂花", type: "plant", icon: "🌼", anim: "tree", radius: 0.7, hitY: 1.0, scaleRange: [0.9, 1.1], rule: "只能种在岸上", desc: "常绿小乔木，秋季满树金黄小花，香气浓郁",
         make: (ind) => PondEdit.makeOsmanthus(ind.x, ind.z), plantDur: 2.6 },
       koiEntry,
       { key: "frog", name: "青蛙", type: "animal", icon: "🐸", radius: 0.12, hitRadius: 0.12, hitY: 0.03, previewH: 0.2, rule: "放在岸边或睡莲叶上", desc: "黑斑侧褶蛙，跳进来、跳走",
@@ -357,9 +357,9 @@
         case "waterlily": return d < -0.35 ? { ok: true } : { ok: false, reason: "睡莲只能浮在水面上" };
         case "iris": case "thalia": return d < -0.04 && d > -0.9 ? { ok: true } : { ok: false, reason: d >= -0.04 ? "要种在岸边浅水里" : "这里水太深，应种在岸边浅水" };
         case "reed": return d > -0.45 && d < 0.6 ? { ok: true } : { ok: false, reason: d <= -0.45 ? "芦苇要种在水岸交界处" : "离水太远，芦苇要种在水岸交界处" };
-        case "willow": return d > 1.5 && d < 12 ? { ok: true } : { ok: false, reason: d <= 1.5 ? "乔木只能种在岸上（离水至少 1.5 米）" : "垂柳要种在湖边（离水 12 米以内）" };
-        case "camphor": return d > 2 && d < 40 ? { ok: true } : { ok: false, reason: d <= 2 ? "乔木只能种在岸上（离水至少 2 米）" : "离水太远（超出翠湖两岸）" };
-        case "osmanthus": return d > 1 && d < 40 ? { ok: true } : { ok: false, reason: d <= 1 ? "桂花只能种在岸上" : "离水太远（超出翠湖两岸）" };
+        case "willow": return d > 0.9 && d < 7 ? { ok: true } : { ok: false, reason: d <= 0.9 ? "乔木只能种在岸上（离水至少 0.9 米）" : "离水太远" };
+        case "camphor": return d > 1.1 && d < 8 ? { ok: true } : { ok: false, reason: d <= 1.1 ? "乔木只能种在岸上（离水至少 1.1 米）" : "离水太远" };
+        case "osmanthus": return d > 0.6 && d < 8 ? { ok: true } : { ok: false, reason: "桂花只能种在岸上" };
         case "koi": {
           if (d > -0.6) return { ok: false, reason: "锦鲤要放在较深的水里" };
           if (PondEdit.koiFreeSlot() < 0) return { ok: false, reason: "本池锦鲤已达上限 " + KOI.fish.length + " 条" };
@@ -377,7 +377,7 @@
       const h = (q) => q.y - Math.max(terrainHeight(q.x, q.z), WATER_Y);
       let t0 = 0, step = 0.08;
       p.copy(o); if (h(p) < 0) return null;
-      for (let t = step; t < 400; t += step) {
+      for (let t = step; t < 80; t += step) {
         p.copy(o).addScaledVector(dv, t);
         if (h(p) <= 0) {
           let a = t0, b = t;
@@ -385,7 +385,7 @@
           p.copy(o).addScaledVector(dv, b);
           return { x: p.x, y: Math.max(terrainHeight(p.x, p.z), WATER_Y), z: p.z, water: terrainHeight(p.x, p.z) < WATER_Y };
         }
-        t0 = t; step = Math.min(1.0, step * 1.06);
+        t0 = t; step = Math.min(0.5, step * 1.06);
       }
       return null;
     }
@@ -413,7 +413,7 @@
         onToggle: (on) => {
           document.body.classList.toggle("se-editing", on);
           if (on) {
-            VIEWS["管理动植物 · 俯瞰"] = () => [new V3(1.5, 16, 24), new V3(0, 0, 0)];   // 南岸种植床北面的锦鲤 / 睡莲区
+            VIEWS["管理动植物 · 俯瞰"] = () => [new V3(0.6, 6.8, 9.8), new V3(-0.2, 0, -0.8)];
             if (P.holdCamera) setHold(false);
             goToView("管理动植物 · 俯瞰");
           }

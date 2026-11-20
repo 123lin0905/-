@@ -41,7 +41,7 @@ async function buildPhase2() {
   stageBegin();
   try {
     await phase2Yield('植物纹理'); buildPlantTextures();
-    await phase2Yield('种植湖心岛香樟'); await buildVegetation();
+    await phase2Yield('种植垂柳、香樟与灌木'); await buildVegetation();
     await phase2Yield('乌龟'); buildTurtle();
     await phase2Yield('水下根系'); buildUnderwaterLife();
     await phase2Yield('萤火虫'); buildFireflies();
@@ -66,21 +66,27 @@ async function buildPhase2() {
 async function init() {
   try {
     pmark('init');
-    await progress(0.04, '勾勒翠湖湖岸与湖心岛');
+    await progress(0.04, '勾勒池岸轮廓');
     buildSDF();
+    setupWaterfallSite();
     await buildTextures();
     SH.tCaustics.value = TEX.caustics;
     SH.uCausticNorm.value = 1 / (TEX.causticMean * TEX.causticMean);
     pmark('textures-done');
-    await progress(0.6, '塑造草坡与湖底');
+    await progress(0.6, '塑造地形与池底');
     buildTerrain();
-    await progress(0.66, '铺设广场、步道，搭建湖畔建筑');
+    await progress(0.66, '砌筑驳岸石');
     buildStones();
     woodMaterials();
+    await progress(0.72, '搭建石桥与小亭');
+    if (window.CAMPUS_POND.bridge) buildBridge();
+    buildPavilion();
     await progress(0.78, '注水、放养锦鲤');
     buildWater();
+    buildWaterfall();
     buildLanterns();          // 庭院灯（点光源）必须在首帧前：之后再加光源会让全部材质重新编译
     buildPrecip();
+    buildMountains();
     if (typeof buildKoi === 'function') buildKoi();
     buildHand();
     updateSun(); updateWaves(); updateClarity();

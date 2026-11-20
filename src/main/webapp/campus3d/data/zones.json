@@ -1,5 +1,5 @@
 {
-  "_note": "生态板块配置。坐标与 campus_layout.json 相同：官方平面图(2048x1998)像素坐标，x 向东、y 向南，1 像素约 0.4 米。center 为板块中心，polygon 为范围多边形，camera_distance 为点击后相机距离(米)。area_code 预留对接数据库 plant_area.area_code；detail_scene 为板块细节 3D 场景（相对 campus3d/ 的路径，打开时追加 ?zone=<id>&back=<主页路径>）：翠湖水景 pond/pond.html（按官方鸟瞰图重建的真实尺寸翠湖）、中心草坪 lawn2/lawn.html、图书馆·馆前草坡 library/library.html（共用引擎 zone/）、教学楼绿化带 teaching/teaching.html 与 A 区宿舍 dorm-a/dorm-a.html（共用工具包 zonekit/）、C 区宿舍 dorm-c/dorm-c.html 与运动场周边 sports/sports.html（共用外壳 zone-kit/）；旧版插画风草坪 lawn/lawn.html 保留但不再作为入口。editable 表示该板块细节场景是否开放“管理动植物”，catalog 为该板块可增删的物种 key 列表（物种目录与放置规则由各场景适配层注册；null 表示不开放）。",
+  "_note": "生态板块配置。坐标与 campus_layout.json 相同：官方平面图(2048x1998)像素坐标，x 向东、y 向南，1 像素约 0.4 米。center 为板块中心，polygon 为范围多边形，camera_distance 为点击后相机距离(米)。area_code 预留对接数据库 plant_area.area_code（当前为建议编码，第二阶段在 plant_area 中建同名记录即可关联）；detail_scene 为板块细节 3D 场景（相对 campus3d/ 的路径，打开时追加 ?zone=<id>&back=<主页路径>）：第二阶段“翠湖水景”“图书馆·荷花池”共用池塘场景 pond/pond.html，按 zone 参数区分布局；“中心草坪”为平面图插画风微缩模型 lawn/lawn.html；为 null 的板块点击“进入板块细节”仍提示建设中。editable 表示该板块细节场景是否开放“管理动植物”（第三阶段，池塘两个板块与中心草坪为 true；全景与其余板块只读），catalog 为该板块可增删的物种 key 列表（物种目录与放置规则由场景适配层注册，如 pond/pond-species.js、lawn/lawn-species.js；null 表示不开放）。",
   "version": 1,
   "zones": [
     {
@@ -13,9 +13,9 @@
       "area_code": "MY-ECO-CUIHU",
       "detail_scene": "pond/pond.html",
       "editable": true,
-      "catalog": ["waterlily", "iris", "thalia", "reed", "willow", "camphor", "osmanthus", "koi", "frog", "turtle", "dragonfly"],
-      "intro": "校园西部南北狭长的翠湖：北端湖尖连着翠湖广场，草坪上立着景石和镂空圆石盘；湖中一座青草小岛，岛上一棵大树；南岸 D 形种植床里 5 棵栾树秋季金黄，外面环着半圆形广场和成排银杏。西岸一排紫花蓝花楹，东岸垂柳依依，背后是 C 区宿舍。水面只有睡莲，没有荷花，是锦鲤、青蛙和蜻蜓的栖息地，也承担校园雨水调蓄。",
-      "highlights": ["湖心岛大树", "南岸栾树", "西岸蓝花楹", "睡莲"]
+      "catalog": ["lotus", "waterlily", "iris", "thalia", "reed", "willow", "camphor", "osmanthus", "koi", "frog", "turtle", "dragonfly"],
+      "intro": "校园西部的翠湖与翠湖广场，湖心小岛上植有垂柳与香樟，岸边是 C 区宿舍。这里是校园最大的水体，承担雨水调蓄，也是水鸟、锦鲤和蜻蜓的栖息地。",
+      "highlights": ["垂柳", "香樟", "睡莲", "水鸟栖息"]
     },
     {
       "id": "central_lawn",
@@ -26,26 +26,26 @@
       "polygon": [[665, 952], [1000, 866], [1042, 866], [1140, 1062], [1000, 1112], [905, 1150], [962, 1400], [925, 1455], [858, 1290], [758, 1162], [660, 1092]],
       "camera_distance": 150,
       "area_code": "MY-ECO-LAWN",
-      "detail_scene": "lawn2/lawn.html",
+      "detail_scene": "lawn/lawn.html",
       "editable": true,
-      "catalog": ["ginkgo", "osmanthus", "cherry", "camphor", "flowerbed", "shrub_ball", "cat", "butterfly", "magpie", "sparrow", "egret", "willow", "waterlily", "koi", "dragonfly", "crapemyrtle", "reed"],
-      "intro": "A 区宿舍与第四教学楼之间斜向展开的开阔大草坪：西北缘一条蜿蜒的紫色花带衬着绿篱，林荫小道在树下穿行；西南角是垂柳、紫薇环绕的小池塘，水面浮着睡莲，锦鲤在叶间游动。",
-      "highlights": ["大草坪", "紫色花带", "林荫小道", "垂柳池塘", "睡莲", "锦鲤"]
+      "catalog": ["ginkgo", "osmanthus", "cherry", "camphor", "flowerbed", "shrub_ball", "cat", "butterfly", "magpie", "sparrow", "egret"],
+      "intro": "中央步道与环校路之间的大片开阔草坪，四季常绿，散植银杏、桂花和樱花。晴天常能看到校园里的小猫在草地上追蝴蝶。",
+      "highlights": ["草坪", "银杏", "桂花", "樱花", "校园小猫"]
     },
     {
       "id": "library_lotus",
-      "name": "图书馆·馆前草坡",
-      "icon": "🏛️",
+      "name": "图书馆·荷花池",
+      "icon": "🪷",
       "color": "#f472b6",
       "center": [1280, 860],
       "polygon": [[1150, 600], [1240, 540], [1340, 590], [1405, 730], [1452, 920], [1380, 1050], [1210, 1095], [1118, 960], [1128, 800]],
       "camera_distance": 240,
       "area_code": "MY-ECO-LOTUS",
-      "detail_scene": "library/library.html",
+      "detail_scene": "pond/pond.html",
       "editable": true,
-      "catalog": ["camphor", "ginkgo", "osmanthus", "cherry", "crapemyrtle", "flowerbed", "shrub_ball", "cat", "butterfly", "magpie", "sparrow"],
-      "intro": "校园中轴北端的图书馆：两层主馆配红砖壁柱与通长玻璃幕墙，东南角是三层入口楼和旗杆前庭。馆北是开阔的缓坡草地，坡上一处种植土丘围着紫、黄双色新月花境，石材园路呈 S 形弯过坡顶；馆西是逐级抬高的台地花田、蓝顶小亭与一列银杏。",
-      "highlights": ["图书馆", "草坡", "土丘花境", "台地花田", "银杏", "香樟"]
+      "catalog": ["lotus", "waterlily", "iris", "thalia", "reed", "willow", "camphor", "osmanthus", "koi", "frog", "turtle", "dragonfly"],
+      "intro": "校园中轴北端的图书馆与北侧荷花池，馆前草坡开阔。夏季荷花盛开，池边种有紫薇与桂花，是安静的读书与观景区域。",
+      "highlights": ["荷花", "紫薇", "桂花", "草坡"]
     },
     {
       "id": "teaching_green",
@@ -56,11 +56,11 @@
       "polygon": [[945, 1165], [1400, 1045], [1470, 985], [1560, 1210], [1660, 1460], [1680, 1570], [1632, 1672], [1300, 1728], [1135, 1728], [1032, 1632], [952, 1450]],
       "camera_distance": 330,
       "area_code": "MY-ECO-TEACH",
-      "detail_scene": "teaching/teaching.html",
-      "editable": true,
-      "catalog": ["ginkgo", "camphor", "cherry", "osmanthus", "jacaranda", "privet", "shrub_ball", "hedge", "flowerbed", "cat", "magpie", "sparrow", "butterfly"],
-      "intro": "光华广场是从校门通往图书馆的主轴：两侧各一排银杏，北端图书馆一侧的平台上立着“聚·散”不锈钢雕塑，旁边是草坪花池和樱花；广场两侧是红砖白框的教学楼，校门内东侧是浅蓝穹顶的学术报告厅。",
-      "highlights": ["银杏大道", "聚·散雕塑", "蓝花楹", "行道香樟", "绿篱"]
+      "detail_scene": null,
+      "editable": false,
+      "catalog": null,
+      "intro": "光华广场两侧的教学楼群与行道树带，沿教学区西路、中路种植行道香樟和绿篱，广场南端是不锈钢校园雕塑。",
+      "highlights": ["行道香樟", "绿篱", "光华广场", "校园雕塑"]
     },
     {
       "id": "dorm_life",
@@ -71,26 +71,26 @@
       "polygon": [[200, 700], [590, 640], [960, 560], [1002, 820], [640, 912], [520, 962], [200, 955]],
       "camera_distance": 280,
       "area_code": "MY-ECO-DORM-A",
-      "detail_scene": "dorm-a/dorm-a.html",
-      "editable": true,
-      "catalog": ["ginkgo", "camphor", "cherry", "osmanthus", "privet", "shrub_ball", "hedge", "flowerbed", "cat", "magpie", "sparrow", "butterfly"],
-      "intro": "四栋红砖板楼自西向东错开排列，楼南端立着乒乓球馆、健美操馆和武术 / 跆拳道馆三座圆形场馆；西边的学生食堂是椭圆形就餐大厅，屋顶一排玻璃天窗，底层是超市、书店、洗衣店和奶茶店。楼间草坪散植香樟、女贞和桂花。",
-      "highlights": ["桂花", "女贞", "银杏", "楼间绿地", "圆形场馆"]
+      "detail_scene": null,
+      "editable": false,
+      "catalog": null,
+      "intro": "A 区四栋学生公寓与一食堂、超市、商业街组成的生活区，楼间绿地以桂花、女贞和草坪为主，是学生日常活动最密集的区域。",
+      "highlights": ["桂花", "女贞", "楼间绿地"]
     },
     {
       "id": "c_court",
       "name": "C 区宿舍庭院",
       "icon": "🌳",
       "color": "#a78bfa",
-      "center": [680, 1450],
-      "polygon": [[491, 1045], [640, 1045], [830, 1400], [830, 1630], [990, 1630], [990, 1815], [340, 1815], [340, 1690], [510, 1600], [517, 1202]],
+      "center": [640, 1420],
+      "polygon": [[491, 1045], [640, 1045], [800, 1400], [800, 1785], [420, 1785], [510, 1600], [517, 1202]],
       "camera_distance": 280,
       "area_code": "MY-ECO-DORM-C",
-      "detail_scene": "dorm-c/dorm-c.html",
-      "editable": true,
-      "catalog": ["camphor", "osmanthus", "cherry", "crapemyrtle", "ginkgo", "azalea", "hedge", "cat", "magpie", "sparrow", "butterfly"],
-      "intro": "翠湖东岸的 C 区学生公寓组团：两排错位的 7 栋板式公寓与 8 层双内院组合楼（C8–C10），楼间庭院绿树成荫；南侧是灰瓦坡顶的教师公寓，东南角是彩色坡屋顶的幼儿园与小型田径场。",
-      "highlights": ["庭院绿地", "香樟", "樱花", "双内庭院", "幼儿园"]
+      "detail_scene": null,
+      "editable": false,
+      "catalog": null,
+      "intro": "翠湖东侧的 C 区学生公寓与教师公寓组团，楼间庭院绿树成荫，南侧紧邻幼儿园。",
+      "highlights": ["庭院绿地", "香樟", "灌木"]
     },
     {
       "id": "sports_ring",
@@ -101,9 +101,9 @@
       "polygon": [[180, 380], [760, 262], [1220, 168], [1282, 440], [830, 545], [590, 615], [200, 585]],
       "camera_distance": 330,
       "area_code": "MY-ECO-SPORT",
-      "detail_scene": "sports/sports.html",
-      "editable": true,
-      "catalog": ["camphor", "ginkgo", "metasequoia", "osmanthus", "cherry", "azalea", "hedge", "cat", "magpie", "sparrow", "butterfly"],
+      "detail_scene": null,
+      "editable": false,
+      "catalog": null,
       "intro": "田径场、篮球场、网球场、排球场与室外游泳池组成的运动区，外围是环校路和行道树，足球场为人工草坪。",
       "highlights": ["人工草坪", "行道树", "游泳池"]
     }

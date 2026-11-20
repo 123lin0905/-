@@ -341,26 +341,26 @@
       return m;
     })();
 
-    // ================= 睡莲（中心草坪西南角小池塘 lawn_pond；池塘同款睡莲叶贴图） =================
+    // ================= 荷叶（荷花池，夏季；池塘同款睡莲叶贴图） =================
     const lotus = (() => {
-      const n = 14;   // 小池塘约 50 × 50 米
+      const n = 46;
       const padMat = patch(new THREE.MeshStandardMaterial({ map: TEX.lily, roughness: 0.55, envMapIntensity: 0.7 }), { key: "pad" });
       const m = new THREE.InstancedMesh(new THREE.CircleGeometry(1.4, 16).rotateX(-Math.PI / 2), padMat, n);
       const flowerMat = patch(new THREE.MeshStandardMaterial({ color: 0xf2a2c0, roughness: 0.5 }), { key: "lotusflower" });
-      const fm = new THREE.InstancedMesh(new THREE.ConeGeometry(0.35, 0.8, 8).translate(0, 0.4, 0), flowerMat, 5);
-      const poly = L && L.water.find((w) => w.id === "lawn_pond");
+      const fm = new THREE.InstancedMesh(new THREE.ConeGeometry(0.35, 0.8, 8).translate(0, 0.4, 0), flowerMat, 12);
+      const poly = L && L.water.find((w) => w.id === "hehuachi");
       let k = 0, kf = 0, tries = 0;
       while (poly && k < n && tries < 3000) {
         tries++;
         const xs = poly.poly.map((p) => p[0]), ys = poly.poly.map((p) => p[1]);
         const p = [Math.min(...xs) + rnd() * (Math.max(...xs) - Math.min(...xs)), Math.min(...ys) + rnd() * (Math.max(...ys) - Math.min(...ys))];
-        if (!campus.inPoly(p, poly.poly) || campus.polyDist(p, poly.poly) < 3) continue;
+        if (!campus.inPoly(p, poly.poly) || campus.polyDist(p, poly.poly) < 5) continue;
         const [x, z] = W(p);
         const s = 0.6 + rnd() * 0.9;
         _q.setFromAxisAngle(_y, rnd() * 6.28);
         _m.compose(_p.set(x, 0.4, z), _q, _s.set(s, 1, s));
         m.setMatrixAt(k, _m);
-        if (kf < 5 && rnd() < 0.3) { _m.compose(_p.set(x + 0.6, 0.4, z + 0.3), _q.identity(), _s.set(1, 1, 1)); fm.setMatrixAt(kf++, _m); }
+        if (kf < 12 && rnd() < 0.3) { _m.compose(_p.set(x + 0.6, 0.4, z + 0.3), _q.identity(), _s.set(1, 1, 1)); fm.setMatrixAt(kf++, _m); }
         k++;
       }
       m.count = k; fm.count = kf; m.receiveShadow = true;

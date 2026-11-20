@@ -1,7 +1,7 @@
 /*
  * 校园池塘板块细节场景 · 校园化外壳（与 pond.html 配合）
  * ------------------------------------------------------------------
- * 1. 板块参数：翠湖水景（cuihu_water）专用场景；其它 zone 参数一律按翠湖显示；
+ * 1. 板块参数：?zone=cuihu_water（翠湖水景，默认）/ library_lotus（图书馆·荷花池），决定布局差异；
  * 2. 设备分级：像素比 ≤ 2、水面模拟分辨率与画质按设备降级（?quality=low|high 可强制）；
  * 3. 天气 / 季节 / 昼夜：与生态主页同一套逻辑（EcoWeather：/api/weather → Open-Meteo 直连 → 虚拟天气；
  *    北京时间、按月份分季节、按太阳高度判断昼夜），映射到场景天气预设（晴/雨/秋/冬雪 + 多云/阴/雾 + 夜晚）；
@@ -14,9 +14,15 @@
   const Q = new URLSearchParams(location.search);
 
   // ---------------- 板块差异 ----------------
-  // 本场景只表现翠湖水景（按官方校园地图重建）；图书馆·荷花池另有自己的细节场景，若仍以 ?zone=library_lotus 打开本页，按翠湖显示
   const VARIANTS = {
-    cuihu_water: { zoneName: "翠湖水景", fishCount: 20, bridge: false, lotusExtra: 0, lampSpots: [] },
+    cuihu_water: {
+      zoneName: "翠湖水景", fishCount: 20, bridge: true, lotusExtra: 0,
+      lampSpots: [[-4.3, -3.3], [3.65, -6.9], [4.9, 3.9], [-4.8, 4.6]],
+    },
+    library_lotus: {
+      zoneName: "图书馆·荷花池", fishCount: 8, bridge: false, lotusExtra: 26,
+      lampSpots: [[3.65, -6.9], [-4.3, -3.3], [-4.8, 4.6], [4.4, -3.9]],
+    },
   };
   const zoneId = VARIANTS[Q.get("zone")] ? Q.get("zone") : "cuihu_water";
   const V = VARIANTS[zoneId];
