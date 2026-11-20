@@ -68,3 +68,5 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #0d1512; col
 body.zk-leaving .zk-stage { transition: opacity .6s; opacity: 0; }
 body.se-editing .zk-card, body.se-editing .zk-info { opacity: .4; }
 @media (max-width: 900px) { .zk-card { width: calc(100vw - 28px); } .zk-intro, .zk-tags { display: none; } .zk-eco { top: auto; bottom: 120px; height: 34vh; width: calc(100vw - 28px); } }
+/* hidden 属性必须生效：.zk-label 用了 all: unset（会覆盖浏览器默认的 [hidden] { display: none }），镜头背后 / 太远的标签会停在上一帧的位置 */
+body.zk [hidden] { display: none !important; }

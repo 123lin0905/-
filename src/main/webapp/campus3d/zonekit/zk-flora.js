@@ -18,7 +18,7 @@
     camphor: { name: "香樟", h: 11, decid: 0.12, evergreen: true, leaf: "green", tint: [0.66, 0.84, 0.56], transl: 0.3, seed: 101,
       grow: (h) => ({ len: h * 0.42, rad: 0.06 + h * 0.024, depth: 3, children: [6, 3, 3], childStart: [0.35, 0.3, 0.3], spread: [0.9, 0.85, 0.7], upBias: [0.38, 0.3, 0.25],
         lenDecay: 0.6, radDecay: 0.6, wiggle: [0.08, 0.25, 0.3], gravity: [0, 0.0, -0.03] }), cards: { per: 6, spread: [0.4, 1.7], size: [1.7, 2.4], up: 0.8 } },
-    ginkgo: { name: "银杏", h: 12, decid: 1, evergreen: false, leaf: "green", tint: [0.95, 1.06, 0.6], transl: 0.4, seed: 303,
+    ginkgo: { name: "银杏", h: 12, decid: 1, autumnGold: true, evergreen: false, leaf: "green", tint: [0.95, 1.06, 0.6], transl: 0.4, seed: 303,
       grow: (h) => ({ len: h * 0.55, rad: 0.06 + h * 0.018, depth: 3, children: [8, 3, 2], childStart: [0.25, 0.3, 0.3], spread: [0.5, 0.55, 0.55], upBias: [0.72, 0.55, 0.45],
         lenDecay: 0.5, radDecay: 0.6, wiggle: [0.05, 0.18, 0.22], gravity: [0, 0.02, 0.0] }), cards: { per: 6, spread: [0.25, 1.1], size: [1.3, 1.8], up: 0.9 } },
     cherry: { name: "樱花", h: 6.5, decid: 1, evergreen: false, leaf: "green", blossom: "sakura", tint: [0.86, 1.0, 0.7], transl: 0.5, seed: 606, bark: "sakuraBark",
@@ -110,10 +110,14 @@
     const barkMat2 = TEX.sakuraBark ? patch(new THREE.MeshStandardMaterial({ map: TEX.sakuraBark.map, normalMap: TEX.sakuraBark.normalMap, roughness: 0.9, envMapIntensity: 0.6 }),
       { key: "zkbark", wind: true, windWeight: "clamp((wPos4.y - 3.0) * 0.02, 0.0, 0.25)" }) : barkMat;
     const leafMats = [];
-    function leafMaterial(transl, decid, texKey) {
+    // 银杏秋色：整树金黄（共享秋色调色板偏红 / 橙，适合槭树，不适合银杏），所以银杏不走共享秋色（decid = 0），在这里单独变黄
+    const GOLD_GLSL = "if (uAutumn > 0.001) { float gg = clamp((diffuseColor.g - max(diffuseColor.r, diffuseColor.b)) / max(diffuseColor.g, 0.02) * 3.5, 0.0, 1.0);" +
+      " float gn = wxh(floor(vUwPos.xz * 0.9) + floor(vUwPos.y * 0.9) * 7.1); vec3 gp = mix(vec3(0.95, 0.74, 0.1), vec3(0.98, 0.84, 0.22), gn);" +
+      " float gl = dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11)); diffuseColor.rgb = mix(diffuseColor.rgb, gp * (gl * 2.6 + 0.04), uAutumn * gg); }\n";
+    function leafMaterial(transl, decid, texKey, gold) {
       const m = patch(new THREE.MeshStandardMaterial({ map: LEAF_TEX[texKey], alphaTest: 0.45, side: THREE.DoubleSide, roughness: 0.62, envMapIntensity: 0.55, vertexColors: true }),
-        { key: "zkleaf", leaf: true, transl, decid, wind: true, windWeight: "clamp((wPos4.y - 0.8) * 0.06, 0.0, 1.0)", alphaMip: 512,
-          fsMap: "diffuseColor.a *= smoothstep(0.2, 0.45, abs(dot(normalize(vNormal), normalize(vViewPosition))));\n" });
+        { key: gold ? "zkleafg" : "zkleaf", leaf: true, transl, decid: gold ? 0 : decid, wind: true, windWeight: "clamp((wPos4.y - 0.8) * 0.06, 0.0, 1.0)", alphaMip: 512,
+          fsMap: "diffuseColor.a *= smoothstep(0.2, 0.45, abs(dot(normalize(vNormal), normalize(vViewPosition))));\n" + (gold ? GOLD_GLSL : "") });
       leafMats.push(m);
       return m;
     }
@@ -159,7 +163,7 @@
       const bb = leafGeo.boundingBox;
       const Wd = Math.max(Math.abs(bb.min.x), Math.abs(bb.max.x), Math.abs(bb.min.z), Math.abs(bb.max.z)) * 2 + 0.4, Hh = bb.max.y + 0.6;
       const bm = sp.bark === "sakuraBark" ? barkMat2 : barkMat;
-      const lm = leafMaterial(sp.transl, sp.decid, sp.leaf);
+      const lm = leafMaterial(sp.transl, sp.decid, sp.leaf, sp.autumnGold);
       const K = { key, def: sp, tree: true, items: new Set(), Wd, Hh, crown: Wd / 2 };
       K.bark = instanced(barkGeo, bm, MAXN, true);
       K.leaf = instanced(leafGeo, lm, MAXN, true);
@@ -179,7 +183,8 @@
       if (!sp.evergreen) K.imp.bare = renderImpostor([new THREE.Mesh(barkGeo, bm)], Wd, Hh);
       if (K.bloom) K.imp.bloom = renderImpostor([new THREE.Mesh(barkGeo, bm), new THREE.Mesh(leafGeo, lm), new THREE.Mesh(K.bloom.geometry, K.bloomMat)], Wd, Hh);
       const impMat = patch(new THREE.MeshStandardMaterial({ map: K.imp.leafy, alphaTest: 0.5, side: THREE.DoubleSide, roughness: 0.85, envMapIntensity: 0.5 }),
-        { key: "zkimp", billboard: true, leaf: true, transl: sp.transl * 0.5, decid: sp.decid, alphaMip: 256, fsMap: "diffuseColor.rgb *= 0.62 + 0.38 * smoothstep(0.05, 0.95, vMapUv.y);\n" });
+        { key: sp.autumnGold ? "zkimpg" : "zkimp", billboard: true, leaf: true, transl: sp.transl * 0.5, decid: sp.autumnGold ? 0 : sp.decid, alphaMip: 256,
+          fsMap: "diffuseColor.rgb *= 0.62 + 0.38 * smoothstep(0.05, 0.95, vMapUv.y);\n" + (sp.autumnGold ? GOLD_GLSL : "") });
       K.impMat = impMat;
       K.far = instanced(new THREE.PlaneGeometry(1, 1).translate(0, 0.5, 0), impMat, MAXN * 2, true);
       K.far.customDepthMaterial = depth({ key: "zkimpd", billboard: true, alphaMip: 256 }, K.imp.leafy, 0.5);
