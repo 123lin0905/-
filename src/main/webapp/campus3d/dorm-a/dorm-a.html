@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<!--
+  A 区宿舍生活区 · 板块细节 3D 场景（智慧校园绿化管理系统 · 生态主页）
+  A1–A4 学生公寓 + 三座圆形场馆 + 学生食堂与底层商铺；画风与池塘 / 全景一致（板块细节场景工具包 ../zonekit/）。
+  依赖全部本地：../lib/three-r160.min.js（MIT）、../js/*（天气、池塘画风、全景渲染层、自由镜头、动植物编辑器）。
+  参数见 ../zonekit/zk-app.js 文件头：zone、back、weather、season、hour、gfx、tour、view、speciesApi、edit、test。
+-->
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>A 区宿舍生活区 · 板块细节 - 智慧校园虚拟生态</title>
+<meta name="description" content="天府学院绵阳校区智慧校园虚拟生态：A 区宿舍生活区（学生公寓、圆形场馆与学生食堂）板块细节 3D 场景，可增删动植物。">
+<link rel="stylesheet" href="../zonekit/zonekit.css">
+</head>
+<body>
+<noscript>本页面需要启用 JavaScript 与 WebGL。</noscript>
+<script src="../lib/three-r160.min.js"></script>
+<script src="../js/eco-weather.js"></script>
+<script src="../js/pond-style-core.js"></script>
+<script src="../js/pond-style.js"></script>
+<script src="../js/campus-look.js"></script>
+<script src="../js/free-camera.js"></script>
+<script src="../js/species-editor.js"></script>
+<script src="../zonekit/zk-world.js"></script>
+<script src="../zonekit/zk-flora.js"></script>
+<script src="../zonekit/zk-life.js"></script>
+<script src="../zonekit/zk-species.js"></script>
+<script src="../zonekit/zk-app.js"></script>
+<script src="dorm-a-scene.js"></script>
+</body>
+</html>
