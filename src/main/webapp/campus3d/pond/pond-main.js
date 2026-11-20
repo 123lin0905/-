@@ -7805,7 +7805,7 @@ function applyWeather() {
   const nf = window.CAMPUS_SUN ? CAMPUS_SUN.night : 0, fc = pondNightFog(c.fogCol, nf);
   skyUniforms.uOvercast.value = c.overcast; skyUniforms.uOvercastCol.value.setRGB(fc[0] / c.skyScale, fc[1] / c.skyScale, fc[2] / c.skyScale);
   updateSun(); updateWaves();
-  SH.uSnowCover.value = c.cover; SH.uWet.value = c.wet; SH.uAutumn.value = c.autumn; SH.uFogDensity.value = c.fog * 0.5; SH.uFogColor.value.setRGB(...fc);
+  SH.uSnowCover.value = c.cover; SH.uWet.value = c.wet; SH.uAutumn.value = c.autumn; SH.uFogDensity.value = c.fog * 0.1; SH.uFogColor.value.setRGB(...fc);
   SH.uRain.value = c.rain; SH.uIce.value = c.ice;
   if (compositePass) compositePass.uniforms.uGrade.value.set(...c.grade);
   for (const k of ['time', 'wind', 'expo']) if (GUI_CTRL[k]) GUI_CTRL[k].updateDisplay();
