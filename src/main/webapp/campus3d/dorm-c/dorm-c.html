@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<!--
+  C 区宿舍庭院 · 板块细节 3D 场景（智慧校园绿化管理系统 · 生态主页）
+  画风：与池塘细节场景（../pond/pond.html，改造自 MIT 许可的 Koi Pond Garden）同款写实风 —— 共用 ../js/pond-style-core.js、
+  ../js/pond-style.js（程序化纹理、叶片卡、Preetham 天空、天气预设、ACES 色调映射、画质档）与 ../js/campus-look.js（天空 IBL、光照阴影、
+  后期、池塘水面简化版）、../js/eco-life.js（树木、鸟群、小猫追蝴蝶、天气粒子）。布局按学校官网三维导览图与平面图真实尺寸绘制。
+  参数：?zone=c_court&back=<主页路径>、weather、season、hour、gfx、view、tour=1、cam、speciesApi、test=1（见 ../zone-kit/zone-kit.js）。
+-->
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>C 区宿舍庭院 · 板块细节 - 智慧校园虚拟生态</title>
+<meta name="description" content="天府学院绵阳校区智慧校园虚拟生态：C 区宿舍庭院板块细节 3D 场景（C 区学生公寓、庭院绿地、教师公寓、幼儿园，可增删动植物）。">
+<link rel="stylesheet" href="../zone-kit/zone-kit.css">
+</head>
+<body>
+<script src="../lib/three-r160.min.js"></script>
+<script src="../js/pond-style-core.js"></script>
+<script src="../js/pond-style.js"></script>
+<script src="../js/eco-weather.js"></script>
+<script src="../js/campus-look.js"></script>
+<script src="../js/eco-life.js"></script>
+<script src="../js/free-camera.js"></script>
+<script src="../js/species-editor.js"></script>
+<script src="../zone-kit/zone-build.js"></script>
+<script src="../zone-kit/zone-species.js"></script>
+<script src="../zone-kit/zone-kit.js"></script>
+<script src="dorm-c-scene.js"></script>
+</body>
+</html>
